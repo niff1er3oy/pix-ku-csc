@@ -1,26 +1,873 @@
 @import "tailwindcss";
 
+/* ===========================================================================
+   Find KU Dae — design tokens
+   ---------------------------------------------------------------------------
+   Full contract in DESIGN.md. Short version: this is the event-photo-finder
+   canon, executed well. Someone standing in the midday sun who scanned a QR
+   gets an interface they already know how to use. The personality lives in
+   colour, roundness, pace and wording — never in an unfamiliar layout.
+
+   Craft bar: Sportograf / FotoOwl for structure, LINE for warmth.
+   ========================================================================= */
+
+@theme {
+  /* Tailwind's stock palette is removed entirely. It keeps ~1,500 unused
+     colour variables out of the stylesheet, and makes DESIGN.md's
+     "no gray/zinc/slate" rule impossible to break: those classes do not
+     exist in this project. */
+  --color-*: initial;
+  --color-white: #ffffff;
+  --color-black: #000000;
+
+  /* =========================================================================
+     THE TWO BRAND COLOURS — read off the Kasetsart University mark.
+     These two lines are the only place they live. Swap them for the official
+     brand values when those arrive and the whole site follows.
+     ========================================================================= */
+  --color-green-600: #00706b; /* the KU letterforms */
+  --color-lime-500: #b8c214; /* the bar beneath them */
+
+  /* --- Green ramp, built around the brand value ------------------------- */
+  --color-green-50: #e9f7f5;
+  --color-green-100: #c6ece8;
+  --color-green-200: #93dbd4;
+  --color-green-300: #57c3ba;
+  --color-green-400: #22a79c;
+  --color-green-500: #068a80;
+  --color-green-700: #005a57;
+  --color-green-800: #014746;
+  --color-green-900: #05393a;
+  --color-green-950: #01211f;
+
+  /* --- Lime ramp -------------------------------------------------------- */
+  --color-lime-50: #fcfde9;
+  --color-lime-100: #f8fbc5;
+  --color-lime-200: #f0f78c;
+  --color-lime-300: #e4ee4a;
+  --color-lime-400: #d2dd1c;
+  --color-lime-600: #929b06;
+  --color-lime-700: #6e7409;
+  --color-lime-800: #575c0e;
+  --color-lime-900: #4a4e12;
+
+  /* --- Neutrals: every one carries a little green ----------------------- */
+  --color-paper: #ffffff;
+  --color-cloud: #f1f6f4;
+  --color-edge: #dce8e4;
+  --color-ink: #0e2220;
+  /* 7.0:1 on white, 6.4:1 on cloud. The previous #5b6f6b sat at 4.9:1 on
+     cloud — the AA floor, with no headroom for a phone screen in direct sun,
+     which is the actual reading condition for this product. */
+  --color-slate: #475a56;
+
+  --color-danger: #c0392b;
+
+  /* --- Type ------------------------------------------------------------- */
+  --font-display: var(--font-k2d), system-ui, sans-serif;
+  --font-sans: var(--font-noto-thai), system-ui, sans-serif;
+
+  /* One ladder, fluid between the phone and desktop ends DESIGN.md specifies,
+     so a step is a single class and no page hand-types a size again. */
+  --text-display: clamp(2.25rem, 1.4rem + 4.2vw, 3.5rem);
+  --text-h1: clamp(1.875rem, 1.3rem + 2.9vw, 2.75rem);
+  --text-h2: clamp(1.5rem, 1.2rem + 1.5vw, 2.125rem);
+  --text-h3: clamp(1.125rem, 1.05rem + 0.4vw, 1.375rem);
+  --text-body-lg: clamp(1.0625rem, 1.02rem + 0.23vw, 1.1875rem);
+  --text-body: clamp(0.9375rem, 0.92rem + 0.12vw, 1rem);
+  --text-label: 0.875rem;
+  --text-caption: 0.8125rem;
+
+  /* --- Shape: generously rounded, the way Thai consumer apps are -------- */
+  --radius-card: 20px;
+  --radius-media: 16px;
+  --radius-field: 14px;
+  --radius-pill: 999px;
+
+  /* --- Elevation: soft shadows tell you a thing is tappable ------------- */
+  --shadow-card: 0 1px 2px rgb(14 34 32 / 0.04), 0 4px 16px -8px rgb(14 34 32 / 0.1);
+  --shadow-lift: 0 2px 4px rgb(14 34 32 / 0.05), 0 12px 28px -12px rgb(14 34 32 / 0.18);
+  --shadow-pop: 0 8px 32px -8px rgb(0 112 107 / 0.35);
+
+  /* --- Motion ----------------------------------------------------------- */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ===========================================================================
+   Base
+   ========================================================================= */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Light only, and that is a decision rather than a default: the real scene
+     is a student squinting at a phone in Thai midday sun at an outdoor campus
+     event. High-contrast white wins there. */
+  color-scheme: light;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+/* Everything here MUST stay inside `@layer base`. Tailwind v4 emits
+   `@layer theme, base, components, utilities`, and an unlayered declaration
+   outranks every layered one regardless of specificity — so a bare
+   `h1 { font-weight: 600 }` here would silently beat `.font-bold` in markup
+   and no utility class on a heading would ever apply. */
+@layer base {
+  body {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    /* This page never scrolls sideways. Decorative transforms — a card that
+       lifts on scroll, an image that scales on hover — count towards
+       scrollable overflow and will summon a horizontal scrollbar the moment
+       one of them reaches past the gutter.
+       `clip`, never `hidden`: `hidden` turns body into a scroll container and
+       kills `position: sticky` on the header. `clip` blocks the scroll without
+       creating one, and leaves the vertical axis alone. */
+    overflow-x: clip;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    text-wrap: balance;
+  }
+
+  /* --- Thai and Latin need different metrics; one setting cannot serve both.
+     Thai stacks vowels above and below the baseline, so it needs more leading
+     and zero negative tracking — tightening drives tone marks into the vowels
+     underneath them. ------------------------------------------------------ */
+
+  html[lang="th"] body {
+    line-height: 1.8;
+  }
+
+  html[lang="th"] :is(h1, h2, h3, h4) {
+    letter-spacing: 0;
+    line-height: 1.4;
+  }
+
+  /* Thai bold reads best at 600 — at 700 the loops in the letterforms fill in.
+     A heading that explicitly asks for 700 (Latin display, numerals) still
+     gets it, because utilities now win over these base rules. */
+  html[lang="th"] :is(strong, b) {
+    font-weight: 600;
+  }
+
+  html[lang="en"] body {
+    line-height: 1.65;
+  }
+
+  html[lang="en"] :is(h1, h2, h3, h4) {
+    letter-spacing: -0.02em;
+    line-height: 1.12;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  /* Two-tone focus ring. Lime alone measures 1.95:1 on white — far under the
+     3:1 WCAG 1.4.11 needs — so a dark hairline hugs the element and the lime
+     sits outside it. On white the dark ring carries the contrast; on the deep
+     green band the lime does. One of the two always passes.
+     No `border-radius` here: outline and box-shadow both follow the element's
+     own radius, and setting one would square off every pill and card. */
+  :focus-visible {
+    outline: 2px solid var(--color-lime-300);
+    outline-offset: 3px;
+    box-shadow: 0 0 0 3px var(--color-green-900);
+  }
+
+  ::selection {
+    background: var(--color-lime-200);
+    color: var(--color-green-950);
+  }
+
+  /* --- Scrollbar ---------------------------------------------------------
+     Deliberately 12px, not the fashionable hairline: a thin bar is measurably
+     harder to grab, and this runs on shared campus machines and on phones
+     held one-handed in a crowd. Branded, but still a real target. */
+  html {
+    /* Reserve the gutter always. Without it, moving from a short page to a
+       long one shifts the centred column sideways as the bar appears. */
+    scrollbar-gutter: stable;
+    /* For the "skip the story" anchor. The reduced-motion block below turns
+       this back to `auto`, so it never fights someone who asked for stillness. */
+    scroll-behavior: smooth;
+    /* Firefox exposes no radius, so it takes the native width and the colour
+       only — `thin` there is thinner than this and loses the target. */
+    scrollbar-color: var(--color-green-400) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+  }
+
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--color-green-400);
+    border-radius: var(--radius-pill);
+    /* A transparent border clipped to the padding box floats the thumb as a
+       pill with breathing room, rather than a bar welded to the edge. */
+    border: 3px solid transparent;
+    background-clip: padding-box;
+    transition: background-color 150ms var(--ease-out);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-green-600);
+  }
+
+  ::-webkit-scrollbar-thumb:active {
+    background-color: var(--color-green-700);
+  }
+
+  /* On the deep green band an inner scroller needs the inverse treatment,
+     or the thumb disappears into its own background. */
+  .on-green {
+    scrollbar-color: var(--color-lime-300) transparent;
+  }
+
+  .on-green ::-webkit-scrollbar-thumb,
+  .on-green::-webkit-scrollbar-thumb {
+    background-color: var(--color-lime-300);
+  }
+
+  .on-green ::-webkit-scrollbar-thumb:hover,
+  .on-green::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-lime-500);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Numerals never jitter while a counter ticks. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===========================================================================
+   Motion
+   ========================================================================= */
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Page-load entrance. Stagger with `style={{ "--d": "120ms" }}`. */
+.enter {
+  animation: rise-in 500ms var(--ease-out) both;
+  animation-delay: var(--d, 0ms);
+}
+
+/* Scroll reveal with no JavaScript and no observer. Browsers without
+   scroll-driven animations render the content already visible, so a failed
+   script can never strand content.
+   The range ends at `entry 100%` on purpose: anything already fully on screen
+   is past the end of its own range and therefore renders at the finished
+   keyframe. A `cover`-anchored end would never complete on a page too short
+   to scroll, leaving the last block before the footer permanently faded. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .reveal {
+      animation: rise-in linear both;
+      animation-timeline: view();
+      /* `--rs` shifts a grid sibling later so a row resolves left to right. */
+      animation-range: entry var(--rs, 0%) entry 100%;
+    }
+  }
+}
+
+/* Header settles onto the page as it scrolls away from the hero. */
+@keyframes header-lift {
+  to {
+    box-shadow: var(--shadow-card);
+  }
+}
+
+/* On a page that opens with a full-height brand screen the header has nothing
+   to do until the visitor starts reading, so it waits offscreen and drops in
+   as the second section arrives. `visibility` flips at the very start of the
+   range so a keyboard user sitting at the top cannot tab into a header that
+   is not on screen. */
+@keyframes header-reveal {
+  0% {
+    visibility: hidden;
+    opacity: 0;
+    translate: 0 -100%;
+  }
+  1% {
+    visibility: visible;
+  }
+  100% {
+    visibility: visible;
+    opacity: 1;
+    translate: 0 0;
+    box-shadow: var(--shadow-card);
+  }
+}
+
+@supports (animation-timeline: scroll()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .header-bar {
+      animation: header-lift linear both;
+      animation-timeline: scroll(root block);
+      animation-range: 0 120px;
+    }
+
+    /* `:has()` is how a shared layout learns which page it is rendering: the
+       home page is the one carrying a brand screen, and only there does the
+       header start hidden. Higher specificity than the rule above, so it
+       replaces that animation rather than stacking a second one. */
+    body:has([data-brand-screen]) .header-bar {
+      animation-name: header-reveal;
+      animation-range: 45vh 85vh;
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Selfie scan loop (journey scene one)
+   ---------------------------------------------------------------------------
+   Runs on a clock rather than the scene's scroll position, unlike the rest of
+   the journey. Two reasons: a visitor should see the thing scanning without
+   having to hold their scroll at exactly the right point, and a timed loop
+   works in every browser — scroll-driven animation still needs Chrome 115,
+   Safari 26 or Firefox 144.
+
+   One 4.5s cycle drives the guides, the sweep and the lock, so they cannot
+   drift apart.
+   ------------------------------------------------------------------------ */
+
+@keyframes scan-face-guide {
+  0% {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+  10%,
+  86% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  96%,
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+@keyframes scan-face-line {
+  0% {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  46% {
+    transform: translateY(1000%);
+    opacity: 1;
+  }
+  52%,
+  100% {
+    transform: translateY(1000%);
+    opacity: 0;
+  }
+}
+
+/* The lock lands only after the line has finished crossing. */
+@keyframes scan-face-lock {
+  0%,
+  48% {
+    opacity: 0;
+    transform: scale(0.88);
+  }
+  58%,
+  86% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  96%,
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+.scan-face-guide,
+.scan-face-line,
+.scan-face-lock {
+  animation-duration: 4.5s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-fill-mode: both;
+  animation-delay: var(--d, 0ms);
+}
+
+.scan-face-guide {
+  animation-name: scan-face-guide;
+}
+.scan-face-line {
+  animation-name: scan-face-line;
+}
+.scan-face-lock {
+  animation-name: scan-face-lock;
+}
+
+/* ---------------------------------------------------------------------------
+   Match loop (journey scene three)
+   ---------------------------------------------------------------------------
+   The pile recedes, your photograph lifts out of it, the face locks, the label
+   lands. One 5s cycle, same reasoning as the other two scenes: visible without
+   having to park the scroll, and no dependency on scroll-driven animation.
+
+   Animates the standalone `scale` property, never `transform` — Tailwind v4
+   centres these cards with the separate `translate` property, and writing
+   `transform` here would throw them out of position.
+   ------------------------------------------------------------------------ */
+
+@keyframes match-pile {
+  0%,
+  4% {
+    opacity: 0.5;
+  }
+  22%,
+  88% {
+    opacity: 0.24;
+  }
+  98%,
+  100% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes match-lift {
+  0%,
+  4% {
+    scale: 0.95;
+    box-shadow: var(--shadow-card);
+  }
+  18%,
+  88% {
+    scale: 1;
+    box-shadow: var(--shadow-lift);
+  }
+  98%,
+  100% {
+    scale: 0.95;
+    box-shadow: var(--shadow-card);
+  }
+}
+
+@keyframes match-box {
+  0%,
+  24% {
+    opacity: 0;
+    scale: 1.5;
+  }
+  34%,
+  88% {
+    opacity: 1;
+    scale: 1;
+  }
+  96%,
+  100% {
+    opacity: 0;
+    scale: 1;
+  }
+}
+
+@keyframes match-chip {
+  0%,
+  38% {
+    opacity: 0;
+    translate: 0 10px;
+  }
+  48%,
+  88% {
+    opacity: 1;
+    translate: 0 0;
+  }
+  96%,
+  100% {
+    opacity: 0;
+    translate: 0 10px;
+  }
+}
+
+.match-pile,
+.match-lift,
+.match-box,
+.match-chip {
+  animation-duration: 5s;
+  animation-timing-function: var(--ease-out);
+  animation-iteration-count: infinite;
+  animation-fill-mode: both;
+}
+
+.match-pile {
+  animation-name: match-pile;
+}
+.match-lift {
+  animation-name: match-lift;
+}
+.match-box {
+  animation-name: match-box;
+}
+.match-chip {
+  animation-name: match-chip;
+}
+
+/* ---------------------------------------------------------------------------
+   Hero face-scan demonstration
+   ---------------------------------------------------------------------------
+   Three event photos cycle; a scan line sweeps each one and detection boxes
+   snap onto the faces as it passes them. This shows the mechanism instead of
+   describing it, which is the whole job of the first viewport.
+
+   One 15s timeline drives everything. Each card owns a 5s slot and every
+   element on it shares the same duration with a different delay, so the three
+   layers can never drift apart the way three independent loops would.
+   ------------------------------------------------------------------------ */
+
+@keyframes scan-card {
+  0%,
+  1% {
+    opacity: 0;
+    transform: scale(1.015);
+  }
+  3%,
+  30% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  33%,
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+@keyframes scan-line {
+  0% {
+    top: -8%;
+    opacity: 0;
+  }
+  3% {
+    opacity: 1;
+  }
+  15% {
+    top: 104%;
+    opacity: 1;
+  }
+  17%,
+  100% {
+    top: 104%;
+    opacity: 0;
+  }
+}
+
+/* Boxes acquire the way a camera does: they arrive oversized and snap in. */
+@keyframes scan-box {
+  0% {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+  2% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  28% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  31%,
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+/* The one box that is "you" turns lime a beat after the sweep finishes. */
+@keyframes scan-match {
+  0%,
+  17% {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  20%,
+  28% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  31%,
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+.scan-card,
+.scan-line,
+.scan-box,
+.scan-match {
+  animation-duration: 15s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-fill-mode: both;
+}
+
+.scan-card {
+  animation-name: scan-card;
+}
+.scan-line {
+  animation-name: scan-line;
+}
+.scan-box {
+  animation-name: scan-box;
+}
+.scan-match {
+  animation-name: scan-match;
+}
+
+/* The hero mosaic breathes — slow enough (70s) to read as atmosphere. */
+@keyframes mosaic-drift {
+  from {
+    transform: scale(1.04) translate3d(0.8%, 0.6%, 0);
+  }
+  to {
+    transform: scale(1.1) translate3d(-1.2%, -0.9%, 0);
+  }
+}
+
+.animate-drift {
+  animation: mosaic-drift 70s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+/* The green grid advances exactly one cell and starts over. Because the
+   pattern repeats on that interval the loop is seamless. Transform only —
+   never background-position — so it stays on the compositor. */
+@keyframes grid-drift {
+  to {
+    transform: translate3d(
+      calc(var(--grid-size) * -1),
+      calc(var(--grid-size) * -1),
+      0
+    );
+  }
+}
+
+/* Optional beam raking down the grid, for waiting states. */
+@keyframes grid-scan {
+  0% {
+    transform: translate3d(0, -70%, 0);
+    opacity: 0;
+  }
+  12%,
+  80% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(0, 170%, 0);
+    opacity: 0;
+  }
+}
+
+/* The scroll cue's chevron. Drifts down and fades, the way every "there is
+   more below" marker does — the motion is the message, so it repeats. */
+@keyframes scroll-cue {
+  0% {
+    opacity: 0;
+    translate: 0 -6px;
+  }
+  30%,
+  65% {
+    opacity: 1;
+    translate: 0 0;
+  }
+  100% {
+    opacity: 0;
+    translate: 0 12px;
+  }
+}
+
+.animate-scroll-cue {
+  animation: scroll-cue 2s var(--ease-out) infinite;
+}
+
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.animate-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    var(--color-cloud) 0%,
+    var(--color-edge) 40%,
+    var(--color-cloud) 80%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.animate-pulse-dot {
+  animation: pulse-dot 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    /* Without this the stagger delay survives: `.enter` fills `both`, so a
+       reduced-motion visitor would stare at up to 320ms of invisible hero
+       copy before it snapped in. */
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Anything whose resting state is "arrived" must be pinned there. */
+  .enter,
+  .reveal {
+    opacity: 1;
+    transform: none;
+  }
+
+  .animate-drift {
+    animation: none;
+    transform: scale(1.04);
+  }
+
+  /* The demonstration still has to demonstrate. Freeze it on the first card
+     with every box already found, and drop the sweeping line entirely — the
+     line is the only part that is motion for motion's sake. */
+  .scan-card,
+  .scan-box,
+  .scan-match {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .scan-card:not(:first-child) {
+    display: none;
+  }
+
+  .scan-line {
+    animation: none;
+    display: none;
+  }
+
+  /* The journey still has to tell its story standing still: every face box
+     already found, your matches already picked out, and no sweeping line —
+     the line is the only part that carries no information on its own. */
+  /* The line is the only part carrying no information on its own, so it goes;
+     everything it would have revealed stays on screen, already found. */
+  .scan-face-line {
+    animation: none;
+    display: none;
+  }
+
+  .scan-face-guide,
+  .scan-face-lock {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  /* Freeze scene three on its "found" beat — the whole point of the picture. */
+  .match-lift {
+    animation: none;
+    scale: 1;
+    box-shadow: var(--shadow-lift);
+  }
+
+  .match-box,
+  .match-chip {
+    animation: none;
+    opacity: 1;
+    scale: 1;
+    translate: 0 0;
+  }
+
+  .match-pile {
+    animation: none;
+    opacity: 0.24;
+  }
+
+  /* The chevron still points; it just stops nudging. */
+  .animate-scroll-cue {
+    animation: none;
+    opacity: 1;
+    translate: 0 0;
+  }
+
+  /* The grid stays, it just stops moving — it is texture, not information. */
+  .grid-drift {
+    animation: none;
+    transform: none;
+  }
+
+  .grid-scan {
+    animation: none;
+    opacity: 0;
+  }
+
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+
+/* ===========================================================================
+   View transitions — the event cover carries into the event page
+   ========================================================================= */
+
+::view-transition-group(*) {
+  animation-duration: 380ms;
+  animation-timing-function: var(--ease-out);
+}
+
+::view-transition-old(root) {
+  animation: fade-out 200ms var(--ease-out) both;
+}
+
+::view-transition-new(root) {
+  animation: rise-in 300ms var(--ease-out) both;
+}
+
+@keyframes fade-out {
+  to {
+    opacity: 0;
+  }
 }

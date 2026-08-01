@@ -1,0 +1,23 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: findkudae-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: findkudae
+      POSTGRES_PASSWORD: findkudae
+      POSTGRES_DB: findkudae
+      # Thai collation so ORDER BY on Thai event names sorts correctly
+      POSTGRES_INITDB_ARGS: "--locale=C.UTF-8 --encoding=UTF8"
+    ports:
+      - "5433:5432"
+    volumes:
+      - findkudae-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U findkudae -d findkudae"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  findkudae-pgdata:
