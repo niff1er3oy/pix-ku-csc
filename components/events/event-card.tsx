@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ViewTransition } from "react";
 
 import { GridBackground } from "@/components/ui/grid-background";
+import { Skeleton } from "@/components/ui/loading";
 import type { Dictionary, Locale } from "@/lib/i18n";
 import type { EventCard as EventCardData } from "@/lib/queries/public";
 import { formatDate, formatNumber } from "@/lib/utils";
@@ -65,6 +66,27 @@ export function EventCard({
           </p>
         </div>
       </Link>
+    </li>
+  );
+}
+
+/**
+ * The card's loading shape, kept in this file on purpose: a skeleton that
+ * lives away from the component it imitates is a skeleton that quietly stops
+ * matching it. Same radius, same 4:3 media, same three rows of content.
+ */
+export function EventCardSkeleton() {
+  return (
+    <li className="overflow-hidden rounded-card shadow-[var(--shadow-card)]">
+      <Skeleton className="aspect-[4/3] rounded-none" />
+      <div className="p-5">
+        <Skeleton className="h-5 w-4/5" />
+        <div className="mt-3 flex gap-2">
+          <Skeleton className="h-7 w-24 rounded-pill" />
+          <Skeleton className="h-7 w-20 rounded-pill" />
+        </div>
+        <Skeleton className="mt-3 h-4 w-1/2" />
+      </div>
     </li>
   );
 }

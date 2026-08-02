@@ -1,18 +1,45 @@
 services:
   db:
-    image: postgres:16-alpine
+    # Pinned, never `latest`. A Postgres data directory is not compatible
+    # across major versions, so the day `latest` rolls to 19 a plain
+    # `docker compose pull` leaves the server refusing to start against its own
+    # volume — "database files are incompatible with server" — and the fix at
+    # that point is a dump/restore nobody planned for.
+    image: postgres:18.4
     container_name: findkudae-db
     restart: unless-stopped
     environment:
       POSTGRES_USER: findkudae
       POSTGRES_PASSWORD: findkudae
       POSTGRES_DB: findkudae
-      # Thai collation so ORDER BY on Thai event names sorts correctly
+      # Byte-order collation, and that is the right call rather than a
+      # shortcut. It is deterministic and it never reorders underneath an
+      # index; glibc and ICU both change how they sort between releases, and a
+      # btree built on the old order silently starts returning wrong answers
+      # after such a change.
+      #
+      # Nothing here sorts Thai text today — every `orderBy` in lib/queries is
+      # on a timestamp. If event names ever need real Thai alphabetical order,
+      # that means `--locale-provider=icu --icu-locale=th-TH` on this line and
+      # a fresh volume, because initdb arguments only take effect the first
+      # time the cluster is created.
       POSTGRES_INITDB_ARGS: "--locale=C.UTF-8 --encoding=UTF8"
     ports:
+      # 5433 on the host so it does not clash with a local Postgres on 5432.
+      # Matches DATABASE_URL in .env.example.
       - "5433:5432"
     volumes:
-      - findkudae-pgdata:/var/lib/postgresql/data
+      # `/var/lib/postgresql`, NOT `/var/lib/postgresql/data`.
+      #
+      # PostgreSQL 18 made the image's PGDATA version-specific — it is
+      # `/var/lib/postgresql/18/docker` now. Mounting the old path gives you a
+      # volume the server never writes to, while the real cluster sits in the
+      # container's writable layer and is destroyed by `docker compose down`.
+      # The loss is silent: everything works until the container is recreated.
+      #
+      # Mounting the parent is also what lets a future major upgrade use
+      # `pg_upgrade --link` instead of copying the whole cluster.
+      - findkudae-pgdata:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U findkudae -d findkudae"]
       interval: 5s

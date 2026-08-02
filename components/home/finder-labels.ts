@@ -13,26 +13,32 @@ import type { Dictionary } from "@/lib/i18n/dictionaries";
 export type FinderLabels = Pick<
   Dictionary["home"],
   | "finderLabel"
-  | "finderPlaceholder"
   | "finderSubmit"
+  | "finderHint"
+  | "finderSlotLabel"
   | "finderNotFound"
   | "finderEmpty"
+  | "finderUnavailable"
 >;
 
 export function pickFinderLabels(dict: Dictionary): FinderLabels {
   const {
     finderLabel,
-    finderPlaceholder,
     finderSubmit,
+    finderHint,
+    finderSlotLabel,
     finderNotFound,
     finderEmpty,
+    finderUnavailable,
   } = dict.home;
 
   return {
     finderLabel,
-    finderPlaceholder,
     finderSubmit,
+    finderHint,
+    finderSlotLabel,
     finderNotFound,
     finderEmpty,
+    finderUnavailable,
   };
 }

@@ -1,5 +1,6 @@
 import { FaceScanDemo } from "@/components/home/face-scan-demo";
-import type { DemoPhoto } from "@/lib/demo-photos";
+import { GridBackground } from "@/components/ui/grid-background";
+import { demoSrcSet, type DemoPhoto } from "@/lib/demo-photos";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 import { cn } from "@/lib/utils";
 
@@ -34,45 +35,61 @@ export function ScrollJourney({
 
   return (
     /* `#how` is where the brand screen's scroll cue lands; `scroll-mt` keeps
-       the heading clear of the sticky header. */
+       the heading clear of the sticky header.
+
+       Full-bleed black. The three beats are the one place on this site where
+       photographs are the subject rather than the decoration, and dropping the
+       page out to black is what stops the white chrome from competing with
+       them. It also gives the greens somewhere to be bright: lime-300 sits at
+       16.6:1 here against 3.6:1 on paper. */
     <section
       id="how"
-      className="mx-auto w-full max-w-6xl scroll-mt-20 px-5 py-20 sm:px-8 sm:py-28"
+      className="relative scroll-mt-20 bg-obsidian text-paper"
     >
-      <header className="max-w-xl">
-        <h2 className="text-h2">{dict.home.journeyTitle}</h2>
-        <p className="mt-3 text-body-lg text-slate">{dict.home.journeyLede}</p>
-      </header>
+      {/* The same drifting grid the rest of the site runs on, so the black
+          reads as part of this product rather than an empty void. */}
+      <GridBackground variant="green" size={72} speed="fast" />
 
-      <div className="mt-16 space-y-24 sm:mt-20 sm:space-y-32">
-        <Scene
-          index={1}
-          step={stepOne}
-          visual={<SelfieVisual alt={dict.home.demoAlt} />}
-        />
+      <div className="relative mx-auto w-full max-w-7xl px-5 py-28 sm:px-8 sm:py-40">
+        <header className="max-w-2xl">
+          <h2 className="text-h1">{dict.home.journeyTitle}</h2>
+          <p className="mt-5 text-body-lg text-green-100">
+            {dict.home.journeyLede}
+          </p>
+        </header>
 
-        <Scene
-          index={2}
-          step={stepTwo}
-          reverse
-          visual={
-            <div>
-              <FaceScanDemo photos={photos} dict={dict} />
-              <p className="mt-3">
-                <span className="inline-flex items-center gap-2 rounded-pill bg-green-50 px-4 py-1.5 text-label font-semibold text-green-700">
-                  <span className="animate-pulse-dot size-2 rounded-pill bg-lime-500" />
-                  {dict.home.journeyScanning}
-                </span>
-              </p>
-            </div>
-          }
-        />
+        <div className="mt-20 space-y-32 sm:mt-28 sm:space-y-44">
+          <Scene
+            index={1}
+            step={stepOne}
+            visual={<SelfieVisual alt={dict.home.selfieAlt} />}
+          />
 
-        <Scene
-          index={3}
-          step={stepThree}
-          visual={<MatchVisual photos={photos} label={dict.home.journeyFound} />}
-        />
+          <Scene
+            index={2}
+            step={stepTwo}
+            reverse
+            visual={
+              <div>
+                <FaceScanDemo photos={photos} dict={dict} />
+                <p className="mt-4">
+                  <span className="inline-flex items-center gap-2 rounded-pill bg-green-900 px-4 py-2 text-label font-semibold text-lime-300">
+                    <span className="animate-pulse-dot size-2 rounded-pill bg-lime-300" />
+                    {dict.home.journeyScanning}
+                  </span>
+                </p>
+              </div>
+            }
+          />
+
+          <Scene
+            index={3}
+            step={stepThree}
+            visual={
+              <MatchVisual photos={photos} label={dict.home.journeyFound} />
+            }
+          />
+        </div>
       </div>
     </section>
   );
@@ -94,16 +111,18 @@ function Scene({
     /* `min-w-0` on both columns: a grid item defaults to `min-width: auto`,
        which refuses to shrink below its contents' intrinsic width — an image
        or a long unbroken string then pushes the track wider than the page. */
-    <div className="grid items-center gap-8 lg:grid-cols-2 lg:gap-16">
+    <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-20">
       <div className={cn("reveal min-w-0", reverse && "lg:order-2")}>
-        <span className="inline-flex size-11 items-center justify-center rounded-pill bg-lime-500 font-display text-lg font-bold text-green-950">
+        <span className="inline-flex size-14 items-center justify-center rounded-pill bg-lime-500 font-display text-2xl font-bold text-green-950">
           {index}
         </span>
-        <h3 className="mt-5 text-h2">{step.title}</h3>
-        <p className="mt-3 max-w-md text-body-lg text-slate">{step.body}</p>
+        <h3 className="mt-7 text-h1">{step.title}</h3>
+        <p className="mt-4 max-w-lg text-body-lg text-green-100">{step.body}</p>
       </div>
 
-      <div className={cn("min-w-0", reverse && "lg:order-1")}>{visual}</div>
+      <div className={cn("journey-visual min-w-0", reverse && "lg:order-1")}>
+        {visual}
+      </div>
     </div>
   );
 }
@@ -124,7 +143,7 @@ function SelfieVisual({ alt }: { alt: string }) {
   const corners = ["tl", "tr", "bl", "br"] as const;
 
   return (
-    <div className="relative mx-auto aspect-[4/5] w-full max-w-sm overflow-hidden rounded-card bg-green-900">
+    <div className="relative mx-auto aspect-[4/5] w-full max-w-md overflow-hidden rounded-card bg-green-900">
       <svg
         viewBox="0 0 400 500"
         role="img"
@@ -260,6 +279,8 @@ function MatchVisual({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={photos[(index + 1) % photos.length].src}
+            srcSet={demoSrcSet(photos[(index + 1) % photos.length].src)}
+            sizes="(min-width: 1024px) 420px, 76vw"
             alt=""
             loading="lazy"
             decoding="async"
@@ -273,6 +294,8 @@ function MatchVisual({
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={top.src}
+          srcSet={demoSrcSet(top.src)}
+          sizes="(min-width: 1024px) 420px, 76vw"
           alt=""
           loading="lazy"
           decoding="async"
@@ -281,7 +304,7 @@ function MatchVisual({
 
         <span
           aria-hidden
-          className="match-box absolute rounded-[3px] ring-[3px] ring-lime-300"
+          className="match-box absolute min-h-[24px] min-w-[24px] rounded-[3px] ring-[3px] ring-lime-300"
           style={{
             left: `${you.x}%`,
             top: `${you.y}%`,

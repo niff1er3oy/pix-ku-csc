@@ -64,6 +64,23 @@ const DEMO_PHOTOS: DemoPhoto[] = [
   },
 ];
 
+/** Widths emitted by scripts/build-demo-images.mjs. */
+const DEMO_WIDTHS = [640, 960, 1280];
+
+/**
+ * Responsive WebP for a demo photograph.
+ *
+ * The 2048px JPEGs are the archive copy; nothing on the page renders them
+ * wider than ~544px. Serving the original was 1.76 MB on a landing page whose
+ * audience is on venue wifi — the 640 variants come to 229 KB for all three.
+ *
+ * Lives here rather than beside each `<img>` so the width list has one home.
+ */
+export function demoSrcSet(src: string): string {
+  const base = src.replace(/\.jpg$/, "");
+  return DEMO_WIDTHS.map((w) => `${base}-${w}.webp ${w}w`).join(", ");
+}
+
 /**
  * Only returns photos whose files are actually on disk. The three JPEGs are
  * supplied separately, so until they land the hero renders its plain layout

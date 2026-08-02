@@ -22,7 +22,7 @@ export function Logo({
     // Brand-screen scale. A real size rather than a transform, so the
     // letterforms stay crisp and the bar keeps its true thickness.
     xl: {
-      text: "text-[3rem] sm:text-[5rem] lg:text-[6.5rem]",
+      text: "text-brand",
       bar: "h-[8px] sm:h-[12px]",
       gap: "pb-3 sm:pb-4",
     },

@@ -53,7 +53,7 @@ export async function SiteFooter() {
         </div>
 
         <div className="border-t border-edge">
-          <p className="mx-auto max-w-6xl px-5 py-4 text-[0.8125rem] text-slate sm:px-8">
+          <p className="mx-auto max-w-6xl px-5 py-4 text-caption text-slate sm:px-8">
             Find KU Dae · มหาวิทยาลัยเกษตรศาสตร์
           </p>
         </div>

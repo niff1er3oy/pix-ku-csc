@@ -23,21 +23,24 @@ export const th = {
   },
 
   home: {
-    eyebrow: "ค้นด้วยใบหน้า ไม่ต้องสมัครสมาชิก",
     headline: "หารูปคุณ ในกองรูปทั้งงาน",
 
-    finderLabel: "มีลิงก์งานหรือรหัสงานอยู่แล้ว?",
-    finderPlaceholder: "วางลิงก์งาน หรือพิมพ์รหัสงาน",
+    finderLabel: "ใส่รหัสงาน 6 ตัว",
     finderSubmit: "เปิดงาน",
+    /** พิมพ์เล็กพิมพ์ใหญ่ไม่ต่างกัน เลยไม่ต้องบอกให้เป็นภาระคนอ่าน */
+    finderHint: "ตัวอักษรอังกฤษกับตัวเลข หรือวางลิงก์งานลงไปก็ได้",
+    /** อ่านให้ screen reader ฟังทีละช่อง */
+    finderSlotLabel: "รหัสงาน ตัวที่ {n} จาก {total}",
     finderNotFound: "ไม่พบงานนี้ ลองตรวจลิงก์หรือรหัสอีกครั้ง",
     finderEmpty: "ใส่ลิงก์หรือรหัสงานก่อน",
+    finderUnavailable: "ระบบขัดข้องชั่วคราว ลองใหม่อีกครั้งในอีกสักครู่",
     sub: "สแกน QR ที่งาน หรือเปิดลิงก์ที่ช่างภาพแชร์ แล้วให้ระบบหาหน้าคุณให้ ไม่ต้องไถดูทีละรูป",
     ctaPrimary: "ค้นหารูปของฉัน",
     ctaSecondary: "ฉันเป็นช่างภาพ",
     scanHint: "หรือสแกน QR ที่บูธถ่ายรูปในงาน",
 
     scrollCue: "เลื่อนลงเพื่อดูว่าทำงานยังไง",
-    skipToSearch: "ข้ามไปค้นหารูปเลย",
+    skipToSearch: "ไปหางานของคุณ",
 
     journeyTitle: "จากหน้าคุณ ถึงรูปคุณ",
     journeyLede: "เลื่อนลงเพื่อดูทีละขั้น",
@@ -58,13 +61,14 @@ export const th = {
     journeyScanning: "กำลังไล่หา",
     journeyFound: "เจอแล้ว",
 
-    finderHeading: "มีลิงก์งานอยู่แล้ว?",
+    finderHeading: "หางานที่คุณไป",
 
     demoMatch: "ตรงกับคุณ",
     demoCaption:
       "ภาพสาธิตการทำงาน กรอบในภาพวางไว้เพื่อแสดงตัวอย่าง ไม่ใช่ผลลัพธ์จริงจากระบบ",
     demoAlt:
       "รูปจากงานอีเวนต์ของมหาวิทยาลัย มีกรอบล้อมรอบใบหน้าแต่ละคนเพื่อแสดงว่าระบบหาใบหน้าเจอ",
+    selfieAlt: "ภาพวาดใบหน้าคนกำลังถูกสแกน มีกรอบล้อมรอบใบหน้า",
 
     stepsTitle: "ใช้งานยังไง",
     stepsLede: "สามขั้น จบใน 30 วินาที",
@@ -428,21 +432,22 @@ export const en: Dictionary = {
   },
 
   home: {
-    eyebrow: "Face search, no account needed",
     headline: "Find your face in the whole event.",
 
-    finderLabel: "Already have an event link or code?",
-    finderPlaceholder: "Paste the event link, or type its code",
+    finderLabel: "Enter the 6-character event code",
     finderSubmit: "Open event",
+    finderHint: "Letters and numbers — or paste an event link here instead.",
+    finderSlotLabel: "Event code, character {n} of {total}",
     finderNotFound: "No event matches that. Check the link or code and try again.",
     finderEmpty: "Enter a link or code first.",
+    finderUnavailable: "Something is temporarily down. Try again in a moment.",
     sub: "Scan the QR at the event, or open the link your photographer shared. We find you in the pile so you don't have to scroll it.",
     ctaPrimary: "Find my photos",
     ctaSecondary: "I'm a photographer",
     scanHint: "Or scan the QR at the event's photo booth",
 
     scrollCue: "Scroll to see how it works",
-    skipToSearch: "Skip to the search",
+    skipToSearch: "Find your event",
 
     journeyTitle: "From your face to your photos",
     journeyLede: "Scroll through it one step at a time",
@@ -463,13 +468,14 @@ export const en: Dictionary = {
     journeyScanning: "Reading faces",
     journeyFound: "Found you",
 
-    finderHeading: "Already have an event link?",
+    finderHeading: "Find the event you were at",
 
     demoMatch: "That's you",
     demoCaption:
       "Illustration of how the search works. The boxes were placed by hand as an example, not produced by the system.",
     demoAlt:
       "A university event photo with a box drawn around each person's face, showing the system finding them",
+    selfieAlt: "An illustration of a face being scanned, with a box drawn around it",
 
     stepsTitle: "How it works",
     stepsLede: "Three steps, about thirty seconds",

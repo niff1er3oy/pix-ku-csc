@@ -60,6 +60,13 @@
      cloud — the AA floor, with no headroom for a phone screen in direct sun,
      which is the actual reading condition for this product. */
   --color-slate: #475a56;
+  /* True black, and the one neutral with no green in it. It exists for the
+     journey band only: `green-950` is #01211f, which at the size of a
+     full-bleed section reads as dark teal rather than the black that was
+     asked for. A neutral, not a third brand hue — the two-colour rule in
+     DESIGN.md §2 governs brand colour, and every green and lime on top of
+     this stays exactly as it was. */
+  --color-obsidian: #000000;
 
   --color-danger: #c0392b;
 
@@ -75,6 +82,10 @@
   --text-h3: clamp(1.125rem, 1.05rem + 0.4vw, 1.375rem);
   --text-body-lg: clamp(1.0625rem, 1.02rem + 0.23vw, 1.1875rem);
   --text-body: clamp(0.9375rem, 0.92rem + 0.12vw, 1rem);
+  /* The wordmark on the brand screen. Larger than `display` because it is a
+     mark, not a heading — and a token because DESIGN.md §3 says a size the
+     scale lacks means the scale is wrong, not that the rule bends. */
+  --text-brand: clamp(3rem, 1.6rem + 6.4vw, 6.5rem);
   --text-label: 0.875rem;
   --text-caption: 0.8125rem;
 
@@ -309,15 +320,27 @@
     visibility: hidden;
     opacity: 0;
     translate: 0 -100%;
+    pointer-events: none;
   }
   1% {
     visibility: visible;
+  }
+  /* Stays click-through for the whole descent. Measured at 500px of scroll on
+     the home page, this bar sits at opacity 0.44 hanging 28px into the
+     viewport — directly over the top edge of the skip button, which by then
+     has risen to y=20. Without this it swallows taps aimed at a control the
+     visitor can see straight through it. `pointer-events` is not
+     interpolable, so it flips discretely between these last two stops rather
+     than easing, which is exactly what is wanted. */
+  99% {
+    pointer-events: none;
   }
   100% {
     visibility: visible;
     opacity: 1;
     translate: 0 0;
     box-shadow: var(--shadow-card);
+    pointer-events: auto;
   }
 }
 
@@ -338,6 +361,24 @@
       animation-range: 45vh 85vh;
     }
   }
+}
+
+/* This used to carry `content-visibility: auto` with a 420px intrinsic size,
+   to stop three looping visuals from costing anything while off screen.
+   Measured, it broke the page's primary call to action: every journey visual
+   sits between the brand screen and `#find`, so all three were still skipped
+   at the moment the skip button was clicked. The browser fixed its smooth
+   scroll on a destination computed from 420px placeholders, then the real
+   heights arrived mid-flight and moved the destination underneath it —
+   landing 169px past the search heading on a 390px phone, 36px past it on
+   desktop. A guessed intrinsic size cannot be right at every viewport width,
+   and no in-page anchor can survive the layout moving while it travels.
+   The animations here are opacity/transform only, so what this bought was
+   small; arriving where the button promised is not. */
+.journey-visual {
+  /* Deliberately empty of containment. Keep it that way unless the anchor
+     landings in the note above are re-measured in a browser afterwards. */
+  min-width: 0;
 }
 
 /* ---------------------------------------------------------------------------
@@ -644,21 +685,6 @@
   animation-name: scan-match;
 }
 
-/* The hero mosaic breathes — slow enough (70s) to read as atmosphere. */
-@keyframes mosaic-drift {
-  from {
-    transform: scale(1.04) translate3d(0.8%, 0.6%, 0);
-  }
-  to {
-    transform: scale(1.1) translate3d(-1.2%, -0.9%, 0);
-  }
-}
-
-.animate-drift {
-  animation: mosaic-drift 70s ease-in-out infinite alternate;
-  will-change: transform;
-}
-
 /* The green grid advances exactly one cell and starts over. Because the
    pattern repeats on that interval the loop is seamless. Transform only —
    never background-position — so it stays on the compositor. */
@@ -669,22 +695,6 @@
       calc(var(--grid-size) * -1),
       0
     );
-  }
-}
-
-/* Optional beam raking down the grid, for waiting states. */
-@keyframes grid-scan {
-  0% {
-    transform: translate3d(0, -70%, 0);
-    opacity: 0;
-  }
-  12%,
-  80% {
-    opacity: 1;
-  }
-  100% {
-    transform: translate3d(0, 170%, 0);
-    opacity: 0;
   }
 }
 
@@ -708,6 +718,21 @@
 
 .animate-scroll-cue {
   animation: scroll-cue 2s var(--ease-out) infinite;
+}
+
+/* Indeterminate progress. Used where the page's shape is not known ahead of
+   time — a skeleton there would promise a layout that never arrives. */
+@keyframes bar-slide {
+  0% {
+    translate: -100% 0;
+  }
+  100% {
+    translate: 400% 0;
+  }
+}
+
+.animate-bar-slide {
+  animation: bar-slide 1.3s var(--ease-out) infinite;
 }
 
 @keyframes shimmer {
@@ -760,11 +785,6 @@
   .reveal {
     opacity: 1;
     transform: none;
-  }
-
-  .animate-drift {
-    animation: none;
-    transform: scale(1.04);
   }
 
   /* The demonstration still has to demonstrate. Freeze it on the first card
@@ -824,6 +844,13 @@
     opacity: 0.24;
   }
 
+  /* A rotation clamped to 0.001ms is a frozen arc — it reads as a rendering
+     fault, not as progress. Hide it; the button's disabled state and its
+     `aria-busy` still say "working", and neither of those moves. */
+  .motion-spinner {
+    display: none;
+  }
+
   /* The chevron still points; it just stops nudging. */
   .animate-scroll-cue {
     animation: none;
@@ -831,15 +858,20 @@
     translate: 0 0;
   }
 
+  /* Without this the runner would freeze at the end of its travel — outside
+     the clipped track — leaving an empty groove that says nothing. Pinned
+     across the track instead, so it still reads as "working". */
+  .animate-bar-slide {
+    animation: none;
+    translate: 0 0;
+    width: 100%;
+    opacity: 0.5;
+  }
+
   /* The grid stays, it just stops moving — it is texture, not information. */
   .grid-drift {
     animation: none;
     transform: none;
-  }
-
-  .grid-scan {
-    animation: none;
-    opacity: 0;
   }
 
   ::view-transition-group(*),

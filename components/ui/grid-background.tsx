@@ -26,7 +26,6 @@ export function GridBackground({
   variant = "light",
   speed = "slow",
   size = 44,
-  scan = false,
   fade = true,
   className,
 }: {
@@ -39,8 +38,6 @@ export function GridBackground({
   speed?: Speed;
   /** Grid cell size in px. */
   size?: number;
-  /** Adds a beam raking down the grid. Waiting states only. */
-  scan?: boolean;
   /** Fades the grid out at the edges so it never ends on a hard line. */
   fade?: boolean;
   className?: string;
@@ -54,11 +51,6 @@ export function GridBackground({
           // DESIGN.md §8 intact.
           "color-mix(in oklab, var(--color-green-600) 7%, transparent)"
         : "color-mix(in oklab, var(--color-green-600) 12%, transparent)";
-
-  const beam =
-    variant === "green"
-      ? "color-mix(in oklab, var(--color-lime-300) 20%, transparent)"
-      : "color-mix(in oklab, var(--color-green-500) 10%, transparent)";
 
   const mask =
     "radial-gradient(115% 100% at 50% 0%, #000 32%, transparent 100%)";
@@ -93,22 +85,9 @@ export function GridBackground({
             backgroundImage: `linear-gradient(${line} 1px, transparent 1px), linear-gradient(90deg, ${line} 1px, transparent 1px)`,
             backgroundSize: "var(--grid-size) var(--grid-size)",
             animation: `grid-drift ${SPEED_SECONDS[speed]}s linear infinite`,
-            willChange: "transform",
           } as React.CSSProperties
         }
       />
-
-      {scan && (
-        <div
-          className="grid-scan absolute inset-x-0"
-          style={{
-            height: "38%",
-            background: `linear-gradient(to bottom, transparent, ${beam}, transparent)`,
-            animation: "grid-scan 4.8s cubic-bezier(0.4, 0, 0.6, 1) infinite",
-            willChange: "transform, opacity",
-          }}
-        />
-      )}
     </div>
   );
 }

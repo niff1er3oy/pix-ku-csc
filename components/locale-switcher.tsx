@@ -25,7 +25,7 @@ export function LocaleSwitcher({
       disabled={pending}
       onClick={() => startTransition(() => setLocale(next))}
       className={cn(
-        "rounded-pill px-3 py-2 text-sm font-medium text-slate transition-colors duration-200 hover:bg-cloud hover:text-green-700 disabled:opacity-50",
+        "inline-flex min-h-11 items-center whitespace-nowrap rounded-pill px-3 text-sm font-medium text-slate transition-colors duration-200 hover:bg-cloud hover:text-green-700 disabled:opacity-50",
         className,
       )}
       lang={next}

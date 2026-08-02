@@ -3,16 +3,18 @@
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 
+import { EventCodeInput } from "@/components/home/event-code-input";
+import { Button } from "@/components/ui/button";
 import { findEvent, type FindEventState } from "@/lib/actions/find-event";
 import type { FinderLabels } from "./finder-labels";
 
 /**
  * The front door this category always has and this page was missing: a place
- * to put the link or code you already hold. Someone standing at the booth with
- * a printed code had nowhere to type it before.
+ * to put the code you already hold. Someone standing at the booth with a
+ * printed code had nowhere to type it before.
  *
  * Resolution happens in the server action, so a wrong code answers inline —
- * right next to the field that can fix it — instead of throwing a 404 page.
+ * right next to the boxes that can fix it — instead of throwing a 404 page.
  */
 export function EventFinder({ labels }: { labels: FinderLabels }) {
   const [state, action] = useActionState<FindEventState, FormData>(
@@ -20,61 +22,69 @@ export function EventFinder({ labels }: { labels: FinderLabels }) {
     undefined,
   );
 
+  // An outage answers inside the field, next to the input that can retry —
+  // rather than throwing the visitor at the whole-page error boundary.
   const message =
     state?.error === "empty"
       ? labels.finderEmpty
       : state?.error === "not_found"
         ? labels.finderNotFound
-        : null;
+        : state?.error === "unavailable"
+          ? labels.finderUnavailable
+          : null;
 
   return (
     <form action={action} className="mt-8">
-      <label
-        htmlFor="event-finder"
-        className="block text-label font-medium text-ink"
-      >
+      {/* Not a `<label>`: it names a group of six inputs rather than any one
+          of them, so it is an id the group points at instead. */}
+      <p id="event-finder-label" className="text-label font-medium text-ink">
         {labels.finderLabel}
-      </label>
+      </p>
 
-      <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-        <input
-          id="event-finder"
-          name="q"
-          type="text"
-          inputMode="url"
-          autoComplete="off"
-          enterKeyHint="go"
-          placeholder={labels.finderPlaceholder}
-          aria-invalid={message ? true : undefined}
-          aria-describedby={message ? "event-finder-error" : undefined}
-          className="h-14 min-w-0 flex-1 rounded-field bg-paper px-4 text-body text-ink ring-1 ring-inset ring-edge transition-shadow duration-200 placeholder:text-slate/70 focus:ring-2 focus:ring-green-600"
+      <div className="mt-2">
+        <EventCodeInput
+          label="event-finder-label"
+          slotLabel={labels.finderSlotLabel}
+          invalid={message !== null}
+          describedBy={
+            message ? "event-finder-error event-finder-hint" : "event-finder-hint"
+          }
         />
+
+        {message ? (
+          <p
+            id="event-finder-error"
+            role="alert"
+            className="mt-2 text-label text-danger"
+          >
+            {message}
+          </p>
+        ) : null}
+
+        {/* The format, stated rather than left to be discovered by failing.
+            Held in the DOM at all times so a screen reader picks it up from
+            `aria-describedby` before the first keystroke rather than after a
+            rejection. */}
+        <p id="event-finder-hint" className="mt-2 text-caption text-slate">
+          {labels.finderHint}
+        </p>
+
         <SubmitButton label={labels.finderSubmit} />
       </div>
-
-      {message && (
-        <p
-          id="event-finder-error"
-          role="alert"
-          className="mt-2 text-label text-danger"
-        >
-          {message}
-        </p>
-      )}
     </form>
   );
 }
 
 function SubmitButton({ label }: { label: string }) {
   const { pending } = useFormStatus();
-
   return (
-    <button
+    <Button
       type="submit"
-      disabled={pending}
-      className="h-14 shrink-0 rounded-pill bg-green-600 px-8 font-display text-base font-semibold text-paper shadow-[var(--shadow-pop)] transition-[background-color,transform] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-px hover:bg-green-700 active:scale-[0.98] active:duration-100 disabled:pointer-events-none disabled:opacity-60"
+      size="lg"
+      pending={pending}
+      className="mt-4 w-full sm:w-auto"
     >
       {label}
-    </button>
+    </Button>
   );
 }

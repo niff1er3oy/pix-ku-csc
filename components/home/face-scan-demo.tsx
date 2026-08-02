@@ -1,5 +1,5 @@
 import type { Dictionary } from "@/lib/i18n/dictionaries";
-import type { DemoPhoto } from "@/lib/demo-photos";
+import { demoSrcSet, type DemoPhoto } from "@/lib/demo-photos";
 
 /** Each photo owns a 5s slot of the shared 15s loop (see globals.css). */
 const SLOT_SECONDS = 5;
@@ -42,8 +42,12 @@ export function FaceScanDemo({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={photo.src}
+              srcSet={demoSrcSet(photo.src)}
+              /* Never wider than half of max-w-7xl less the column gap on a
+                 laptop, full width minus the page gutter on a phone. */
+              sizes="(min-width: 1024px) 600px, calc(100vw - 40px)"
               alt={index === 0 ? dict.home.demoAlt : ""}
-              loading={index === 0 ? "eager" : "lazy"}
+              loading="lazy"
               decoding="async"
               className="h-full w-full object-cover"
             />
@@ -71,7 +75,7 @@ export function FaceScanDemo({
                 <div
                   key={faceIndex}
                   aria-hidden
-                  className="scan-box absolute rounded-[4px] ring-2 ring-paper/90"
+                  className="scan-box absolute min-h-[20px] min-w-[20px] rounded-[4px] ring-2 ring-paper/90"
                   style={{
                     left: `${face.x}%`,
                     top: `${face.y}%`,
@@ -90,7 +94,7 @@ export function FaceScanDemo({
                 <div
                   key={`you-${faceIndex}`}
                   aria-hidden
-                  className="scan-match absolute rounded-[4px] ring-[3px] ring-lime-300"
+                  className="scan-match absolute min-h-[24px] min-w-[24px] rounded-[4px] ring-[3px] ring-lime-300"
                   style={{
                     left: `${face.x - 0.6}%`,
                     top: `${face.y - 0.9}%`,
@@ -100,7 +104,7 @@ export function FaceScanDemo({
                     boxShadow: "0 0 0 9999px rgb(1 33 31 / 0.34)",
                   }}
                 >
-                  <span className="absolute -top-1 left-1/2 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-pill bg-lime-300 px-2 py-0.5 text-[0.625rem] font-semibold text-green-950">
+                  <span className="absolute -top-1 left-1/2 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-pill bg-lime-300 px-2 py-0.5 text-caption font-semibold text-green-950">
                     {dict.home.demoMatch}
                   </span>
                 </div>
@@ -110,8 +114,11 @@ export function FaceScanDemo({
       </div>
 
       {/* Required by DESIGN.md §10: demonstration material is labelled as
-          demonstration material, never presented as real system output. */}
-      <figcaption className="mt-3 text-caption text-slate">
+          demonstration material, never presented as real system output.
+          `green-300` rather than `slate`, which this used to be: the journey
+          band is black now, and slate on black measures 2.86:1 — a disclosure
+          nobody can read is not a disclosure. This is 9.9:1. */}
+      <figcaption className="mt-4 text-caption text-green-300">
         {dict.home.demoCaption}
       </figcaption>
     </figure>

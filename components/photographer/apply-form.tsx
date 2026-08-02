@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 
+import { Button } from "@/components/ui/button";
 import {
   applyAsPhotographer,
   type ApplyState,
@@ -10,7 +11,7 @@ import {
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 
 const field =
-  "mt-2 h-[46px] w-full rounded-field bg-paper px-4 text-body text-ink ring-1 ring-inset ring-edge transition-shadow duration-200 placeholder:text-slate/70 focus:ring-2 focus:ring-green-600";
+  "mt-2 h-[46px] w-full rounded-field bg-paper px-4 text-body text-ink ring-1 ring-inset ring-edge transition-shadow duration-200 placeholder:text-slate focus:ring-2 focus:ring-green-600";
 
 export function PhotographerApplyForm({ dict }: { dict: Dictionary }) {
   const [state, action] = useActionState<ApplyState, FormData>(
@@ -95,12 +96,8 @@ export function PhotographerApplyForm({ dict }: { dict: Dictionary }) {
 function SubmitButton({ label }: { label: string }) {
   const { pending } = useFormStatus();
   return (
-    <button
-      type="submit"
-      disabled={pending}
-      className="h-14 rounded-pill bg-green-600 px-8 font-display text-base font-semibold text-paper shadow-[var(--shadow-pop)] transition-[background-color,transform] duration-200 hover:bg-green-700 active:scale-[0.98] disabled:opacity-60"
-    >
+    <Button type="submit" size="lg" pending={pending}>
       {label}
-    </button>
+    </Button>
   );
 }

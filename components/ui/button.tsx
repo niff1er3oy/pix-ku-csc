@@ -1,13 +1,18 @@
 import Link from "next/link";
 import type { ComponentProps } from "react";
 
+import { Spinner } from "@/components/ui/loading";
 import { cn } from "@/lib/utils";
 
 type Variant = "primary" | "secondary" | "ghost" | "danger";
 type Size = "sm" | "md" | "lg";
 
+/* `whitespace-nowrap`: a button is a fixed-height pill, so a label that wraps
+   does not make the button taller — it spills two half-clipped lines out of
+   it. Thai wraps at word boundaries a Latin-trained eye does not expect, and
+   "เข้าสู่ระบบ" broke to "เข้าสู่ / ระบบ" inside the header pill. */
 const base =
-  "inline-flex items-center justify-center gap-2 rounded-pill font-display font-semibold " +
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-pill font-display font-semibold " +
   "transition-[background-color,box-shadow,transform,border-color] duration-200 " +
   "ease-[cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] active:duration-100 " +
   "disabled:pointer-events-none disabled:opacity-50";
@@ -41,14 +46,39 @@ export function buttonClass({
   return cn(base, variants[variant], sizes[size], className);
 }
 
+/**
+ * `pending` is here rather than hand-rolled per form because almost every
+ * form in this product has one: the event finder, the photographer
+ * application, the face search. Centralising it keeps the spinner, the
+ * disabled state and `aria-busy` from drifting apart between them.
+ *
+ * The label deliberately does not change while pending — DESIGN.md §9 asks
+ * for one word per action through a whole flow, and a button that renames
+ * itself mid-submit breaks that.
+ */
 export function Button({
   variant,
   size,
   className,
+  pending = false,
+  disabled,
+  children,
   ...props
-}: ComponentProps<"button"> & { variant?: Variant; size?: Size }) {
+}: ComponentProps<"button"> & {
+  variant?: Variant;
+  size?: Size;
+  pending?: boolean;
+}) {
   return (
-    <button className={buttonClass({ variant, size, className })} {...props} />
+    <button
+      className={buttonClass({ variant, size, className })}
+      disabled={disabled ?? pending}
+      aria-busy={pending || undefined}
+      {...props}
+    >
+      {pending && <Spinner />}
+      {children}
+    </button>
   );
 }
 

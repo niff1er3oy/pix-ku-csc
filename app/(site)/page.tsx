@@ -66,28 +66,25 @@ export default async function HomePage() {
         data-brand-screen
         className="flex min-h-[calc(100svh-4rem)] flex-col items-center justify-center px-5 py-16 text-center sm:px-8"
       >
-        <p
-          className="enter inline-block rounded-pill bg-lime-500 px-4 py-1.5 text-label font-semibold text-green-950"
-          style={{ "--d": "60ms" } as React.CSSProperties}
-        >
-          {dict.home.eyebrow}
-        </p>
-
-        <h1
-          className="enter mt-8"
-          style={{ "--d": "160ms" } as React.CSSProperties}
-        >
-          {/* The wordmark is split across three coloured spans, which a screen
-              reader would read as three fragments — so it is hidden and the
-              name is announced once, plainly. */}
+        {/* The mark is the mark, not the heading. An h1 whose accessible name
+            is just the brand tells a first-time visitor nothing — the sentence
+            that actually explains the product carries it instead. */}
+        <div className="enter" style={{ "--d": "60ms" } as React.CSSProperties}>
           <span className="sr-only">{dict.brand.name}</span>
           <span aria-hidden>
             <Logo size="xl" />
           </span>
+        </div>
+
+        <h1
+          className="enter mt-12 max-w-3xl text-h1 font-bold"
+          style={{ "--d": "200ms" } as React.CSSProperties}
+        >
+          {dict.home.headline}
         </h1>
 
         <p
-          className="enter mt-16 max-w-xl text-body-lg text-slate"
+          className="enter mt-5 max-w-xl text-body-lg text-slate"
           style={{ "--d": "280ms" } as React.CSSProperties}
         >
           {dict.home.sub}
@@ -129,31 +126,48 @@ export default async function HomePage() {
         </Link>
       </section>
 
+      {/* Divider between the opening screen and the story below it.
+          Full-bleed rather than inset to the content column: it separates two
+          sections of the page, not two blocks of copy. Sits outside the branch
+          below so it holds whichever version renders.
+
+          Lime rather than the old `edge` hairline, and 4px rather than 1px:
+          the section below is black now, so a pale 1px line landing on a
+          white-to-black boundary reads as a seam that went wrong. At this
+          weight it is the lime bar from under the KU letterforms, which is
+          where the colour comes from in the first place. */}
+      <div aria-hidden className="h-1 w-full bg-lime-500" />
+
       {/* ================================================================= */}
       {/* The journey, or the plain step cards until the photos land        */}
       {/* ================================================================= */}
       {demoPhotos.length > 0 ? (
         <ScrollJourney photos={demoPhotos} dict={dict} />
       ) : (
-        <section id="how" className="scroll-mt-20 bg-green-600 text-paper">
-          <div className="mx-auto w-full max-w-6xl px-5 py-16 sm:px-8 sm:py-24">
-            <header className="reveal max-w-xl">
-              <h2 className="text-h2">{dict.home.stepsTitle}</h2>
-              <p className="mt-3 text-green-100">{dict.home.stepsLede}</p>
+        /* Same black band as the full journey, so a missing demo photo
+           changes what this section shows without changing what the page
+           looks like. */
+        <section id="how" className="scroll-mt-20 bg-obsidian text-paper">
+          <div className="mx-auto w-full max-w-7xl px-5 py-24 sm:px-8 sm:py-32">
+            <header className="reveal max-w-2xl">
+              <h2 className="text-h1">{dict.home.stepsTitle}</h2>
+              <p className="mt-5 text-body-lg text-green-100">
+                {dict.home.stepsLede}
+              </p>
             </header>
 
-            <ol className="mt-10 grid gap-4 sm:mt-12 sm:grid-cols-3 sm:gap-6">
+            <ol className="mt-14 grid gap-5 sm:mt-16 sm:grid-cols-3 sm:gap-6">
               {dict.home.steps.map((step, i) => (
                 <li
                   key={step.label}
-                  className="reveal rounded-card bg-green-700 p-6 sm:p-7"
+                  className="reveal rounded-card bg-green-900 p-7 sm:p-8"
                   style={{ "--rs": `${2 + i * 5}%` } as React.CSSProperties}
                 >
-                  <span className="tnum inline-flex size-11 items-center justify-center rounded-pill bg-lime-500 font-display text-lg font-bold text-green-950">
+                  <span className="tnum inline-flex size-14 items-center justify-center rounded-pill bg-lime-500 font-display text-2xl font-bold text-green-950">
                     {i + 1}
                   </span>
-                  <h3 className="mt-5 text-h3 text-paper">{step.title}</h3>
-                  <p className="mt-2.5 text-body leading-relaxed text-green-100">
+                  <h3 className="mt-6 text-h2 text-paper">{step.title}</h3>
+                  <p className="mt-3 text-body leading-relaxed text-green-100">
                     {step.body}
                   </p>
                 </li>
@@ -176,7 +190,10 @@ export default async function HomePage() {
 
           {/* The finder renders its own labels in ink for a white card, so it
               sits on paper rather than directly on the green. */}
-          <div className="mt-6 rounded-card bg-paper p-5 sm:p-6">
+          {/* Tighter side padding than the usual card, and only below `sm`:
+              the six code boxes inside need every pixel of that width to stay
+              at the 44px touch floor on a 360px phone. */}
+          <div className="mt-6 rounded-card bg-paper px-4 py-5 sm:p-6">
             <EventFinder labels={pickFinderLabels(dict)} />
           </div>
 
@@ -194,6 +211,38 @@ export default async function HomePage() {
               {dict.home.ctaSecondary}
             </Link>
           </div>
+        </div>
+      </section>
+
+      {/* ================================================================= */}
+      {/* Face-data promise — the one claim rivals structurally cannot make */}
+      {/* ================================================================= */}
+      <section className="mx-auto w-full max-w-6xl px-5 py-16 sm:px-8 sm:py-24">
+        <div className="grid gap-10 lg:grid-cols-[minmax(0,22rem)_1fr] lg:gap-16">
+          <div className="reveal min-w-0">
+            <h2 className="text-h2">{dict.home.privacyTitle}</h2>
+            <Link
+              href="/privacy"
+              className="mt-5 inline-block text-label font-medium text-green-700 underline underline-offset-4 transition-colors duration-200 hover:text-green-800"
+            >
+              {dict.home.privacyLink}
+            </Link>
+          </div>
+
+          <ul className="grid min-w-0 gap-4 self-start sm:gap-5">
+            {dict.home.privacyPoints.map((point, i) => (
+              <li
+                key={point.title}
+                className="reveal rounded-card bg-cloud p-5 sm:p-6"
+                style={{ "--rs": `${2 + i * 4}%` } as React.CSSProperties}
+              >
+                <h3 className="text-h3">{point.title}</h3>
+                <p className="mt-2 text-body leading-relaxed text-slate">
+                  {point.body}
+                </p>
+              </li>
+            ))}
+          </ul>
         </div>
       </section>
 
