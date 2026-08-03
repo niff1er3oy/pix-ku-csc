@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "event_access_code_idx" ON "event" USING btree ("access_code");

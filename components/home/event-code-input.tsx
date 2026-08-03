@@ -2,8 +2,7 @@
 
 import { useRef, useState } from "react";
 
-import { EVENT_CODE_ALPHABET, EVENT_CODE_LENGTH } from "@/lib/event-code";
-import { normaliseEventCode } from "@/lib/event-code";
+import { cleanEventCode, EVENT_CODE_LENGTH } from "@/lib/event-code";
 import { cn } from "@/lib/utils";
 
 const SLOTS = Array.from({ length: EVENT_CODE_LENGTH }, (_, index) => index);
@@ -126,17 +125,14 @@ export function EventCodeInput({
               return;
             }
 
+            // Shown exactly as typed. An earlier version rewrote O to 0 and
+            // I/L to 1 here, which meant the box disagreed with the key that
+            // had just been pressed — and it made a hand-set code containing a
+            // real O impossible to enter at all. The lookalike reading is a
+            // fallback the lookup applies afterwards, not an edit to what the
+            // visitor typed. See `eventCodeCandidates`.
             const character = raw.toUpperCase();
-            if (character !== "" && !EVENT_CODE_ALPHABET.includes(character)) {
-              // Rejected rather than shown: I, L and O are not in the alphabet,
-              // but they are what a person types when the poster showed 1, 1
-              // and 0, so they are folded instead of refused.
-              const folded = { I: "1", L: "1", O: "0" }[character];
-              if (!folded) return;
-              write(index, folded);
-              focusSlot(index + 1);
-              return;
-            }
+            if (character !== "" && !/^[A-Z0-9]$/.test(character)) return;
 
             write(index, character);
             if (character !== "") focusSlot(index + 1);
@@ -199,8 +195,9 @@ function distribute(
   }
 
   // A complete code pasted anywhere fills the whole row from the start,
-  // regardless of which box happened to have focus.
-  const whole = normaliseEventCode(trimmed);
+  // regardless of which box happened to have focus. Pasted verbatim — the
+  // lookup does the second-guessing, not the field.
+  const whole = cleanEventCode(trimmed);
   if (whole) {
     setChars(whole.split(""));
     focusSlot(EVENT_CODE_LENGTH - 1);
@@ -211,9 +208,8 @@ function distribute(
   const usable = trimmed
     .toUpperCase()
     .replace(/[\s-]/g, "")
-    .replace(/[ILO]/g, (character) => ({ I: "1", L: "1", O: "0" })[character]!)
     .split("")
-    .filter((character) => EVENT_CODE_ALPHABET.includes(character));
+    .filter((character) => /^[A-Z0-9]$/.test(character));
 
   if (usable.length === 0) return;
 
