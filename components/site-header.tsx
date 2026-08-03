@@ -3,6 +3,7 @@ import Link from "next/link";
 import { HomeLink } from "@/components/brand/home-link";
 import { Logo } from "@/components/brand/logo";
 import { LocaleSwitcher } from "@/components/locale-switcher";
+import { Avatar } from "@/components/ui/avatar";
 import { buttonClass } from "@/components/ui/button";
 import { getPhotographer, getSessionUser } from "@/lib/dal";
 import { getDictionary, getLocale } from "@/lib/i18n";
@@ -80,14 +81,7 @@ export async function SiteHeader() {
               href="/me"
               className="ml-1 flex min-h-11 items-center gap-2 rounded-pill py-1 pl-1 pr-3 text-slate transition-colors duration-200 hover:bg-cloud hover:text-green-700"
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={user.image ?? "/avatar-fallback.svg"}
-                alt=""
-                width={30}
-                height={30}
-                className="size-[30px] rounded-pill object-cover ring-2 ring-green-100"
-              />
+              <Avatar src={user.image} size={30} />
               <span className="hidden sm:inline">{dict.nav.profile}</span>
             </Link>
           ) : (

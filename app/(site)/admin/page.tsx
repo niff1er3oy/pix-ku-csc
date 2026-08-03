@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 
+import { Directory } from "@/components/admin/directory";
+import { IndexingMeter, StatTiles } from "@/components/admin/metrics";
+import { SearchesChart } from "@/components/admin/searches-chart";
 import { ReviewRow } from "@/components/admin/review-row";
-import { GridBackground } from "@/components/ui/grid-background";
 import {
   approveEvent,
   approvePhotographer,
@@ -9,51 +11,120 @@ import {
   rejectPhotographer,
 } from "@/lib/actions/admin";
 import { requireRole } from "@/lib/dal";
-import { getDictionary, getLocale } from "@/lib/i18n";
-import { getPendingEvents, getPendingPhotographers } from "@/lib/queries/admin";
+import { getDictionary, getLocale, t } from "@/lib/i18n";
+import {
+  getAdminMetrics,
+  getDirectory,
+  getPendingEvents,
+  getPendingPhotographers,
+  type DirectoryFilter,
+} from "@/lib/queries/admin";
 import { safely } from "@/lib/queries/public";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatNumber } from "@/lib/utils";
 
 export async function generateMetadata(): Promise<Metadata> {
   const dict = await getDictionary();
   return { title: dict.admin.title };
 }
 
+const FILTERS = new Set<DirectoryFilter>([
+  "all",
+  "users",
+  "photographers",
+  "admins",
+]);
+
 /**
- * The review desk.
+ * The admin console: what is waiting, then everyone.
  *
- * This screen is the only thing that turns a photographer application into a
- * capability, and the only thing that makes an event publicly reachable.
- * Without it the whole photographer side is a dead end: applications write a
- * `pending` row that nothing can ever act on.
+ * That order is the design. An admin opens this page because somebody is
+ * blocked — an application nobody has looked at, an event that cannot go live
+ * until it is approved — and the directory is what they consult once that is
+ * dealt with. A row of total-count tiles across the top would put the least
+ * actionable numbers in the most valuable space, so the counts sit beside the
+ * heading they describe instead.
  *
- * `requireRole` calls `forbidden()`, so a signed-in non-admin gets a 403 rather
- * than a 404 — pretending the page does not exist would be a small lie to
- * someone who simply lacks a permission.
+ * `requireRole` calls `forbidden()`, which needs `experimental.authInterrupts`
+ * and `app/forbidden.tsx` to render as anything at all; without them a
+ * signed-in non-admin got a loading state that never resolved.
  */
-export default async function AdminPage() {
-  await requireRole("admin");
+export default async function AdminPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; page?: string; filter?: string }>;
+}) {
+  const admin = await requireRole("admin");
+  const params = await searchParams;
+
+  const q = params.q?.slice(0, 80) ?? "";
+  const page = Number.parseInt(params.page ?? "1", 10) || 1;
+  const filter = (
+    FILTERS.has(params.filter as DirectoryFilter) ? params.filter : "all"
+  ) as DirectoryFilter;
+
   const [locale, dict] = await Promise.all([getLocale(), getDictionary()]);
 
-  const [photographers, events] = await Promise.all([
+  const [photographers, events, directory, metrics] = await Promise.all([
     safely(() => getPendingPhotographers(), []),
     safely(() => getPendingEvents(), []),
+    safely(() => getDirectory({ q, page, filter }), {
+      rows: [],
+      total: 0,
+      page: 1,
+      pageCount: 1,
+    }),
+    safely(() => getAdminMetrics(), {
+      totals: {
+        users: 0,
+        photographers: 0,
+        events: 0,
+        photos: 0,
+        faces: 0,
+        searches: 0,
+      },
+      searchesPerDay: [],
+      indexing: { total: 0, indexed: 0, working: 0, noFace: 0, failed: 0 },
+    }),
   ]);
 
-  const nothing = photographers.length === 0 && events.length === 0;
+  const waiting = photographers.length + events.length;
 
   return (
-    <section className="mx-auto w-full max-w-4xl px-5 py-16 sm:px-8 sm:py-24">
+    <section className="mx-auto w-full max-w-5xl px-5 py-16 sm:px-8 sm:py-24">
       <h1 className="text-h1 font-bold">{dict.admin.title}</h1>
+      <p className="tnum mt-3 text-body-lg text-slate">
+        {waiting > 0
+          ? t(dict.admin.reviewCount, {
+              count: formatNumber(waiting, locale),
+            })
+          : dict.admin.reviewClear}
+      </p>
 
-      {nothing ? (
-        <div className="relative mt-10 overflow-hidden rounded-card bg-cloud px-6 py-16 text-center">
-          <GridBackground />
-          <p className="relative text-body-lg text-slate">
-            {dict.admin.nothingPending}
-          </p>
-        </div>
-      ) : null}
+      <StatTiles totals={metrics.totals} labels={dict.admin} locale={locale} />
+
+      {/* Stacked rather than side by side. Thirty days of points in half a
+          column forced the chart into a horizontal scrollbar and cut the last
+          value off its own right edge; a trend chart wants the page width. */}
+      <div className="mt-4 grid gap-4">
+        <SearchesChart
+          points={metrics.searchesPerDay}
+          locale={locale}
+          labels={{
+            title: dict.admin.searchesTitle,
+            empty: dict.admin.searchesEmpty,
+            emptyBody: dict.admin.searchesEmptyBody,
+            tableToggle: dict.admin.searchesTable,
+            colDay: dict.admin.searchesColDay,
+            colCount: dict.admin.searchesColCount,
+            unit: dict.admin.searchesUnit,
+          }}
+        />
+        <IndexingMeter
+          indexing={metrics.indexing}
+          labels={dict.admin}
+          locale={locale}
+        />
+      </div>
 
       {photographers.length > 0 && (
         <section className="mt-12">
@@ -96,6 +167,15 @@ export default async function AdminPage() {
           </ul>
         </section>
       )}
+
+      <Directory
+        data={directory}
+        q={q}
+        filter={filter}
+        selfId={admin.id}
+        labels={dict.admin}
+        locale={locale}
+      />
     </section>
   );
 }
