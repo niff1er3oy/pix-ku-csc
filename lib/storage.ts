@@ -11,6 +11,32 @@ import path from "node:path";
  */
 const STORAGE_ROOT = path.resolve(process.env.STORAGE_ROOT ?? "./storage");
 
+/**
+ * In production the store must not live inside the deployed application
+ * directory. A release swap, a fresh checkout or a rebuilt container replaces
+ * that directory, and everything under it goes with the copy being replaced —
+ * which here means every photograph anyone uploaded.
+ *
+ * Warned rather than thrown. Refusing to boot would take a running service
+ * down over a configuration that might be a deliberate single-machine setup,
+ * and a server that will not start is not obviously better than one that says
+ * exactly what is wrong on every start. The default `./storage` is fine in
+ * development, so the check only speaks up when NODE_ENV says otherwise.
+ */
+if (process.env.NODE_ENV === "production") {
+  const appDir = process.cwd();
+  const inside =
+    STORAGE_ROOT === appDir || STORAGE_ROOT.startsWith(appDir + path.sep);
+
+  if (inside) {
+    console.warn(
+      `[find-ku-dae] STORAGE_ROOT (${STORAGE_ROOT}) is inside the application ` +
+        `directory (${appDir}). Uploaded photographs will be destroyed by the ` +
+        `next deployment. Set STORAGE_ROOT to an absolute path outside it.`,
+    );
+  }
+}
+
 /** Rejects `../` traversal from anything that reaches us as a stored path. */
 export function resolveStoragePath(relativePath: string): string {
   const resolved = path.resolve(STORAGE_ROOT, relativePath);

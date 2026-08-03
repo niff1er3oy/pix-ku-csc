@@ -348,6 +348,8 @@ export const th = {
     goHome: "กลับหน้าแรก",
     forbiddenTitle: "เข้าหน้านี้ไม่ได้",
     forbiddenBody: "บัญชีของคุณไม่มีสิทธิ์เข้าหน้านี้",
+    unauthorizedTitle: "ต้องเข้าสู่ระบบก่อน",
+    unauthorizedBody: "หน้านี้ต้องเข้าสู่ระบบถึงจะเปิดได้",
   },
 
   footer: {
@@ -761,6 +763,8 @@ export const en: Dictionary = {
     goHome: "Back to home",
     forbiddenTitle: "You can't open this page",
     forbiddenBody: "Your account doesn't have access to it.",
+    unauthorizedTitle: "Sign in to continue",
+    unauthorizedBody: "This page is only available once you're signed in.",
   },
 
   footer: {
