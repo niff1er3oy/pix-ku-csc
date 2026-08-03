@@ -12,6 +12,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import type { AdapterAccountType } from "next-auth/adapters";
 
 // ---------------------------------------------------------------------------
@@ -192,8 +193,27 @@ export const events = pgTable(
 
     /** Unlisted events are reachable only by someone holding the URL/QR. */
     isUnlisted: boolean("is_unlisted").notNull().default(false),
-    /** Optional extra gate on top of the URL. Null = no code required. */
-    accessCode: text("access_code"),
+    /**
+     * The six-character code printed under the QR — never chosen by a
+     * photographer or a visitor.
+     *
+     * **Issued by the database**, by `gen_event_code()` in migration 0002.
+     * Generating it here rather than in Node means no write path can produce
+     * an event without one; a code is the only way into an unlisted event, so
+     * a row that slipped through without one would be photographs nobody can
+     * reach. That migration also adds a CHECK on the shape, so the format
+     * cannot drift away from `cleanEventCode` in lib/event-code.ts.
+     *
+     * Unique, and that is correctness rather than tidiness: the finder
+     * resolves a code to exactly one event. With two events sharing a code the
+     * lookup returned whichever row Postgres reached first, verified in a
+     * browser — the visitor holding the second event's code was sent into the
+     * first event's gallery, i.e. photographs of people who never agreed to be
+     * findable that way.
+     */
+    accessCode: text("access_code")
+      .notNull()
+      .default(sql`gen_event_code()`),
 
     // --- watermark, configured per event by the photographer ---------------
     watermarkEnabled: boolean("watermark_enabled").notNull().default(false),
@@ -226,6 +246,9 @@ export const events = pgTable(
     index("event_status_idx").on(t.status),
     index("event_owner_idx").on(t.ownerId),
     index("event_starts_at_idx").on(t.startsAt),
+    // Unique, and also the index the finder's lookup runs on — every visit
+    // that starts from a printed code hits exactly this.
+    uniqueIndex("event_access_code_idx").on(t.accessCode),
   ],
 );
 

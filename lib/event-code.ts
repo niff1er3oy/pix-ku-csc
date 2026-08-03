@@ -2,90 +2,68 @@
  * The event code: six characters, English letters and digits.
  *
  * This is the thing a visitor holds in their hand — printed under a QR on a
- * poster at the booth, or forwarded in a LINE group. Everything about the
- * format is decided by that scene: someone squinting at a sign across a
- * crowded field, typing on a phone one-handed.
+ * poster at the booth, or forwarded in a LINE group.
+ *
+ * **A code is issued by the system, never chosen.** Neither a visitor nor a
+ * photographer can set one. That single rule decides everything else in this
+ * file, and it is worth stating plainly because an earlier version was built
+ * on the opposite assumption and got the behaviour wrong:
+ *
+ * The alphabet used to exclude I, L and O, on the reasoning that they are
+ * indistinguishable from 1, 1 and 0 on a printed sign — and, because a code
+ * supposedly could not contain them, a typed I was quietly read as a 1 before
+ * the lookup. That is a rewrite of what somebody typed, and it is only ever
+ * safe if no real code contains those letters. Since a code is whatever the
+ * system happened to generate, `IIII00` is a perfectly possible code, and
+ * rewriting it to `111100` would make the one person holding it unable to
+ * reach their photographs. So: the full 36 characters, and what is typed is
+ * what is looked up.
  *
  * Every part of the app that reads, writes, or checks a code goes through this
  * module, so the format is defined once rather than re-derived at each call
  * site.
  */
 
-/** Six positions, as specified. */
+/** Six positions. */
 export const EVENT_CODE_LENGTH = 6;
 
 /**
- * The alphabet a generated code may use: digits plus A–Z **minus I, L and O**.
+ * Digits and the whole English alphabet — 36 characters, so 36^6 is about 2.17
+ * billion codes.
  *
- * Those three are dropped because on a printed poster read at a distance they
- * are the same glyph as 1, 1 and 0. Dropping them is what makes the
- * normalisation below safe: since no real code can contain I, L or O, folding
- * a typed one into its digit can never corrupt a code that was actually
- * correct — it can only rescue one that was about to fail.
+ * Nothing is held back for legibility. A generator that skipped the ambiguous
+ * letters would be quietly deciding that some codes may not exist, and the
+ * reader on the other end has the QR beside the printed code anyway.
  *
- * 33 characters over 6 positions is about 1.29 billion codes, which is not the
- * constraint here by any margin.
+ * This module does not generate codes; `gen_event_code()` in migration 0002
+ * does, and the CHECK constraint added there is the same expression as
+ * `CODE_CHARACTER` below. Kept as one regex on this side so there is exactly
+ * one thing to change if the format ever moves.
  */
-export const EVENT_CODE_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTUVWXYZ";
-
-/** Typed lookalike → the character it can only have meant. */
-const LOOKALIKES: Record<string, string> = { I: "1", L: "1", O: "0" };
+const CODE_CHARACTER = /^[A-Z0-9]$/;
 
 /**
- * Turns whatever was typed into the canonical form, or returns null if it
- * could not have been a code.
+ * Exactly what was typed, minus the parts that carry no meaning: case, the
+ * surrounding whitespace, and the spaces or hyphens people insert to read six
+ * characters back to themselves ("K2P 8QX").
  *
- * Deliberately forgiving about everything that carries no meaning: case,
- * surrounding whitespace, and the spaces or hyphens people insert to make six
- * characters easier to read back to themselves ("K2P 8QX").
+ * Nothing is substituted. Case is safe to fold because the alphabet has no
+ * lower-case members, so `k2p8qx` and `K2P8QX` cannot be two different codes.
+ *
+ * Returns null when the input could not be a code at all.
  */
-export function normaliseEventCode(input: string): string | null {
-  const cleaned = input
-    .toUpperCase()
-    .replace(/[\s-]/g, "")
-    .replace(/[ILO]/g, (character) => LOOKALIKES[character]);
-
+export function cleanEventCode(input: string): string | null {
+  const cleaned = input.toUpperCase().replace(/[\s-]/g, "");
   if (cleaned.length !== EVENT_CODE_LENGTH) return null;
 
   for (const character of cleaned) {
-    if (!EVENT_CODE_ALPHABET.includes(character)) return null;
+    if (!CODE_CHARACTER.test(character)) return null;
   }
 
   return cleaned;
 }
 
-/** Whether this input is a well-formed code. */
+/** Whether this input is shaped like a code at all. */
 export function isEventCode(input: string): boolean {
-  return normaliseEventCode(input) !== null;
-}
-
-/**
- * A fresh code, for whoever creates an event.
- *
- * Uses `crypto.getRandomValues` rather than `Math.random`: a code is the only
- * gate on an unlisted event, so a sequence that can be predicted from an
- * earlier one would hand out access to photographs of people who did not
- * consent to being findable.
- *
- * Rejection sampling keeps the distribution flat — `% alphabet.length` on a
- * byte would make the first 28 characters of the alphabet slightly likelier
- * than the rest, which is exactly the kind of small bias that makes a
- * brute-force search cheaper than it looks.
- *
- * Callers must still handle a collision from the database's unique
- * constraint; uniqueness is not something a generator can promise.
- */
-export function generateEventCode(): string {
-  const alphabet = EVENT_CODE_ALPHABET;
-  const limit = Math.floor(256 / alphabet.length) * alphabet.length;
-  let code = "";
-
-  const byte = new Uint8Array(1);
-  while (code.length < EVENT_CODE_LENGTH) {
-    crypto.getRandomValues(byte);
-    if (byte[0] >= limit) continue;
-    code += alphabet[byte[0] % alphabet.length];
-  }
-
-  return code;
+  return cleanEventCode(input) !== null;
 }

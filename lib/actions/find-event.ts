@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 
 import { db } from "@/db";
 import { events } from "@/db/schema";
-import { EVENT_CODE_LENGTH, normaliseEventCode } from "@/lib/event-code";
+import { cleanEventCode, EVENT_CODE_LENGTH } from "@/lib/event-code";
 
 export type FindEventState =
   | { error?: "empty" | "not_found" | "unavailable" }
@@ -42,7 +42,7 @@ export async function findEvent(
   // whose slug happened to read like somebody else's code would open the
   // wrong gallery — of photographs of people who never agreed to be found
   // that way.
-  const code = normaliseEventCode(raw);
+  const code = cleanEventCode(raw);
   const slug = code ? null : extractSlug(raw);
   if (!code && !slug) return { error: "not_found" };
 
@@ -59,10 +59,10 @@ export async function findEvent(
         and(
           eq(events.status, "approved"),
           code
-            ? // Compared upper-cased on both sides rather than as stored. A
-              // code read off a poster gets typed however the phone's
-              // keyboard felt like it, and every row predating the generator
-              // in lib/event-code.ts could hold any casing at all.
+            ? // Compared upper-cased on both sides rather than as stored, and
+              // that is the only liberty taken with it: the alphabet has no
+              // lower-case members, so casing cannot distinguish two codes.
+              // Nothing else about what was typed is reinterpreted.
               sql`upper(${events.accessCode}) = ${code}`
             : or(eq(events.slug, slug!), eq(events.accessCode, raw)),
         ),

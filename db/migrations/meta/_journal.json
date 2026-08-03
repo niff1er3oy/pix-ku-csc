@@ -1,0 +1,34 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1785765137076,
+      "tag": "0000_condemned_vector",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1785765849446,
+      "tag": "0001_regular_proemial_gods",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785766278901,
+      "tag": "0002_event_code_generator",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1785766363186,
+      "tag": "0003_outstanding_black_bolt",
+      "breakpoints": true
+    }
+  ]
+}
