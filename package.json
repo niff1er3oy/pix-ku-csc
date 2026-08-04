@@ -19,6 +19,7 @@
     "@auth/drizzle-adapter": "^1.11.3",
     "@aws-sdk/client-rekognition": "^3.1097.0",
     "animejs": "^4.5.0",
+    "chart.js": "^4.5.1",
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.45.2",
     "next": "16.2.12",

@@ -903,3 +903,37 @@
     opacity: 0;
   }
 }
+
+/* ===========================================================================
+   Admin charts
+   ========================================================================= */
+
+/* The indexing meter fills to its share. `--fill` is set inline from the real
+   number, so the keyframe only animates *towards* the measured value — the
+   resting state is never a guess.
+
+   The searches chart animates inside Chart.js instead: it draws to a canvas,
+   which CSS cannot reach. Its reduced-motion handling lives in the component,
+   which asks `matchMedia` directly. */
+@keyframes meter-fill {
+  from {
+    width: 0%;
+  }
+  to {
+    width: var(--fill);
+  }
+}
+
+.meter-bar {
+  width: var(--fill);
+  animation: meter-fill 700ms var(--ease-out) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Settles on the finished frame, not a frozen first one — the blanket
+     0.001ms clamp would otherwise leave the bar at 0% width. */
+  .meter-bar {
+    width: var(--fill);
+    animation: none;
+  }
+}

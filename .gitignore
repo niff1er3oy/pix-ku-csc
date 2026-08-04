@@ -41,3 +41,11 @@ yarn-error.log*
 next-env.d.ts
 .impeccable
 .claude
+
+# uploaded event photographs, and the reference selfies used to search them
+# STORAGE_ROOT defaults to ./storage, which sits inside the repo — without this
+# the first `git add .` after an upload would commit identifiable photographs of
+# students. Face data is sensitive personal data under the PDPA, which
+# PRODUCT.md records as a legal obligation rather than a preference, and git
+# keeps deleted files in history, so a later commit could not undo it.
+/storage

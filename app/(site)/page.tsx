@@ -29,6 +29,7 @@ import { EventFinder } from "@/components/home/event-finder";
 import { pickFinderLabels } from "@/components/home/finder-labels";
 import { ScrollJourney } from "@/components/home/scroll-journey";
 import { ButtonLink } from "@/components/ui/button";
+import { ChevronDownIcon } from "@/components/ui/icon";
 import { CountUp } from "@/components/ui/count-up";
 import { GridBackground } from "@/components/ui/grid-background";
 import { Logo } from "@/components/brand/logo";
@@ -111,18 +112,11 @@ export default async function HomePage() {
           style={{ "--d": "480ms" } as React.CSSProperties}
         >
           <span>{dict.home.scrollCue}</span>
-          <svg
-            aria-hidden
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="animate-scroll-cue size-6 text-green-600 transition-transform duration-200 group-hover:scale-110"
-          >
-            <path d="M12 5v13M6 13l6 6 6-6" />
-          </svg>
+          <ChevronDownIcon
+            size={24}
+            strokeWidth={2.5}
+            className="animate-scroll-cue text-green-600 transition-transform duration-200 group-hover:scale-110"
+          />
         </Link>
       </section>
 
