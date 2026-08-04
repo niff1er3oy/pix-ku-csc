@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { CheckIcon, CloseIcon } from "@/components/ui/icon";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 
 /**
@@ -56,6 +57,7 @@ export function ReviewRow({
         <form action={approve}>
           <input type="hidden" name="id" value={id} />
           <Button type="submit" size="md">
+            <CheckIcon size={18} />
             {labels.approve}
           </Button>
         </form>
@@ -80,6 +82,7 @@ export function ReviewRow({
             </p>
           </div>
           <Button type="submit" variant="secondary" size="md">
+            <CloseIcon size={18} />
             {labels.reject}
           </Button>
         </form>

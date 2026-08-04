@@ -1,6 +1,17 @@
 import type { AdminMetrics } from "@/lib/queries/admin";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 import { t } from "@/lib/i18n";
+import {
+  AlertIcon,
+  CalendarIcon,
+  CameraIcon,
+  CheckIcon,
+  ClockIcon,
+  FaceScanIcon,
+  PhotoIcon,
+  SearchIcon,
+  UsersIcon,
+} from "@/components/ui/icon";
 import { formatNumber } from "@/lib/utils";
 
 /**
@@ -24,13 +35,16 @@ export function StatTiles({
   labels: Dictionary["admin"];
   locale: "th" | "en";
 }) {
+  // The icon rides with the label, not the number. It is a second way to find
+  // the right tile while scanning six of them — the value still leads, which is
+  // why the glyph is 16px in slate rather than large and coloured.
   const tiles = [
-    { label: labels.statUsers, value: totals.users },
-    { label: labels.statPhotographers, value: totals.photographers },
-    { label: labels.statEvents, value: totals.events },
-    { label: labels.statPhotos, value: totals.photos },
-    { label: labels.statFaces, value: totals.faces },
-    { label: labels.statSearches, value: totals.searches },
+    { label: labels.statUsers, value: totals.users, Icon: UsersIcon },
+    { label: labels.statPhotographers, value: totals.photographers, Icon: CameraIcon },
+    { label: labels.statEvents, value: totals.events, Icon: CalendarIcon },
+    { label: labels.statPhotos, value: totals.photos, Icon: PhotoIcon },
+    { label: labels.statFaces, value: totals.faces, Icon: FaceScanIcon },
+    { label: labels.statSearches, value: totals.searches, Icon: SearchIcon },
   ];
 
   return (
@@ -47,7 +61,10 @@ export function StatTiles({
           <p className="font-display text-h2 font-bold text-ink">
             {formatNumber(tile.value, locale)}
           </p>
-          <p className="mt-1 text-caption text-slate">{tile.label}</p>
+          <p className="mt-1 flex items-center gap-1.5 text-caption text-slate">
+            <tile.Icon size={16} />
+            {tile.label}
+          </p>
         </li>
       ))}
     </ul>
@@ -114,13 +131,29 @@ export function IndexingMeter({
           </div>
 
           <dl className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
-            <Figure label={labels.indexIndexed} value={indexed} locale={locale} />
-            <Figure label={labels.indexWorking} value={working} locale={locale} />
-            <Figure label={labels.indexNoFace} value={noFace} locale={locale} />
+            <Figure
+              label={labels.indexIndexed}
+              value={indexed}
+              locale={locale}
+              Icon={CheckIcon}
+            />
+            <Figure
+              label={labels.indexWorking}
+              value={working}
+              locale={locale}
+              Icon={ClockIcon}
+            />
+            <Figure
+              label={labels.indexNoFace}
+              value={noFace}
+              locale={locale}
+              Icon={FaceScanIcon}
+            />
             <Figure
               label={labels.indexFailed}
               value={failed}
               locale={locale}
+              Icon={AlertIcon}
               /* Only when there is something wrong. A permanently red zero
                  trains an admin to ignore the one colour that should make
                  them look. */
@@ -137,16 +170,24 @@ function Figure({
   label,
   value,
   locale,
+  Icon,
   alarming = false,
 }: {
   label: string;
   value: number;
   locale: "th" | "en";
+  Icon: (props: { size?: number }) => React.ReactElement;
   alarming?: boolean;
 }) {
   return (
     <div>
-      <dt className="text-caption text-slate">{label}</dt>
+      {/* The icon is a second channel beside the word, never instead of it —
+          a warning triangle on its own tells a colourblind reader nothing the
+          red already failed to. */}
+      <dt className="flex items-center gap-1.5 text-caption text-slate">
+        <Icon size={14} />
+        {label}
+      </dt>
       <dd
         className={
           alarming

@@ -1,7 +1,8 @@
 import Link from "next/link";
 
 import { DirectoryRow } from "@/components/admin/directory-row";
-import { Button } from "@/components/ui/button";
+import { DirectorySearch } from "@/components/admin/directory-search";
+import { ChevronLeftIcon, ChevronRightIcon } from "@/components/ui/icon";
 import { t } from "@/lib/i18n";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 import type { Directory as Data, DirectoryFilter } from "@/lib/queries/admin";
@@ -42,17 +43,38 @@ export function Directory({
     { key: "admins", label: labels.filterAdmins },
   ];
 
+  /**
+   * Every link out of this section lands back on the section.
+   *
+   * Without the fragment, clicking a filter threw the reader to the top of the
+   * page — measured at 988px back to 64px — because a Next navigation scrolls
+   * to the top by default and the directory sits below the stats, the chart and
+   * the review queue. Choosing "photographers" and being shown the headline
+   * numbers instead is not a small annoyance; it costs a scroll every time.
+   *
+   * A fragment rather than `scroll={false}`: the search box below is a plain
+   * GET form, which is a real browser navigation and cannot be told not to
+   * scroll. The anchor is the one mechanism that behaves the same for the
+   * links, the form, and a visitor with no JavaScript — and it makes the URL
+   * land somebody you send it to on the list rather than at the top.
+   */
+  const withAnchor = (params: URLSearchParams) => {
+    const query = params.toString();
+    return query ? `/admin?${query}#directory` : "/admin#directory";
+  };
+
   const href = (page: number) => {
     const params = new URLSearchParams();
     if (q) params.set("q", q);
     if (filter !== "all") params.set("filter", filter);
     if (page > 1) params.set("page", String(page));
-    const query = params.toString();
-    return query ? `/admin?${query}` : "/admin";
+    return withAnchor(params);
   };
 
   return (
-    <section className="mt-16">
+    /* `scroll-mt` keeps the heading clear of the sticky header when the
+       anchor above brings the reader here. */
+    <section id="directory" className="mt-16 scroll-mt-20">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <h2 className="text-h2">{labels.directoryTitle}</h2>
         {/* Totals live here rather than in a row of big-number tiles at the
@@ -65,36 +87,24 @@ export function Directory({
         </p>
       </div>
 
-      <form method="get" action="/admin" className="mt-5 flex flex-wrap gap-2">
-        <input type="hidden" name="filter" value={filter} />
-        <label htmlFor="admin-search" className="sr-only">
-          {labels.directorySearch}
-        </label>
-        <input
-          id="admin-search"
-          name="q"
-          type="search"
-          defaultValue={q}
-          placeholder={labels.directorySearch}
-          className="h-[46px] min-w-0 flex-1 rounded-field bg-paper px-4 text-body text-ink ring-1 ring-inset ring-edge transition-shadow duration-200 placeholder:text-slate focus:ring-2 focus:ring-green-600 sm:max-w-xs"
-        />
-        <Button type="submit" variant="secondary" size="md">
-          {labels.directorySearchSubmit}
-        </Button>
-      </form>
+      <DirectorySearch
+        q={q}
+        filter={filter}
+        label={labels.directorySearch}
+        submitLabel={labels.directorySearchSubmit}
+      />
 
       <nav className="mt-3 flex flex-wrap gap-1.5" aria-label={labels.filterAll}>
         {filters.map((item) => {
           const params = new URLSearchParams();
           if (q) params.set("q", q);
           if (item.key !== "all") params.set("filter", item.key);
-          const query = params.toString();
           const active = item.key === filter;
 
           return (
             <Link
               key={item.key}
-              href={query ? `/admin?${query}` : "/admin"}
+              href={withAnchor(params)}
               aria-current={active ? "page" : undefined}
               className={cn(
                 "inline-flex min-h-11 items-center whitespace-nowrap rounded-pill px-4 text-sm font-medium transition-colors duration-200",
@@ -135,6 +145,7 @@ export function Directory({
             href={href(data.page - 1)}
             disabled={data.page <= 1}
             label={labels.prevPage}
+            side="prev"
           />
           <p className="tnum text-label text-slate">
             {t(labels.pageOf, {
@@ -146,6 +157,7 @@ export function Directory({
             href={href(data.page + 1)}
             disabled={data.page >= data.pageCount}
             label={labels.nextPage}
+            side="next"
           />
         </nav>
       )}
@@ -162,10 +174,12 @@ function PagerLink({
   href,
   disabled,
   label,
+  side,
 }: {
   href: string;
   disabled: boolean;
   label: string;
+  side: "prev" | "next";
 }) {
   if (disabled) {
     return (
@@ -178,9 +192,11 @@ function PagerLink({
   return (
     <Link
       href={href}
-      className="inline-flex min-h-11 items-center rounded-pill px-4 text-label font-medium text-green-700 transition-colors duration-200 hover:bg-cloud"
+      className="inline-flex min-h-11 items-center gap-1 rounded-pill px-4 text-label font-medium text-green-700 transition-colors duration-200 hover:bg-cloud"
     >
+      {side === "prev" && <ChevronLeftIcon size={18} />}
       {label}
+      {side === "next" && <ChevronRightIcon size={18} />}
     </Link>
   );
 }
