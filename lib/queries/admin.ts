@@ -46,11 +46,11 @@ export async function getPendingPhotographers(): Promise<PendingPhotographer[]> 
 
 export type PendingEvent = {
   id: string;
-  slug: string;
+  accessCode: string;
   nameTh: string;
   descriptionTh: string | null;
   location: string | null;
-  startsAt: Date;
+  eventDate: string;
   ownerName: string;
 };
 
@@ -58,11 +58,11 @@ export async function getPendingEvents(): Promise<PendingEvent[]> {
   return db
     .select({
       id: events.id,
-      slug: events.slug,
+      accessCode: events.accessCode,
       nameTh: events.nameTh,
       descriptionTh: events.descriptionTh,
       location: events.location,
-      startsAt: events.startsAt,
+      eventDate: events.eventDate,
       ownerName: photographers.displayName,
     })
     .from(events)
@@ -221,15 +221,15 @@ export async function getPhotographerEvents(photographerId: string) {
   return db
     .select({
       id: events.id,
-      slug: events.slug,
+      accessCode: events.accessCode,
       nameTh: events.nameTh,
       status: events.status,
-      startsAt: events.startsAt,
+      eventDate: events.eventDate,
       photoCount: events.photoCount,
     })
     .from(events)
     .where(eq(events.ownerId, photographerId))
-    .orderBy(desc(events.startsAt));
+    .orderBy(desc(events.eventDate));
 }
 
 // ---------------------------------------------------------------------------

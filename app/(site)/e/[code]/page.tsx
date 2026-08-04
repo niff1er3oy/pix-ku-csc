@@ -19,12 +19,12 @@ const PAGE_SIZE = 60;
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ slug: string }>;
+  params: Promise<{ code: string }>;
 }): Promise<Metadata> {
-  const { slug } = await params;
+  const { code } = await params;
   const [locale, event] = await Promise.all([
     getLocale(),
-    getEventBySlug(slug).catch(() => null),
+    getEventBySlug(code).catch(() => null),
   ]);
   if (!event) return {};
 
@@ -32,7 +32,7 @@ export async function generateMetadata({
   return {
     title: name,
     // Unlisted events must not be indexed — the URL is the access control.
-    robots: event.isUnlisted ? { index: false, follow: false } : undefined,
+    robots: event.isPrivate ? { index: false, follow: false } : undefined,
   };
 }
 
@@ -46,17 +46,17 @@ export default async function EventPage({
   params,
   searchParams,
 }: {
-  params: Promise<{ slug: string }>;
+  params: Promise<{ code: string }>;
   searchParams: Promise<{ page?: string }>;
 }) {
-  const [{ slug }, { page: pageParam }, locale, dict] = await Promise.all([
+  const [{ code }, { page: pageParam }, locale, dict] = await Promise.all([
     params,
     searchParams,
     getLocale(),
     getDictionary(),
   ]);
 
-  const event = await getEventBySlug(slug);
+  const event = await getEventBySlug(code);
   if (!event) notFound();
 
   const user = await getSessionUser();
@@ -95,7 +95,7 @@ export default async function EventPage({
 
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <span className="rounded-pill bg-paper px-3 py-1 text-caption font-medium text-green-700">
-              {formatDate(event.startsAt, locale)}
+              {formatDate(event.eventDate, locale)}
             </span>
             {event.location && (
               <span className="rounded-pill bg-paper px-3 py-1 text-caption font-medium text-green-700">
@@ -129,7 +129,7 @@ export default async function EventPage({
       {/* --- Face search, inline ------------------------------------------ */}
       <FaceSearchPanel
         eventId={event.id}
-        eventSlug={event.slug}
+        eventSlug={event.accessCode}
         dict={dict}
         signedIn={Boolean(user)}
         watermarked={event.watermarkEnabled}
@@ -178,7 +178,7 @@ export default async function EventPage({
               <Pagination
                 page={page}
                 pageCount={pageCount}
-                slug={event.slug}
+                code={event.accessCode}
                 dict={dict}
               />
             )}
@@ -196,12 +196,12 @@ export default async function EventPage({
 function Pagination({
   page,
   pageCount,
-  slug,
+  code,
   dict,
 }: {
   page: number;
   pageCount: number;
-  slug: string;
+  code: string;
   dict: Awaited<ReturnType<typeof getDictionary>>;
 }) {
   const link =
@@ -213,7 +213,7 @@ function Pagination({
       aria-label={dict.event.browseAll}
     >
       {page > 1 ? (
-        <Link href={`/e/${slug}?page=${page - 1}`} className={link}>
+        <Link href={`/e/${code}?page=${page - 1}`} className={link}>
           {dict.common.back}
         </Link>
       ) : (
@@ -227,7 +227,7 @@ function Pagination({
       </span>
 
       {page < pageCount ? (
-        <Link href={`/e/${slug}?page=${page + 1}`} className={link}>
+        <Link href={`/e/${code}?page=${page + 1}`} className={link}>
           {dict.common.next}
         </Link>
       ) : (

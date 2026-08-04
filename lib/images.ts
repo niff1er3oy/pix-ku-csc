@@ -18,6 +18,31 @@ export const ACCEPTED_MIME = [
 
 export const MAX_UPLOAD_BYTES = 40 * 1024 * 1024;
 export const MAX_SELFIE_BYTES = 10 * 1024 * 1024;
+export const MAX_COVER_BYTES = 10 * 1024 * 1024;
+
+/** A cover is shown at card size and as a page header; 1600px covers both. */
+const COVER_MAX_EDGE = 1600;
+
+/**
+ * The event cover, as one WebP.
+ *
+ * Deliberately not `buildDerivatives`. That produces three outputs including a
+ * Rekognition detection copy, and a cover is never searched — no face is ever
+ * indexed from it, and running one through face detection would be processing
+ * biometric data nobody consented to. One decode, one file.
+ */
+export async function buildCoverImage(input: Buffer): Promise<Buffer> {
+  return sharp(input, { failOn: "none" })
+    .rotate()
+    .resize({
+      width: COVER_MAX_EDGE,
+      height: COVER_MAX_EDGE,
+      fit: "inside",
+      withoutEnlargement: true,
+    })
+    .webp({ quality: 82 })
+    .toBuffer();
+}
 
 export type Derivatives = {
   width: number;

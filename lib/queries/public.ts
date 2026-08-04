@@ -7,11 +7,11 @@ import { events, photoFaces, photographers, photos } from "@/db/schema";
 
 export type EventCard = {
   id: string;
-  slug: string;
+  accessCode: string;
   nameTh: string;
   nameEn: string | null;
   location: string | null;
-  startsAt: Date;
+  eventDate: string;
   photoCount: number;
   photographerName: string;
   coverThumbPath: string | null;
@@ -25,24 +25,36 @@ export async function getPublicEvents(limit = 12): Promise<EventCard[]> {
   const rows = await db
     .select({
       id: events.id,
-      slug: events.slug,
+      accessCode: events.accessCode,
       nameTh: events.nameTh,
       nameEn: events.nameEn,
       location: events.location,
-      startsAt: events.startsAt,
+      eventDate: events.eventDate,
       photoCount: events.photoCount,
       photographerName: photographers.displayName,
-      coverThumbPath: sql<string | null>`(
-        select ${photos.thumbPath} from ${photos}
-        where ${photos.eventId} = ${events.id}
-        order by ${photos.createdAt} asc
-        limit 1
+      /**
+       * The cover the photographer chose, falling back to the first photo
+       * uploaded.
+       *
+       * `coalesce` rather than two fields and a decision in the component: the
+       * card only ever renders one image, so which one it is belongs in the
+       * query. The fallback exists because a cover is optional and an event
+       * card with a blank rectangle reads as broken rather than as pending.
+       */
+      coverThumbPath: sql<string | null>`coalesce(
+        ${events.coverPath},
+        (
+          select ${photos.thumbPath} from ${photos}
+          where ${photos.eventId} = ${events.id}
+          order by ${photos.createdAt} asc
+          limit 1
+        )
       )`,
     })
     .from(events)
     .innerJoin(photographers, eq(events.ownerId, photographers.id))
-    .where(and(eq(events.status, "approved"), eq(events.isUnlisted, false)))
-    .orderBy(desc(events.startsAt))
+    .where(and(eq(events.status, "approved"), eq(events.isPrivate, false)))
+    .orderBy(desc(events.eventDate))
     .limit(limit);
 
   return rows;
@@ -54,7 +66,7 @@ export async function getHeroThumbs(limit = 24): Promise<string[]> {
     .select({ thumbPath: photos.thumbPath })
     .from(photos)
     .innerJoin(events, eq(photos.eventId, events.id))
-    .where(and(eq(events.status, "approved"), eq(events.isUnlisted, false)))
+    .where(and(eq(events.status, "approved"), eq(events.isPrivate, false)))
     .orderBy(desc(photos.createdAt))
     .limit(limit);
 

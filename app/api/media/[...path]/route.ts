@@ -133,7 +133,14 @@ async function authorize(
     return { ok: false, status: 404 };
   }
 
-  if (kind === "thumb" || kind === "preview" || kind === "watermark") {
+  // `cover` belongs with the public derivatives: it is the image on the event
+  // card and the page header, so anyone who can see the event can see it.
+  if (
+    kind === "thumb" ||
+    kind === "preview" ||
+    kind === "watermark" ||
+    kind === "cover"
+  ) {
     return { ok: true, private: !isManager ? false : true };
   }
 

@@ -69,7 +69,7 @@ export default async function PhotographerEventsPage({
               className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-t border-edge py-4"
             >
               <Link
-                href={`/e/${event.slug}`}
+                href={`/e/${event.accessCode}`}
                 className="font-display font-semibold text-ink hover:text-green-700"
               >
                 {event.nameTh}
@@ -77,7 +77,7 @@ export default async function PhotographerEventsPage({
               <p className="tnum text-label text-slate">
                 {dict.status[event.status]}
                 {" · "}
-                {formatDate(event.startsAt, locale)}
+                {formatDate(event.eventDate, locale)}
                 {" · "}
                 {t(dict.event.photosCount, {
                   count: formatNumber(event.photoCount, locale),

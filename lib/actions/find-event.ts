@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, or, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { redirect } from "next/navigation";
 
 import { db } from "@/db";
@@ -12,14 +12,13 @@ export type FindEventState =
   | undefined;
 
 /**
- * Resolves whatever the visitor pasted into the hero into a real event, then
- * redirects. It looks the slug up *before* navigating on purpose: sending
- * someone to a URL that turns out not to exist would answer a mistyped code
- * with a 404 page, when the field they typed into is right there to correct.
+ * Resolves whatever the visitor typed or pasted into a real event.
  *
- * Accepts a full shared URL, a bare slug, or a six-character event code —
- * those are the three things a visitor actually has in hand. The code's shape
- * and the forgiveness applied to it live in lib/event-code.ts.
+ * There is one identifier now. The event's public address *is* its
+ * six-character code — `/e/VIC4SI` — so a pasted link and a typed code reduce
+ * to the same value, and this no longer has to decide between a slug branch
+ * and a code branch or worry that an event's slug might read like somebody
+ * else's code.
  */
 export async function findEvent(
   _prev: FindEventState,
@@ -27,8 +26,8 @@ export async function findEvent(
 ): Promise<FindEventState> {
   // `q` carries a pasted link. In the ordinary case it is empty and the code
   // arrives as one field per box, which is also what makes the form work with
-  // no JavaScript at all — nothing here depends on the client having
-  // assembled anything.
+  // no JavaScript — nothing here depends on the client having assembled
+  // anything.
   const raw =
     String(formData.get("q") ?? "").trim() ||
     Array.from({ length: EVENT_CODE_LENGTH }, (_, index) =>
@@ -37,34 +36,26 @@ export async function findEvent(
 
   if (!raw) return { error: "empty" };
 
-  // A six-character code is checked first and on its own. If it were folded
-  // into the slug branch, a code would also be tried as a slug, and an event
-  // whose slug happened to read like somebody else's code would open the
-  // wrong gallery — of photographs of people who never agreed to be found
-  // that way.
-  const code = cleanEventCode(raw);
-  const slug = code ? null : extractSlug(raw);
-  if (!code && !slug) return { error: "not_found" };
+  const code = cleanEventCode(extractCode(raw));
+  if (!code) return { error: "not_found" };
 
   // Guarded like every read on the landing page. Without this an outage
   // rejects inside a Server Action, which takes down the whole page through
   // the error boundary — so the one visitor who actually holds a code loses
   // their session instead of being told to try again.
-  let event: { slug: string } | undefined;
+  let event: { code: string } | undefined;
   try {
     [event] = await db
-      .select({ slug: events.slug })
+      .select({ code: events.accessCode })
       .from(events)
       .where(
         and(
           eq(events.status, "approved"),
-          code
-            ? // Compared upper-cased on both sides rather than as stored, and
-              // that is the only liberty taken with it: the alphabet has no
-              // lower-case members, so casing cannot distinguish two codes.
-              // Nothing else about what was typed is reinterpreted.
-              sql`upper(${events.accessCode}) = ${code}`
-            : or(eq(events.slug, slug!), eq(events.accessCode, raw)),
+          // Compared upper-cased on both sides rather than as stored, and that
+          // is the only liberty taken with it: the alphabet has no lower-case
+          // members, so casing cannot distinguish two codes. Nothing else
+          // about what was typed is reinterpreted.
+          sql`upper(${events.accessCode}) = ${code}`,
         ),
       )
       .limit(1);
@@ -75,25 +66,22 @@ export async function findEvent(
 
   if (!event) return { error: "not_found" };
 
-  redirect(`/e/${event.slug}`);
+  redirect(`/e/${event.code}`);
 }
 
 /**
- * Pulls the slug out of a pasted link. Group chats mangle URLs — tracking
- * params, trailing punctuation, a missing scheme — so this is deliberately
- * forgiving rather than strict.
+ * Pulls the code out of whatever was pasted.
+ *
+ * Group chats mangle links — tracking params, a trailing full stop, a missing
+ * scheme, an invisible character from a copy — so this is deliberately
+ * forgiving. Anything that is not a link is handed back untouched for
+ * `cleanEventCode` to judge.
  */
-function extractSlug(input: string): string | null {
-  let value = input;
+function extractCode(input: string): string {
+  const value = input.trim();
+  if (!value.includes("/")) return value;
 
-  if (value.includes("/")) {
-    const match = value.match(/\/e\/([^/?#\s]+)/);
-    value = match ? match[1] : value.split("/").filter(Boolean).pop() || "";
-  }
-
-  value = value.replace(/[?#].*$/, "").replace(/[.,)\]]+$/, "").trim();
-
-  // Slugs may contain Thai, so validate by what is *not* allowed.
-  if (!value || /[\s/\\<>"']/.test(value)) return null;
-  return value.slice(0, 120);
+  const match = value.match(/\/e\/([^/?#\s]+)/i);
+  const tail = match ? match[1] : value.split(/[/?#]/).filter(Boolean).pop();
+  return (tail ?? "").replace(/[.,)\]]+$/, "");
 }

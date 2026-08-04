@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, count, eq, ne } from "drizzle-orm";
+import { and, asc, count, eq, ne, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { events, photographers, photos, type Event } from "@/db/schema";
@@ -8,7 +8,7 @@ import { events, photographers, photos, type Event } from "@/db/schema";
 export type EventWithOwner = Event & { photographerName: string };
 
 export async function getEventBySlug(
-  slug: string,
+  code: string,
 ): Promise<EventWithOwner | null> {
   const [row] = await db
     .select({
@@ -17,7 +17,11 @@ export async function getEventBySlug(
     })
     .from(events)
     .innerJoin(photographers, eq(events.ownerId, photographers.id))
-    .where(eq(events.slug, slug))
+    // Upper-cased on both sides: a code typed into the address bar or
+    // read off a printed sign arrives in whatever case the keyboard felt
+    // like. The alphabet has no lower-case members, so folding case cannot
+    // merge two different codes.
+    .where(sql`upper(${events.accessCode}) = upper(${code})`)
     .limit(1);
 
   if (!row) return null;
