@@ -14,7 +14,9 @@ import { submitEventForReview } from "@/lib/actions/studio";
 import { requireApprovedPhotographer } from "@/lib/dal";
 import { getDictionary, getLocale, t } from "@/lib/i18n";
 import { eventQrSvg, eventUrl } from "@/lib/qr";
-import { getMyEvent } from "@/lib/queries/studio";
+import { DeleteEvent } from "@/components/studio/delete-event";
+import { PhotoUploader } from "@/components/studio/photo-uploader";
+import { getMyEvent, getMyEventPhotos } from "@/lib/queries/studio";
 import { formatDate, formatNumber } from "@/lib/utils";
 
 export async function generateMetadata({
@@ -47,6 +49,7 @@ export default async function StudioEventPage({
   const event = await getMyEvent(photographer.id, id);
   if (!event) notFound();
 
+  const photos = await getMyEventPhotos(photographer.id, id);
   const [qr, url] = [await eventQrSvg(event.accessCode), eventUrl(event.accessCode)];
 
   const statusNote =
@@ -162,14 +165,44 @@ export default async function StudioEventPage({
         )}
       </div>
 
-      {/* Upload lands here next. Stated rather than left blank so the page does
-          not read as finished when it is not. */}
-      <div className="mt-12 rounded-card border border-dashed border-edge px-6 py-12 text-center">
-        <p className="text-h3 text-slate">{dict.studio.uploadTitle}</p>
-        <p className="mx-auto mt-2 max-w-sm text-label text-slate">
-          {dict.studio.uploadHint}
-        </p>
-      </div>
+      <PhotoUploader eventId={event.id} labels={dict.studio} />
+
+      <section className="mt-12">
+        <h2 className="text-h2">{dict.studio.photosTitle}</h2>
+
+        {photos.length === 0 ? (
+          <p className="mt-5 rounded-card bg-cloud px-6 py-12 text-center text-body text-slate">
+            {dict.studio.photosNone}
+          </p>
+        ) : (
+          <ul className="mt-5 grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+            {photos.map((photo) => (
+              <li key={photo.id} className="relative">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`/api/media/${photo.thumbPath}`}
+                  alt={photo.originalFilename}
+                  loading="lazy"
+                  className="aspect-square w-full rounded-media object-cover ring-1 ring-edge"
+                />
+                {photo.indexStatus === "failed" && (
+                  <span className="absolute right-1 top-1 rounded-pill bg-danger px-1.5 py-0.5 text-caption font-semibold text-paper">
+                    !
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <DeleteEvent
+        eventId={event.id}
+        accessCode={event.accessCode}
+        photoCount={event.photoCount}
+        isLive={event.status === "approved"}
+        labels={dict.studio}
+      />
     </section>
   );
 }

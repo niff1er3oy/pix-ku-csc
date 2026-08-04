@@ -3,7 +3,7 @@ import "server-only";
 import { and, desc, eq } from "drizzle-orm";
 
 import { db } from "@/db";
-import { events } from "@/db/schema";
+import { events, photos } from "@/db/schema";
 
 export type StudioEvent = {
   id: string;
@@ -75,4 +75,41 @@ export async function getMyEvent(
     .limit(1);
 
   return rows[0] ?? null;
+}
+
+export type StudioPhoto = {
+  id: string;
+  thumbPath: string;
+  originalFilename: string;
+  indexStatus: "pending" | "indexing" | "indexed" | "no_face" | "failed";
+  faceCount: number;
+};
+
+/**
+ * The photographs in one of this photographer's events, newest first.
+ *
+ * Capped rather than unbounded: an event can hold thousands, and a studio page
+ * that renders every one of them ships a megabyte of markup to say something
+ * the count already said. Paging belongs here when the grid grows a pager.
+ */
+export async function getMyEventPhotos(
+  photographerId: string,
+  eventId: string,
+  limit = 60,
+): Promise<StudioPhoto[]> {
+  return db
+    .select({
+      id: photos.id,
+      thumbPath: photos.thumbPath,
+      originalFilename: photos.originalFilename,
+      indexStatus: photos.indexStatus,
+      faceCount: photos.faceCount,
+    })
+    .from(photos)
+    .innerJoin(events, eq(photos.eventId, events.id))
+    .where(
+      and(eq(photos.eventId, eventId), eq(events.ownerId, photographerId)),
+    )
+    .orderBy(desc(photos.createdAt))
+    .limit(limit);
 }

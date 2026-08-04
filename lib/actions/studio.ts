@@ -14,7 +14,12 @@ import {
   buildCoverImage,
   MAX_COVER_BYTES,
 } from "@/lib/images";
-import { storagePaths, writeStorageFile } from "@/lib/storage";
+import { faceProvider } from "@/lib/face";
+import {
+  deleteStoragePath,
+  storagePaths,
+  writeStorageFile,
+} from "@/lib/storage";
 
 /**
  * Validates and decodes an uploaded cover, without touching storage.
@@ -229,4 +234,81 @@ export async function submitEventForReview(formData: FormData) {
   revalidatePath("/studio");
   revalidatePath(`/studio/events/${id}`);
   revalidatePath("/admin");
+}
+
+const Delete = z.object({
+  id: z.string().uuid(),
+  /** The event's own code, retyped. See the note below. */
+  confirm: z.string().trim(),
+});
+
+/**
+ * Deletes an event and everything in it, permanently.
+ *
+ * **Order is files, then the row, and that is deliberate.** Either half can
+ * fail, so the question is which wreckage is better:
+ *
+ *  - row first, files left behind → photographs of people sitting on disk with
+ *    nothing in the database pointing at them. No screen can reach them, no
+ *    photographer can remove them, and face data is sensitive under the PDPA.
+ *  - files first, row left behind → the event is still listed with broken
+ *    thumbnails. The photographer sees it and presses delete again, and the
+ *    second attempt finishes the job.
+ *
+ * The second is visible and self-healing. The first is silent residue.
+ *
+ * The Rekognition collection goes first of all: it holds the face vectors,
+ * lives outside this database entirely, and nothing else will ever clean it up
+ * — a missed collection is both a standing privacy exposure and a standing
+ * bill.
+ *
+ * The caller must retype the event's access code. A confirm dialog is clicked
+ * through on reflex; typing six characters that are only correct for the event
+ * actually on screen is what stops somebody deleting the wrong one.
+ */
+export async function deleteEvent(formData: FormData): Promise<void> {
+  const { photographer } = await requireApprovedPhotographer();
+  const { id, confirm } = Delete.parse({
+    id: formData.get("id"),
+    confirm: formData.get("confirm"),
+  });
+
+  // Ownership is part of the lookup, not a check on the result.
+  const [event] = await db
+    .select({
+      id: events.id,
+      accessCode: events.accessCode,
+      faceCollectionId: events.faceCollectionId,
+    })
+    .from(events)
+    .where(and(eq(events.id, id), eq(events.ownerId, photographer.id)))
+    .limit(1);
+
+  if (!event) return;
+
+  // Compared case-insensitively for the same reason the finder is: the code
+  // has no lower-case members, so folding case cannot match a different event.
+  if (confirm.toUpperCase() !== event.accessCode.toUpperCase()) return;
+
+  if (event.faceCollectionId) {
+    try {
+      await faceProvider.deleteCollection(event.faceCollectionId);
+    } catch (error) {
+      // Logged loudly rather than swallowed: this is biometric data left
+      // behind on a third-party service, and nothing else sweeps it up.
+      console.error(
+        "[find-ku-dae] face collection not deleted for event",
+        event.id,
+        error,
+      );
+    }
+  }
+
+  await deleteStoragePath(storagePaths.eventDir(event.id));
+  await db.delete(events).where(eq(events.id, event.id));
+
+  revalidatePath("/studio");
+  revalidatePath("/events");
+  revalidatePath("/admin");
+  redirect("/studio");
 }
