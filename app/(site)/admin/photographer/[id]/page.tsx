@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { Button } from "@/components/ui/button";
+import { rejectEvent } from "@/lib/actions/admin";
 import { requireRole } from "@/lib/dal";
 import { getDictionary, getLocale, t } from "@/lib/i18n";
 import { getPhotographerEvents } from "@/lib/queries/admin";
@@ -64,25 +66,66 @@ export default async function PhotographerEventsPage({
       ) : (
         <ul className="mt-10">
           {events.map((event) => (
-            <li
-              key={event.id}
-              className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-t border-edge py-4"
-            >
-              <Link
-                href={`/e/${event.accessCode}`}
-                className="font-display font-semibold text-ink hover:text-green-700"
-              >
-                {event.nameTh}
-              </Link>
-              <p className="tnum text-label text-slate">
-                {dict.status[event.status]}
-                {" · "}
-                {formatDate(event.eventDate, locale)}
-                {" · "}
-                {t(dict.event.photosCount, {
-                  count: formatNumber(event.photoCount, locale),
-                })}
-              </p>
+            <li key={event.id} className="border-t border-edge py-4">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                <Link
+                  href={`/e/${event.accessCode}`}
+                  className="font-display font-semibold text-ink hover:text-green-700"
+                >
+                  {event.nameTh}
+                </Link>
+                <p className="tnum text-label text-slate">
+                  {dict.status[event.status]}
+                  {" · "}
+                  {formatDate(event.eventDate, locale)}
+                  {" · "}
+                  {t(dict.event.photosCount, {
+                    count: formatNumber(event.photoCount, locale),
+                  })}
+                </p>
+              </div>
+
+              {/* Events publish straight from the studio with no admin step
+                  in between (see `publishEvent`) — this is the only lever
+                  left to pull a live event back down. */}
+              {event.status === "approved" && (
+                <details className="mt-2">
+                  <summary className="inline-flex min-h-11 cursor-pointer list-none items-center text-label font-medium text-danger hover:underline">
+                    {dict.admin.takeDownEvent}
+                  </summary>
+                  <form
+                    action={rejectEvent}
+                    className="mt-2 max-w-sm rounded-card bg-cloud p-4"
+                  >
+                    <input type="hidden" name="id" value={event.id} />
+                    <label
+                      htmlFor={`takedown-${event.id}`}
+                      className="sr-only"
+                    >
+                      {dict.admin.takeDownReason}
+                    </label>
+                    <input
+                      id={`takedown-${event.id}`}
+                      name="reason"
+                      type="text"
+                      maxLength={500}
+                      placeholder={dict.admin.takeDownReason}
+                      className="h-[46px] w-full rounded-field bg-paper px-4 text-body text-ink ring-1 ring-inset ring-edge placeholder:text-slate focus:ring-2 focus:ring-green-600"
+                    />
+                    <p className="mt-1.5 text-caption text-slate">
+                      {dict.admin.takeDownReasonHint}
+                    </p>
+                    <Button
+                      type="submit"
+                      variant="danger"
+                      size="sm"
+                      className="mt-3"
+                    >
+                      {dict.admin.takeDownEvent}
+                    </Button>
+                  </form>
+                </details>
+              )}
             </li>
           ))}
         </ul>

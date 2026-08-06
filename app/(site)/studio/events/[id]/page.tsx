@@ -10,12 +10,13 @@ import {
   DownloadIcon,
   PhotoIcon,
 } from "@/components/ui/icon";
-import { submitEventForReview } from "@/lib/actions/studio";
+import { publishEvent } from "@/lib/actions/studio";
 import { requireApprovedPhotographer } from "@/lib/dal";
 import { getDictionary, getLocale, t } from "@/lib/i18n";
 import { eventQrSvg, eventUrl } from "@/lib/qr";
 import { DeleteEvent } from "@/components/studio/delete-event";
 import { PhotoUploader } from "@/components/studio/photo-uploader";
+import { PhotoGallery } from "@/components/photos/photo-gallery";
 import { getMyEvent, getMyEventPhotos } from "@/lib/queries/studio";
 import { formatDate, formatNumber } from "@/lib/utils";
 
@@ -149,7 +150,7 @@ export default async function StudioEventPage({
 
       <div className="mt-8 flex flex-wrap gap-3">
         {event.status === "draft" && (
-          <form action={submitEventForReview}>
+          <form action={publishEvent}>
             <input type="hidden" name="id" value={event.id} />
             <Button type="submit" size="md">
               {dict.studio.formSubmitForReview}
@@ -175,24 +176,32 @@ export default async function StudioEventPage({
             {dict.studio.photosNone}
           </p>
         ) : (
-          <ul className="mt-5 grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
-            {photos.map((photo) => (
-              <li key={photo.id} className="relative">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={`/api/media/${photo.thumbPath}`}
-                  alt={photo.originalFilename}
-                  loading="lazy"
-                  className="aspect-square w-full rounded-media object-cover ring-1 ring-edge"
-                />
-                {photo.indexStatus === "failed" && (
-                  <span className="absolute right-1 top-1 rounded-pill bg-danger px-1.5 py-0.5 text-caption font-semibold text-paper">
+          <PhotoGallery
+            className="mt-5"
+            gridClassName="grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6"
+            aspect="square"
+            items={photos.map((photo) => ({
+              id: photo.id,
+              thumbSrc: `/api/media/${photo.thumbPath}`,
+              previewSrc: `/api/media/${photo.previewPath}`,
+              alt: photo.originalFilename,
+              // The owner can always pull their own original — see the
+              // `isManager` bypass in `/api/media`'s authorize().
+              downloadHref: `/api/media/${photo.originalPath}?download=1`,
+              badge:
+                photo.indexStatus === "failed" ? (
+                  <span className="rounded-pill bg-danger px-1.5 py-0.5 text-caption font-semibold text-paper">
                     !
                   </span>
-                )}
-              </li>
-            ))}
-          </ul>
+                ) : undefined,
+            }))}
+            labels={{
+              close: dict.common.close,
+              previous: dict.common.back,
+              next: dict.common.next,
+              download: dict.results.downloadOne,
+            }}
+          />
         )}
       </section>
 

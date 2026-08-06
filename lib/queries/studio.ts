@@ -80,6 +80,8 @@ export async function getMyEvent(
 export type StudioPhoto = {
   id: string;
   thumbPath: string;
+  previewPath: string;
+  originalPath: string;
   originalFilename: string;
   indexStatus: "pending" | "indexing" | "indexed" | "no_face" | "failed";
   faceCount: number;
@@ -101,6 +103,8 @@ export async function getMyEventPhotos(
     .select({
       id: photos.id,
       thumbPath: photos.thumbPath,
+      previewPath: photos.previewPath,
+      originalPath: photos.originalPath,
       originalFilename: photos.originalFilename,
       indexStatus: photos.indexStatus,
       faceCount: photos.faceCount,

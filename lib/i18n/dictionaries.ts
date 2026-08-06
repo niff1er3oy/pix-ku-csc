@@ -277,7 +277,7 @@ export const th = {
     formStatusDraft: "ยังเป็นร่าง ยังไม่มีใครเห็น",
     formStatusPending: "ส่งให้ผู้ดูแลแล้ว รอผลอนุมัติ",
     formStatusApproved: "เปิดให้ค้นหาแล้ว",
-    formStatusRejected: "ผู้ดูแลไม่อนุมัติ",
+    formStatusRejected: "ผู้ดูแลปิดงานนี้ไว้",
     formCreate: "สร้างงาน",
     formErrorInvalid: "กรอกข้อมูลไม่ครบหรือไม่ถูกต้อง ตรวจอีกครั้ง",
     formErrorSlugTaken: "ลิงก์นี้ถูกใช้ไปแล้ว ลองตั้งชื่อลิงก์ใหม่",
@@ -291,7 +291,7 @@ export const th = {
     printScanBody: "สแกน QR หรือเข้า {url} แล้วกรอกรหัส",
     printButton: "สั่งพิมพ์",
     formSave: "บันทึก",
-    formSubmitForReview: "ส่งให้ผู้ดูแลอนุมัติ",
+    formSubmitForReview: "เผยแพร่งาน",
 
     watermarkTitle: "ลายน้ำ",
     watermarkLede: "ตั้งค่าต่องาน ลายน้ำจะถูกฝังตอนผู้ใช้กดโหลดรูป",
@@ -400,6 +400,9 @@ export const th = {
     pageOf: "หน้า {page} จาก {total}",
     prevPage: "ก่อนหน้า",
     nextPage: "ถัดไป",
+    takeDownEvent: "ปิดงานนี้",
+    takeDownReason: "เหตุผลที่ปิดงาน",
+    takeDownReasonHint: "ช่างภาพจะเห็นข้อความนี้",
 
     // --- ตัวเลขและกราฟ ---
     statUsers: "บัญชีทั้งหมด",
@@ -804,7 +807,7 @@ export const en: Dictionary = {
     formStatusDraft: "Still a draft — nobody can see it",
     formStatusPending: "Sent for review",
     formStatusApproved: "Live and searchable",
-    formStatusRejected: "Not approved",
+    formStatusRejected: "Taken down by an admin",
     formCreate: "Create event",
     formErrorInvalid: "Something is missing or not valid. Check the fields.",
     formErrorSlugTaken: "That link is taken. Try a different one.",
@@ -818,7 +821,7 @@ export const en: Dictionary = {
     printScanBody: "Scan the QR, or go to {url} and enter the code",
     printButton: "Print",
     formSave: "Save",
-    formSubmitForReview: "Send for approval",
+    formSubmitForReview: "Publish event",
 
     watermarkTitle: "Watermark",
     watermarkLede:
@@ -927,6 +930,9 @@ export const en: Dictionary = {
     pageOf: "Page {page} of {total}",
     prevPage: "Previous",
     nextPage: "Next",
+    takeDownEvent: "Take down",
+    takeDownReason: "Reason for taking this down",
+    takeDownReasonHint: "The photographer will see this",
 
     statUsers: "Accounts",
     statPhotographers: "Photographers",

@@ -27,6 +27,8 @@ const RATE_LIMIT_PER_MINUTE = 12;
 export type SearchMatch = {
   photoId: string;
   thumbPath: string;
+  previewPath: string;
+  originalPath: string;
   similarity: number;
 };
 
@@ -161,6 +163,8 @@ async function resolvePhotos(
     .select({
       photoId: photos.id,
       thumbPath: photos.thumbPath,
+      previewPath: photos.previewPath,
+      originalPath: photos.originalPath,
       faceId: photoFaces.faceId,
     })
     .from(photoFaces)
@@ -181,6 +185,8 @@ async function resolvePhotos(
       byPhoto.set(row.photoId, {
         photoId: row.photoId,
         thumbPath: row.thumbPath,
+        previewPath: row.previewPath,
+        originalPath: row.originalPath,
         similarity,
       });
     }

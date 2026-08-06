@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import type { SearchMatch, SearchResponse } from "@/app/api/events/[id]/search/route";
+import { PhotoGallery } from "@/components/photos/photo-gallery";
 // Straight from the dictionary module, never from `@/lib/i18n` — that entry
 // point reads cookies via `next/headers` and cannot be bundled for the client.
 import { t, type Dictionary } from "@/lib/i18n/dictionaries";
@@ -23,12 +24,14 @@ export function FaceSearchPanel({
   dict,
   signedIn,
   watermarked,
+  allowDownload,
 }: {
   eventId: string;
   eventSlug: string;
   dict: Dictionary;
   signedIn: boolean;
   watermarked: boolean;
+  allowDownload: boolean;
 }) {
   const [consent, setConsent] = useState(false);
   const [file, setFile] = useState<File | null>(null);
@@ -38,7 +41,7 @@ export function FaceSearchPanel({
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const scanRef = useRef<HTMLDivElement>(null);
-  const resultsRef = useRef<HTMLUListElement>(null);
+  const resultsRef = useRef<HTMLDivElement>(null);
 
   /**
    * The waiting state, driven by anime.js rather than CSS.
@@ -351,38 +354,43 @@ export function FaceSearchPanel({
                     {dict.results.watermarkNote}
                   </p>
                 )}
-                <ul
-                  ref={resultsRef}
-                  className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4"
-                >
-                  {matches.map((match) => (
-                    <li
-                      key={match.photoId}
-                      className="overflow-hidden rounded-card bg-paper shadow-[var(--shadow-card)]"
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={`/api/media/${match.thumbPath}`}
-                        alt=""
-                        loading="lazy"
-                        className="aspect-[4/3] w-full object-cover"
-                      />
-                      <div className="flex items-center justify-between gap-2 p-3">
-                        <span className="tnum text-caption font-medium text-green-700">
-                          {t(dict.results.match, {
-                            percent: Math.round(match.similarity),
-                          })}
-                        </span>
-                        <a
-                          href={`/api/media/events/${eventId}/originals/${match.photoId}.jpg?download=1`}
-                          className="text-caption font-semibold text-green-700 underline underline-offset-4"
-                        >
-                          {dict.results.downloadOne}
-                        </a>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
+                <div ref={resultsRef}>
+                  <PhotoGallery
+                    className="mt-6"
+                    variant="card"
+                    items={matches.map((match) => ({
+                      id: match.photoId,
+                      thumbSrc: `/api/media/${match.thumbPath}`,
+                      previewSrc: `/api/media/${match.previewPath}`,
+                      downloadHref: allowDownload
+                        ? `/api/media/${match.originalPath}?download=1`
+                        : undefined,
+                      footer: (
+                        <div className="flex items-center justify-between gap-2 p-3">
+                          <span className="tnum text-caption font-medium text-green-700">
+                            {t(dict.results.match, {
+                              percent: Math.round(match.similarity),
+                            })}
+                          </span>
+                          {allowDownload && (
+                            <a
+                              href={`/api/media/${match.originalPath}?download=1`}
+                              className="text-caption font-semibold text-green-700 underline underline-offset-4"
+                            >
+                              {dict.results.downloadOne}
+                            </a>
+                          )}
+                        </div>
+                      ),
+                    }))}
+                    labels={{
+                      close: dict.common.close,
+                      previous: dict.common.back,
+                      next: dict.common.next,
+                      download: dict.results.downloadOne,
+                    }}
+                  />
+                </div>
               </>
             )}
           </div>

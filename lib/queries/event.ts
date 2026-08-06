@@ -31,6 +31,8 @@ export async function getEventBySlug(
 export type EventPhoto = {
   id: string;
   thumbPath: string;
+  previewPath: string;
+  originalPath: string;
   width: number;
   height: number;
 };
@@ -54,6 +56,8 @@ export async function getEventPhotos(
       .select({
         id: photos.id,
         thumbPath: photos.thumbPath,
+        previewPath: photos.previewPath,
+        originalPath: photos.originalPath,
         width: photos.width,
         height: photos.height,
       })

@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ViewTransition } from "react";
 
+import { PhotoGallery } from "@/components/photos/photo-gallery";
 import { FaceSearchPanel } from "@/components/search/face-search-panel";
 import { GridBackground } from "@/components/ui/grid-background";
 import { getPhotographer, getSessionUser } from "@/lib/dal";
@@ -133,6 +133,7 @@ export default async function EventPage({
         dict={dict}
         signedIn={Boolean(user)}
         watermarked={event.watermarkEnabled}
+        allowDownload={event.allowOriginalDownload}
       />
 
       {/* --- Gallery ------------------------------------------------------ */}
@@ -153,26 +154,26 @@ export default async function EventPage({
           </div>
         ) : (
           <>
-            <ul className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
-              {photos.map((photo) => (
-                <li key={photo.id}>
-                  <ViewTransition name={`photo-${photo.id}`}>
-                    <div className="overflow-hidden rounded-media bg-green-100">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={`/api/media/${photo.thumbPath}`}
-                        alt=""
-                        loading="lazy"
-                        decoding="async"
-                        width={photo.width}
-                        height={photo.height}
-                        className="aspect-[4/3] h-full w-full object-cover"
-                      />
-                    </div>
-                  </ViewTransition>
-                </li>
-              ))}
-            </ul>
+            <PhotoGallery
+              className="mt-8"
+              items={photos.map((photo) => ({
+                id: photo.id,
+                thumbSrc: `/api/media/${photo.thumbPath}`,
+                previewSrc: `/api/media/${photo.previewPath}`,
+                width: photo.width,
+                height: photo.height,
+                viewTransitionName: `photo-${photo.id}`,
+                downloadHref: event.allowOriginalDownload
+                  ? `/api/media/${photo.originalPath}?download=1`
+                  : undefined,
+              }))}
+              labels={{
+                close: dict.common.close,
+                previous: dict.common.back,
+                next: dict.common.next,
+                download: dict.results.downloadOne,
+              }}
+            />
 
             {pageCount > 1 && (
               <Pagination

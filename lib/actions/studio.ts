@@ -56,11 +56,26 @@ class CoverError extends Error {
   }
 }
 
+/**
+ * Every optional field is `.nullish()`, not `.optional()`.
+ *
+ * `FormData.get` returns **null** for a field that was not submitted, and
+ * `.optional()` accepts `string | undefined` — not null. The two look
+ * interchangeable and are not.
+ *
+ * That mismatch shipped a bug: `entryPin` only renders when the "private
+ * event" box is ticked, so on every public event `formData.get("entryPin")`
+ * was null, the whole object failed to parse, and creating a public event
+ * returned "invalid" with nothing on screen pointing at why. Any field that
+ * can be conditionally rendered — or simply removed from the form later — has
+ * the same shape, so the fix belongs on all of them rather than on the one
+ * that happened to break first.
+ */
 const EventInput = z.object({
   nameTh: z.string().trim().min(2).max(160),
-  nameEn: z.string().trim().max(160).optional(),
-  descriptionTh: z.string().trim().max(2000).optional(),
-  location: z.string().trim().max(160).optional(),
+  nameEn: z.string().trim().max(160).nullish(),
+  descriptionTh: z.string().trim().max(2000).nullish(),
+  location: z.string().trim().max(160).nullish(),
   /**
    * The day, as `<input type="date">` gives it: "2026-09-10".
    *
@@ -72,8 +87,11 @@ const EventInput = z.object({
    */
   eventDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   isPrivate: z.union([z.literal("on"), z.null(), z.undefined()]),
-  /** Six digits, or empty on a public event. Hashed before it is stored. */
-  entryPin: z.string().optional(),
+  /**
+   * Six digits, or absent on a public event where the field is not rendered
+   * at all — hence `.nullish()`. Hashed before it is stored.
+   */
+  entryPin: z.string().nullish(),
 });
 
 export type StudioState =
@@ -93,10 +111,11 @@ export type StudioState =
  * Creates an event as a draft.
  *
  * It never goes live from here: `status` stays `draft` until the photographer
- * submits it and an admin approves. The finder, the event page and
+ * publishes it with `publishEvent`. The finder, the event page and
  * /api/media all refuse anything that is not `approved`, so photographs
- * uploaded into a fresh event are not reachable by anyone but their owner in
- * the meantime.
+ * uploaded into a fresh event are not reachable by anyone but their owner
+ * until then — the photographer sets the event up and uploads at their own
+ * pace before anyone else can see it, not because it is waiting on review.
  *
  * The access code is deliberately absent from this insert. It is issued by
  * `gen_event_code()` in migration 0002 — see the note on `events.accessCode`.
@@ -210,19 +229,23 @@ export async function createEvent(
 const Submit = z.object({ id: z.string().uuid() });
 
 /**
- * Hands a draft to the admins.
+ * Takes a draft live — no admin approval sits in between.
  *
  * Scoped to the caller's own events by the `where` clause rather than by
  * having checked on the page that rendered the button — a server action is a
  * public endpoint, and the id in the form is whatever the caller sent.
+ *
+ * An admin can still pull a published event back down (`rejectEvent` in
+ * `lib/actions/admin.ts`) if something published turns out to need review;
+ * this is only the gate that used to sit *before* publish.
  */
-export async function submitEventForReview(formData: FormData) {
+export async function publishEvent(formData: FormData) {
   const { photographer } = await requireApprovedPhotographer();
   const { id } = Submit.parse({ id: formData.get("id") });
 
   await db
     .update(events)
-    .set({ status: "pending", updatedAt: new Date() })
+    .set({ status: "approved", updatedAt: new Date() })
     .where(
       and(
         eq(events.id, id),
@@ -233,7 +256,7 @@ export async function submitEventForReview(formData: FormData) {
 
   revalidatePath("/studio");
   revalidatePath(`/studio/events/${id}`);
-  revalidatePath("/admin");
+  revalidatePath("/events");
 }
 
 const Delete = z.object({
