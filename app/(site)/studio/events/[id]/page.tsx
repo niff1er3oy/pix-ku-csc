@@ -9,12 +9,13 @@ import {
   ChevronRightIcon,
   DownloadIcon,
   PhotoIcon,
+  SettingsIcon,
 } from "@/components/ui/icon";
 import { publishEvent } from "@/lib/actions/studio";
 import { requireApprovedPhotographer } from "@/lib/dal";
 import { getDictionary, getLocale, t } from "@/lib/i18n";
 import { eventQrSvg, eventUrl } from "@/lib/qr";
-import { DeleteEvent } from "@/components/studio/delete-event";
+import { DeletePhotosForm } from "@/components/studio/delete-photos-form";
 import { PhotoUploader } from "@/components/studio/photo-uploader";
 import { PhotoGallery } from "@/components/photos/photo-gallery";
 import { getMyEvent, getMyEventPhotos } from "@/lib/queries/studio";
@@ -62,17 +63,28 @@ export default async function StudioEventPage({
           ? dict.studio.formStatusApproved
           : event.status === "rejected"
             ? dict.studio.formStatusRejected
-            : dict.status.archived;
+            : dict.studio.formStatusArchived;
 
   return (
     <section className="mx-auto w-full max-w-3xl px-5 py-16 sm:px-8 sm:py-24">
-      <Link
-        href="/studio"
-        className="inline-flex min-h-11 items-center gap-1 text-label font-medium text-green-700 hover:underline"
-      >
-        <ChevronLeftIcon size={18} />
-        {dict.studio.backToStudio}
-      </Link>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Link
+          href="/studio"
+          className="inline-flex min-h-11 items-center gap-1 text-label font-medium text-green-700 hover:underline"
+        >
+          <ChevronLeftIcon size={18} />
+          {dict.studio.backToStudio}
+        </Link>
+
+        <ButtonLink
+          href={`/studio/events/${event.id}/settings`}
+          variant="ghost"
+          size="sm"
+        >
+          <SettingsIcon size={16} />
+          {dict.studio.settingsButton}
+        </ButtonLink>
+      </div>
 
       {event.coverPath && (
         /* The photographer's own choice, shown back to them at the size it
@@ -176,42 +188,52 @@ export default async function StudioEventPage({
             {dict.studio.photosNone}
           </p>
         ) : (
-          <PhotoGallery
-            className="mt-5"
-            gridClassName="grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6"
-            aspect="square"
-            items={photos.map((photo) => ({
-              id: photo.id,
-              thumbSrc: `/api/media/${photo.thumbPath}`,
-              previewSrc: `/api/media/${photo.previewPath}`,
-              alt: photo.originalFilename,
-              // The owner can always pull their own original — see the
-              // `isManager` bypass in `/api/media`'s authorize().
-              downloadHref: `/api/media/${photo.originalPath}?download=1`,
-              badge:
-                photo.indexStatus === "failed" ? (
-                  <span className="rounded-pill bg-danger px-1.5 py-0.5 text-caption font-semibold text-paper">
-                    !
-                  </span>
-                ) : undefined,
-            }))}
-            labels={{
-              close: dict.common.close,
-              previous: dict.common.back,
-              next: dict.common.next,
-              download: dict.results.downloadOne,
-            }}
-          />
+          <DeletePhotosForm
+            eventId={event.id}
+            submitLabel={dict.studio.photosDeleteSelected}
+            confirmMessage={dict.studio.photosDeleteConfirm}
+            selectNoneMessage={dict.studio.photosSelectNone}
+          >
+            <PhotoGallery
+              className="mt-5"
+              gridClassName="grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6"
+              aspect="square"
+              items={photos.map((photo) => ({
+                id: photo.id,
+                thumbSrc: `/api/media/${photo.thumbPath}`,
+                previewSrc: `/api/media/${photo.previewPath}`,
+                alt: photo.originalFilename,
+                // The owner can always pull their own original — see the
+                // `isManager` bypass in `/api/media`'s authorize().
+                downloadHref: `/api/media/${photo.originalPath}?download=1`,
+                badge:
+                  photo.indexStatus === "failed" ? (
+                    <span className="rounded-pill bg-danger px-1.5 py-0.5 text-caption font-semibold text-paper">
+                      !
+                    </span>
+                  ) : undefined,
+                select: (
+                  <input
+                    type="checkbox"
+                    name="photoIds"
+                    value={photo.id}
+                    aria-label={t(dict.studio.photosSelect, {
+                      name: photo.originalFilename,
+                    })}
+                    className="size-5 rounded border-2 border-paper bg-paper/80 accent-[var(--color-green-600)] shadow-[var(--shadow-card)]"
+                  />
+                ),
+              }))}
+              labels={{
+                close: dict.common.close,
+                previous: dict.common.back,
+                next: dict.common.next,
+                download: dict.results.downloadOne,
+              }}
+            />
+          </DeletePhotosForm>
         )}
       </section>
-
-      <DeleteEvent
-        eventId={event.id}
-        accessCode={event.accessCode}
-        photoCount={event.photoCount}
-        isLive={event.status === "approved"}
-        labels={dict.studio}
-      />
     </section>
   );
 }

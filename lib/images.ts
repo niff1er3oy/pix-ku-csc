@@ -19,9 +19,13 @@ export const ACCEPTED_MIME = [
 export const MAX_UPLOAD_BYTES = 40 * 1024 * 1024;
 export const MAX_SELFIE_BYTES = 10 * 1024 * 1024;
 export const MAX_COVER_BYTES = 10 * 1024 * 1024;
+export const MAX_WATERMARK_LOGO_BYTES = 3 * 1024 * 1024;
 
 /** A cover is shown at card size and as a page header; 1600px covers both. */
 const COVER_MAX_EDGE = 1600;
+/** A watermark logo is composited at a fraction of the photo's width — see
+ *  `applyWatermark` — so it never needs to be photo-sized itself. */
+const WATERMARK_LOGO_MAX_EDGE = 800;
 
 /**
  * The event cover, as one WebP.
@@ -41,6 +45,25 @@ export async function buildCoverImage(input: Buffer): Promise<Buffer> {
       withoutEnlargement: true,
     })
     .webp({ quality: 82 })
+    .toBuffer();
+}
+
+/**
+ * A photographer's uploaded watermark logo, re-encoded rather than stored
+ * as-is. `applyWatermark` composites this straight onto every download, so
+ * a file sharp cannot decode has to be caught here — at settings-save time,
+ * in front of the photographer — rather than the first time a visitor's
+ * download silently comes back unmarked.
+ */
+export async function buildWatermarkLogo(input: Buffer): Promise<Buffer> {
+  return sharp(input, { failOn: "none" })
+    .resize({
+      width: WATERMARK_LOGO_MAX_EDGE,
+      height: WATERMARK_LOGO_MAX_EDGE,
+      fit: "inside",
+      withoutEnlargement: true,
+    })
+    .png()
     .toBuffer();
 }
 
@@ -159,8 +182,16 @@ export async function applyWatermark(
   );
   const alpha = clamp(options.opacity, 5, 100) / 100;
 
-  const mark = options.logo
-    ? await sharp(options.logo)
+  // A logo and a caption underneath it are a normal watermark shape — a
+  // photo studio's mark is often exactly that. The two used to be
+  // either/or, with a logo silently winning and the typed text never
+  // drawn; each is built independently here and, when both are set,
+  // `stackMarks` combines them into the one image the rest of this
+  // function treats as "the mark."
+  const parts: Buffer[] = [];
+  if (options.logo) {
+    parts.push(
+      await sharp(options.logo)
         .resize({ width: markWidth, withoutEnlargement: false })
         .ensureAlpha()
         .composite([
@@ -174,21 +205,46 @@ export async function applyWatermark(
           },
         ])
         .png()
-        .toBuffer()
-    : options.text
-      ? await renderTextMark(options.text, markWidth, alpha)
-      : null;
+        .toBuffer(),
+    );
+  }
+  if (options.text) {
+    parts.push(await renderTextMark(options.text, markWidth, alpha));
+  }
+
+  const mark =
+    parts.length === 0
+      ? null
+      : parts.length === 1
+        ? parts[0]
+        : await stackMarks(parts);
 
   if (!mark) return sharp(input).rotate().toBuffer();
 
   const markMeta = await sharp(mark).metadata();
-  const mw = markMeta.width ?? markWidth;
-  const mh = markMeta.height ?? Math.round(markWidth / 6);
+  let finalMark = mark;
+  let mw = markMeta.width ?? markWidth;
+  let mh = markMeta.height ?? Math.round(markWidth / 6);
+
+  // `markWidth` only ever capped the *width* — a logo and a caption stacked
+  // one above the other (see `stackMarks`) can still end up taller than a
+  // landscape photo even though neither dimension looked oversized on its
+  // own. `composite()` refuses a layer bigger than its base in either
+  // dimension, so it is capped again here against the actual photo.
+  if (mw > width || mh > height) {
+    finalMark = await sharp(mark)
+      .resize({ width, height, fit: "inside", withoutEnlargement: true })
+      .toBuffer();
+    const resized = await sharp(finalMark).metadata();
+    mw = resized.width ?? mw;
+    mh = resized.height ?? mh;
+  }
+
   const pad = Math.round(width * 0.025);
 
   if (options.position === "tiled") {
     return base
-      .composite([{ input: mark, tile: true, blend: "over" }])
+      .composite([{ input: finalMark, tile: true, blend: "over" }])
       .jpeg({ quality: 92, mozjpeg: true })
       .toBuffer();
   }
@@ -202,8 +258,37 @@ export async function applyWatermark(
   });
 
   return base
-    .composite([{ input: mark, top, left, blend: "over" }])
+    .composite([{ input: finalMark, top, left, blend: "over" }])
     .jpeg({ quality: 92, mozjpeg: true })
+    .toBuffer();
+}
+
+/**
+ * Combines a logo and a text mark into one transparent image, logo on top
+ * and the caption centered beneath it, so everything downstream — tiling,
+ * corner anchoring — still only ever has to place a single rectangle.
+ */
+async function stackMarks(parts: Buffer[]): Promise<Buffer> {
+  const metas = await Promise.all(parts.map((part) => sharp(part).metadata()));
+  const width = Math.max(...metas.map((meta) => meta.width ?? 0));
+  const gap = Math.round(width * 0.08);
+  const height =
+    metas.reduce((sum, meta) => sum + (meta.height ?? 0), 0) +
+    gap * (parts.length - 1);
+
+  let top = 0;
+  const composites = parts.map((input, i) => {
+    const partWidth = metas[i].width ?? width;
+    const entry = { input, top, left: Math.round((width - partWidth) / 2) };
+    top += (metas[i].height ?? 0) + gap;
+    return entry;
+  });
+
+  return sharp({
+    create: { width, height, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
+  })
+    .composite(composites)
+    .png()
     .toBuffer();
 }
 

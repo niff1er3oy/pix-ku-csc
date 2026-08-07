@@ -18,6 +18,8 @@ export type PhotoGalleryItem = {
   /** Omit to hide the download button for this photo in the lightbox. */
   downloadHref?: string;
   viewTransitionName?: string;
+  /** A selection checkbox, typically — see `PhotoThumb`'s `select` prop. */
+  select?: ReactNode;
 };
 
 /**
@@ -56,7 +58,12 @@ export function PhotoGallery({
               variant={variant}
               badge={item.badge}
               footer={item.footer}
-              viewTransitionName={item.viewTransitionName}
+              select={item.select}
+              // The lightbox mounts its own `ViewTransition` with this same
+              // name for whichever photo is open — React refuses two
+              // components sharing a name in one commit, so the grid's copy
+              // steps aside for exactly that one photo while it is open.
+              viewTransitionName={i === openIndex ? undefined : item.viewTransitionName}
               onClick={() => setOpenIndex(i)}
             />
           </li>

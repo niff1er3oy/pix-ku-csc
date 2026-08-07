@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 
 import { db } from "@/db";
-import { downloads, events, photos } from "@/db/schema";
+import { downloads, events, photos, type Event } from "@/db/schema";
 import { getPhotographer, getSessionUser } from "@/lib/dal";
 import { applyWatermark } from "@/lib/images";
 import { readStorageFile } from "@/lib/storage";
@@ -135,13 +135,31 @@ async function authorize(
 
   // `cover` belongs with the public derivatives: it is the image on the event
   // card and the page header, so anyone who can see the event can see it.
-  if (
-    kind === "thumb" ||
-    kind === "preview" ||
-    kind === "watermark" ||
-    kind === "cover"
-  ) {
+  // `thumb` stays unwatermarked too — it is small enough (640px) that
+  // burning a mark into every grid tile would cost a composite per request
+  // for little real protection.
+  if (kind === "thumb" || kind === "watermark" || kind === "cover") {
     return { ok: true, private: !isManager ? false : true };
+  }
+
+  // `preview` is the large (2000px) image the gallery and lightbox actually
+  // display — the one a visitor can just right-click "Save image as" on
+  // without ever touching the download button. It gets the same mark the
+  // original download does, computed fresh on every request rather than
+  // baked into the stored file, so turning the watermark on or off in
+  // settings takes effect immediately without re-processing every photo.
+  //
+  // `private: true` here is deliberate, not the previous long-lived public
+  // cache: the bytes now depend on event settings that can change at any
+  // time, and a CDN holding a year-old "immutable" copy would keep serving
+  // last week's watermark — or none at all — long after it stopped being
+  // true.
+  if (kind === "preview") {
+    return {
+      ok: true,
+      private: true,
+      watermark: await resolveWatermark(event, isManager),
+    };
   }
 
   if (kind !== "originals") return { ok: false, status: 404 };
@@ -160,28 +178,32 @@ async function authorize(
 
   if (!photo || photo.eventId !== event.id) return { ok: false, status: 404 };
 
-  // Managers pull the clean file; everyone else gets the photographer's mark.
-  const watermark =
-    !isManager && event.watermarkEnabled
-      ? {
-          text: event.watermarkText,
-          logo: event.watermarkLogoPath
-            ? await readStorageFile(event.watermarkLogoPath).catch(() => null)
-            : null,
-          position: event.watermarkPosition,
-          opacity: event.watermarkOpacity,
-          scale: event.watermarkScale,
-        }
-      : undefined;
-
   return {
     ok: true,
     private: true,
     filename: photo.originalFilename,
-    watermark,
+    watermark: await resolveWatermark(event, isManager),
     logDownload:
       request.nextUrl.searchParams.get("download") === "1"
         ? { photoId: photo.id, userId: user?.id ?? null }
         : undefined,
+  };
+}
+
+/** Managers pull the clean file; everyone else gets the photographer's mark. */
+async function resolveWatermark(
+  event: Event,
+  isManager: boolean,
+): Promise<Parameters<typeof applyWatermark>[1] | undefined> {
+  if (isManager || !event.watermarkEnabled) return undefined;
+
+  return {
+    text: event.watermarkText,
+    logo: event.watermarkLogoPath
+      ? await readStorageFile(event.watermarkLogoPath).catch(() => null)
+      : null,
+    position: event.watermarkPosition,
+    opacity: event.watermarkOpacity,
+    scale: event.watermarkScale,
   };
 }

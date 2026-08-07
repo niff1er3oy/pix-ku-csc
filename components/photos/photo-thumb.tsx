@@ -19,6 +19,8 @@ export type PhotoThumbProps = {
   footer?: ReactNode;
   /** Turns the image into a button — a gallery opens its lightbox from here. The `footer`, if any, stays outside the button so a download link inside it never nests inside another interactive element. */
   onClick?: () => void;
+  /** Overlay pinned to the image's top-left corner, outside the clickable button — a selection checkbox, typically, which must never end up nested inside another interactive element. */
+  select?: ReactNode;
   className?: string;
 };
 
@@ -40,6 +42,7 @@ export function PhotoThumb({
   badge,
   footer,
   onClick,
+  select,
   className,
 }: PhotoThumbProps) {
   const img = (
@@ -91,17 +94,25 @@ export function PhotoThumb({
     photo
   );
 
-  if (variant !== "card") return <div className={className}>{content}</div>;
+  if (variant !== "card") {
+    return (
+      <div className={cn("relative", className)}>
+        {content}
+        {select && <span className="absolute left-1 top-1">{select}</span>}
+      </div>
+    );
+  }
 
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-card bg-paper shadow-[var(--shadow-card)]",
+        "relative overflow-hidden rounded-card bg-paper shadow-[var(--shadow-card)]",
         className,
       )}
     >
       {content}
       {footer}
+      {select && <span className="absolute left-1 top-1">{select}</span>}
     </div>
   );
 }

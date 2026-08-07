@@ -77,6 +77,74 @@ export async function getMyEvent(
   return rows[0] ?? null;
 }
 
+export type StudioEventSettings = {
+  id: string;
+  nameTh: string;
+  nameEn: string | null;
+  descriptionTh: string | null;
+  location: string | null;
+  eventDate: string;
+  status: "draft" | "pending" | "approved" | "rejected" | "archived";
+  isPrivate: boolean;
+  /** The hash itself is never read back — see the note on `updateEvent`. */
+  hasPin: boolean;
+  accessCode: string;
+  photoCount: number;
+  coverPath: string | null;
+  allowOriginalDownload: boolean;
+  watermarkEnabled: boolean;
+  watermarkText: string | null;
+  watermarkLogoPath: string | null;
+  watermarkPosition:
+    | "bottom_right"
+    | "bottom_left"
+    | "top_right"
+    | "top_left"
+    | "center"
+    | "tiled";
+  watermarkOpacity: number;
+  watermarkScale: number;
+};
+
+/** Everything the settings form needs to edit — a wider slice of the row than
+ *  `getMyEvent`, which only ever renders the event back, never a form. */
+export async function getMyEventSettings(
+  photographerId: string,
+  id: string,
+): Promise<StudioEventSettings | null> {
+  const rows = await db
+    .select({
+      id: events.id,
+      nameTh: events.nameTh,
+      nameEn: events.nameEn,
+      descriptionTh: events.descriptionTh,
+      location: events.location,
+      eventDate: events.eventDate,
+      status: events.status,
+      isPrivate: events.isPrivate,
+      entryPinHash: events.entryPinHash,
+      accessCode: events.accessCode,
+      photoCount: events.photoCount,
+      coverPath: events.coverPath,
+      allowOriginalDownload: events.allowOriginalDownload,
+      watermarkEnabled: events.watermarkEnabled,
+      watermarkText: events.watermarkText,
+      watermarkLogoPath: events.watermarkLogoPath,
+      watermarkPosition: events.watermarkPosition,
+      watermarkOpacity: events.watermarkOpacity,
+      watermarkScale: events.watermarkScale,
+    })
+    .from(events)
+    .where(and(eq(events.id, id), eq(events.ownerId, photographerId)))
+    .limit(1);
+
+  const row = rows[0];
+  if (!row) return null;
+
+  const { entryPinHash, ...rest } = row;
+  return { ...rest, hasPin: entryPinHash !== null };
+}
+
 export type StudioPhoto = {
   id: string;
   thumbPath: string;

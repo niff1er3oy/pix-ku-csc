@@ -6,50 +6,61 @@ import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { CoverField } from "@/components/studio/cover-field";
 import { PinField } from "@/components/studio/pin-field";
-import { createEvent, type StudioState } from "@/lib/actions/studio";
+import { updateEvent, type EventSettingsState } from "@/lib/actions/studio";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
+import type { StudioEventSettings } from "@/lib/queries/studio";
 
 const field =
   "h-[46px] w-full rounded-field bg-paper px-4 text-body text-ink ring-1 ring-inset ring-edge transition-shadow duration-200 placeholder:text-slate focus:ring-2 focus:ring-green-600";
 
 /**
- * Create an event.
+ * Edits an existing event's basic info, cover and privacy — the same fields
+ * `EventForm` collects on creation, pre-filled from the row instead of blank.
  *
- * On success the action redirects, so the state this holds is only ever an
- * error — and it carries the submitted values back with it. A form that clears
- * itself on a validation failure makes the person retype everything to fix one
- * field, which is how a photographer setting up at a venue on a phone gives up.
- *
- * There is no link field and no code field. The event's public address is the
- * six-character code the database issues on insert, shown on the next screen
- * with its QR. Letting a photographer choose either would hand out a guessable
- * gate to an unlisted gallery and put a second identifier in play that has to
- * be kept unique for no benefit.
+ * On a validation failure the action echoes back what was actually typed
+ * (`state.values`), same as on creation; on success it returns `{ ok: true }`
+ * with nothing to echo, so the fields fall back to the event's own values —
+ * which by then are the values just saved.
  */
-export function EventForm({ labels }: { labels: Dictionary["studio"] }) {
-  const [state, action] = useActionState<StudioState, FormData>(
-    createEvent,
+export function EventSettingsForm({
+  event,
+  labels,
+}: {
+  event: StudioEventSettings;
+  labels: Dictionary["studio"];
+}) {
+  const [state, action] = useActionState<EventSettingsState, FormData>(
+    updateEvent,
     undefined,
   );
 
   const message =
-    state?.error === "invalid"
-      ? labels.formErrorInvalid
-      : state?.error === "pin_required"
-        ? labels.formErrorPinRequired
-      : state?.error === "cover_too_large"
-        ? labels.formErrorCoverTooLarge
-        : state?.error === "cover_bad_format"
-          ? labels.formErrorCoverBadFormat
-          : state?.error === "unavailable"
-            ? labels.formErrorUnavailable
-            : null;
+    state?.ok === false
+      ? state.error === "invalid"
+        ? labels.formErrorInvalid
+        : state.error === "pin_required"
+          ? labels.formErrorPinRequired
+          : state.error === "cover_too_large"
+            ? labels.formErrorCoverTooLarge
+            : state.error === "cover_bad_format"
+              ? labels.formErrorCoverBadFormat
+              : labels.formErrorUnavailable
+      : null;
 
-  const prior = state?.values ?? {};
-  const [isPrivate, setPrivate] = useState(prior.isPrivate === "on");
+  const prior = state?.ok === false ? state.values : undefined;
+  const [isPrivate, setPrivate] = useState(
+    prior ? prior.isPrivate === "on" : event.isPrivate,
+  );
 
   return (
-    <form action={action} className="mt-10 space-y-6">
+    <form action={action} className="space-y-6">
+      <input type="hidden" name="id" value={event.id} />
+
+      {state?.ok === true && (
+        <p className="rounded-field bg-green-50 px-4 py-3 text-label text-green-700">
+          {labels.settingsSaved}
+        </p>
+      )}
       {message && (
         <p
           role="alert"
@@ -66,7 +77,7 @@ export function EventForm({ labels }: { labels: Dictionary["studio"] }) {
           required
           minLength={2}
           maxLength={160}
-          defaultValue={prior.nameTh}
+          defaultValue={prior?.nameTh ?? event.nameTh}
           className={field}
         />
       </Field>
@@ -76,12 +87,12 @@ export function EventForm({ labels }: { labels: Dictionary["studio"] }) {
           id="nameEn"
           name="nameEn"
           maxLength={160}
-          defaultValue={prior.nameEn}
+          defaultValue={prior?.nameEn ?? event.nameEn ?? ""}
           className={field}
         />
       </Field>
 
-      <CoverField labels={labels} currentPath={null} />
+      <CoverField labels={labels} currentPath={event.coverPath} />
 
       <Field id="eventDate" label={labels.formEventDate}>
         <input
@@ -89,7 +100,7 @@ export function EventForm({ labels }: { labels: Dictionary["studio"] }) {
           name="eventDate"
           type="date"
           required
-          defaultValue={prior.eventDate}
+          defaultValue={prior?.eventDate ?? event.eventDate}
           className={field}
         />
       </Field>
@@ -99,7 +110,7 @@ export function EventForm({ labels }: { labels: Dictionary["studio"] }) {
           id="location"
           name="location"
           maxLength={160}
-          defaultValue={prior.location}
+          defaultValue={prior?.location ?? event.location ?? ""}
           className={field}
         />
       </Field>
@@ -110,14 +121,11 @@ export function EventForm({ labels }: { labels: Dictionary["studio"] }) {
           name="descriptionTh"
           rows={4}
           maxLength={2000}
-          defaultValue={prior.descriptionTh}
+          defaultValue={prior?.descriptionTh ?? event.descriptionTh ?? ""}
           className="w-full rounded-field bg-paper px-4 py-3 text-body leading-relaxed text-ink ring-1 ring-inset ring-edge transition-shadow duration-200 focus:ring-2 focus:ring-green-600"
         />
       </Field>
 
-      {/* One switch, not two. Hiding an event from the index and gating it
-          behind a PIN always travelled together — an unlisted gallery with no
-          PIN is one guessed URL away from public. */}
       <div className="rounded-card bg-cloud p-4">
         <label className="flex min-h-11 items-start gap-3">
           <input
@@ -137,10 +145,33 @@ export function EventForm({ labels }: { labels: Dictionary["studio"] }) {
           </span>
         </label>
 
+        {isPrivate && event.hasPin && (
+          <p className="mt-3 border-t border-edge pt-3 text-caption text-slate">
+            {labels.formPinKeepHint}
+          </p>
+        )}
+
         <PinField labels={labels} enabled={isPrivate} />
       </div>
 
-      <Submit label={labels.formCreate} />
+      <label className="flex min-h-11 items-start gap-3 rounded-card bg-cloud p-4">
+        <input
+          type="checkbox"
+          name="allowOriginalDownload"
+          defaultChecked={event.allowOriginalDownload}
+          className="mt-0.5 size-5 shrink-0 rounded-[6px] accent-green-600"
+        />
+        <span>
+          <span className="block text-label font-medium text-ink">
+            {labels.formAllowDownload}
+          </span>
+          <span className="mt-0.5 block text-caption text-slate">
+            {labels.formAllowDownloadHint}
+          </span>
+        </span>
+      </label>
+
+      <Submit label={labels.formSave} />
     </form>
   );
 }
@@ -148,12 +179,10 @@ export function EventForm({ labels }: { labels: Dictionary["studio"] }) {
 function Field({
   id,
   label,
-  hint,
   children,
 }: {
   id: string;
   label: string;
-  hint?: string;
   children: React.ReactNode;
 }) {
   return (
@@ -162,7 +191,6 @@ function Field({
         {label}
       </label>
       <div className="mt-1.5">{children}</div>
-      {hint && <p className="mt-1.5 text-caption text-slate">{hint}</p>}
     </div>
   );
 }
@@ -170,7 +198,7 @@ function Field({
 function Submit({ label }: { label: string }) {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" size="lg" pending={pending} className="w-full sm:w-auto">
+    <Button type="submit" size="md" pending={pending}>
       {label}
     </Button>
   );

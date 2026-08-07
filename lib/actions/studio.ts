@@ -1,18 +1,20 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import * as z from "zod";
 
 import { db } from "@/db";
-import { events } from "@/db/schema";
+import { events, photoFaces, photos } from "@/db/schema";
 import { requireApprovedPhotographer } from "@/lib/dal";
 import { hashPin, isPin } from "@/lib/event-pin";
 import {
   ACCEPTED_MIME,
   buildCoverImage,
+  buildWatermarkLogo,
   MAX_COVER_BYTES,
+  MAX_WATERMARK_LOGO_BYTES,
 } from "@/lib/images";
 import { faceProvider } from "@/lib/face";
 import {
@@ -226,7 +228,151 @@ export async function createEvent(
   redirect(`/studio/events/${created.id}`);
 }
 
-const Submit = z.object({ id: z.string().uuid() });
+export type EventSettingsState =
+  | { ok: true }
+  | {
+      ok: false;
+      error:
+        | "invalid"
+        | "unavailable"
+        | "pin_required"
+        | "cover_too_large"
+        | "cover_bad_format";
+      values?: Record<string, string>;
+    }
+  | undefined;
+
+/**
+ * Edits an existing event's basic info, cover and privacy — everything on
+ * `EventInput`, the same shape `createEvent` validates, minus the fields
+ * that are never editable after the fact (`status`, `accessCode`).
+ *
+ * The PIN is the one field that behaves differently from creation: it is
+ * `.nullish()` here in the sense that leaving it blank does not mean "no
+ * PIN," it means "keep the one already set." A hash cannot be shown back to
+ * the photographer to confirm — see the note on `entryPinHash` — so a
+ * settings form that required retyping it on every save would force a new
+ * PIN, and therefore a new round of telling people the old one no longer
+ * works, every time somebody just wanted to fix a typo in the description.
+ * Typing a fresh PIN still replaces it; the "randomise" control on the form
+ * works exactly as it does on creation.
+ */
+export async function updateEvent(
+  _prev: EventSettingsState,
+  formData: FormData,
+): Promise<EventSettingsState> {
+  const { photographer } = await requireApprovedPhotographer();
+
+  const idResult = z.string().uuid().safeParse(formData.get("id"));
+  if (!idResult.success) return { ok: false, error: "invalid" };
+
+  const raw = {
+    nameTh: formData.get("nameTh"),
+    nameEn: formData.get("nameEn"),
+    descriptionTh: formData.get("descriptionTh"),
+    location: formData.get("location"),
+    eventDate: formData.get("eventDate"),
+    isPrivate: formData.get("isPrivate"),
+    entryPin: formData.get("entryPin"),
+  };
+
+  // See the note on the same line in `createEvent`: the PIN never goes back
+  // into the page.
+  const echo = Object.fromEntries(
+    Object.entries(raw)
+      .filter(([key]) => key !== "entryPin")
+      .map(([key, value]) => [key, String(value ?? "")]),
+  );
+
+  const parsed = EventInput.safeParse(raw);
+  if (!parsed.success) return { ok: false, error: "invalid", values: echo };
+
+  const data = parsed.data;
+  const wantsPrivate = data.isPrivate === "on";
+
+  // Ownership is part of the lookup, not a check on the result.
+  const [event] = await db
+    .select({
+      id: events.id,
+      isPrivate: events.isPrivate,
+      entryPinHash: events.entryPinHash,
+      coverPath: events.coverPath,
+    })
+    .from(events)
+    .where(and(eq(events.id, idResult.data), eq(events.ownerId, photographer.id)))
+    .limit(1);
+  if (!event) return { ok: false, error: "invalid", values: echo };
+
+  let entryPinHash = event.entryPinHash;
+  if (!wantsPrivate) {
+    entryPinHash = null;
+  } else if (data.entryPin && isPin(data.entryPin)) {
+    entryPinHash = await hashPin(data.entryPin);
+  } else if (!event.isPrivate) {
+    // Turning a public event private with no PIN typed — refused rather
+    // than quietly downgraded, same as on creation.
+    return { ok: false, error: "pin_required", values: echo };
+  }
+  // else: already private and no new PIN was typed — entryPinHash stays.
+
+  // Decoded before anything is written — see the note on `prepareCover`.
+  let cover: Buffer | null;
+  try {
+    cover = await prepareCover(formData.get("cover") as File | null);
+  } catch (error) {
+    if (error instanceof CoverError) {
+      return {
+        ok: false,
+        error:
+          error.reason === "too_large" ? "cover_too_large" : "cover_bad_format",
+        values: echo,
+      };
+    }
+    throw error;
+  }
+
+  let coverPath = event.coverPath;
+  if (cover) {
+    coverPath = storagePaths.eventCover(event.id);
+    try {
+      await writeStorageFile(coverPath, cover);
+    } catch (error) {
+      console.warn("[find-ku-dae] cover write failed:", error);
+      return { ok: false, error: "unavailable", values: echo };
+    }
+  }
+
+  try {
+    await db
+      .update(events)
+      .set({
+        nameTh: data.nameTh,
+        nameEn: data.nameEn || null,
+        descriptionTh: data.descriptionTh || null,
+        location: data.location || null,
+        eventDate: data.eventDate,
+        isPrivate: wantsPrivate,
+        entryPinHash,
+        coverPath,
+        // A plain checkbox, not part of `EventInput` — it has no interplay
+        // with the other fields the way privacy and the PIN do.
+        allowOriginalDownload: formData.get("allowOriginalDownload") === "on",
+        updatedAt: new Date(),
+      })
+      .where(eq(events.id, event.id));
+  } catch (error) {
+    console.warn("[find-ku-dae] event update failed:", error);
+    return { ok: false, error: "unavailable", values: echo };
+  }
+
+  revalidatePath("/studio");
+  revalidatePath(`/studio/events/${event.id}`);
+  revalidatePath(`/studio/events/${event.id}/settings`);
+  revalidatePath("/events");
+  return { ok: true };
+}
+
+const EventId = z.object({ id: z.string().uuid() });
 
 /**
  * Takes a draft live — no admin approval sits in between.
@@ -241,7 +387,7 @@ const Submit = z.object({ id: z.string().uuid() });
  */
 export async function publishEvent(formData: FormData) {
   const { photographer } = await requireApprovedPhotographer();
-  const { id } = Submit.parse({ id: formData.get("id") });
+  const { id } = EventId.parse({ id: formData.get("id") });
 
   await db
     .update(events)
@@ -257,6 +403,189 @@ export async function publishEvent(formData: FormData) {
   revalidatePath("/studio");
   revalidatePath(`/studio/events/${id}`);
   revalidatePath("/events");
+}
+
+/**
+ * Pulls a live event off the finder and its public page, without deleting
+ * anything — the photographer's own pause button, not a moderation action.
+ * `resumeEvent` reopens it and needs no admin either, for the same reason
+ * `publishEvent` no longer does: nothing sits between a photographer and
+ * their own event in either direction.
+ *
+ * Scoped to `status = 'approved'` on the way in, so this cannot be used to
+ * sneak a rejected or still-draft event into an "archived" state it never
+ * earned.
+ */
+export async function pauseEvent(formData: FormData) {
+  const { photographer } = await requireApprovedPhotographer();
+  const { id } = EventId.parse({ id: formData.get("id") });
+
+  await db
+    .update(events)
+    .set({ status: "archived", updatedAt: new Date() })
+    .where(
+      and(
+        eq(events.id, id),
+        eq(events.ownerId, photographer.id),
+        eq(events.status, "approved"),
+      ),
+    );
+
+  revalidatePath("/studio");
+  revalidatePath(`/studio/events/${id}`);
+  revalidatePath(`/studio/events/${id}/settings`);
+  revalidatePath("/events");
+}
+
+/** The other half of `pauseEvent`. */
+export async function resumeEvent(formData: FormData) {
+  const { photographer } = await requireApprovedPhotographer();
+  const { id } = EventId.parse({ id: formData.get("id") });
+
+  await db
+    .update(events)
+    .set({ status: "approved", updatedAt: new Date() })
+    .where(
+      and(
+        eq(events.id, id),
+        eq(events.ownerId, photographer.id),
+        eq(events.status, "archived"),
+      ),
+    );
+
+  revalidatePath("/studio");
+  revalidatePath(`/studio/events/${id}`);
+  revalidatePath(`/studio/events/${id}/settings`);
+  revalidatePath("/events");
+}
+
+const WatermarkInput = z.object({
+  watermarkEnabled: z.union([z.literal("on"), z.null(), z.undefined()]),
+  watermarkText: z.string().trim().max(120).nullish(),
+  watermarkPosition: z.enum([
+    "bottom_right",
+    "bottom_left",
+    "top_right",
+    "top_left",
+    "center",
+    "tiled",
+  ]),
+  watermarkOpacity: z.coerce.number().int().min(5).max(100),
+  watermarkScale: z.coerce.number().int().min(4).max(60),
+  removeLogo: z.union([z.literal("on"), z.null(), z.undefined()]),
+});
+
+export type WatermarkState =
+  | { ok: true }
+  | {
+      ok: false;
+      error: "invalid" | "logo_too_large" | "logo_bad_format" | "empty";
+    }
+  | undefined;
+
+/**
+ * A separate form and a separate action from `updateEvent`, on purpose: the
+ * watermark has its own file upload and its own failure modes (a bad logo
+ * should not also discard a rename typed in the other form), and it is a
+ * setting a photographer reasonably visits without touching anything else.
+ */
+export async function updateWatermark(
+  _prev: WatermarkState,
+  formData: FormData,
+): Promise<WatermarkState> {
+  const { photographer } = await requireApprovedPhotographer();
+
+  const idResult = z.string().uuid().safeParse(formData.get("id"));
+  if (!idResult.success) return { ok: false, error: "invalid" };
+
+  const parsed = WatermarkInput.safeParse({
+    watermarkEnabled: formData.get("watermarkEnabled"),
+    watermarkText: formData.get("watermarkText"),
+    watermarkPosition: formData.get("watermarkPosition"),
+    watermarkOpacity: formData.get("watermarkOpacity"),
+    watermarkScale: formData.get("watermarkScale"),
+    removeLogo: formData.get("removeLogo"),
+  });
+  if (!parsed.success) return { ok: false, error: "invalid" };
+  const data = parsed.data;
+
+  const [event] = await db
+    .select({ id: events.id, watermarkLogoPath: events.watermarkLogoPath })
+    .from(events)
+    .where(and(eq(events.id, idResult.data), eq(events.ownerId, photographer.id)))
+    .limit(1);
+  if (!event) return { ok: false, error: "invalid" };
+
+  const logoFile = formData.get("watermarkLogo") as File | null;
+  const hasNewLogo = Boolean(logoFile && logoFile.size > 0);
+
+  if (hasNewLogo) {
+    if (logoFile!.size > MAX_WATERMARK_LOGO_BYTES) {
+      return { ok: false, error: "logo_too_large" };
+    }
+    if (logoFile!.type !== "image/png") {
+      return { ok: false, error: "logo_bad_format" };
+    }
+  }
+
+  // Fixed filename, like the cover: replacing a logo overwrites rather than
+  // accumulating orphaned files from every previous upload. Computed before
+  // anything touches storage, so the "empty" check below sees the shape the
+  // row would end up in rather than the shape it is in right now.
+  const nextLogoPath =
+    data.removeLogo === "on"
+      ? null
+      : hasNewLogo
+        ? storagePaths.eventWatermark(event.id, "logo.png")
+        : event.watermarkLogoPath;
+
+  // `applyWatermark` draws nothing at all when both are empty — text or a
+  // logo is what it composites, and "on" with neither is a switch that does
+  // nothing while looking, from the settings screen, like it did something.
+  // Refused here for the same reason a private event without a PIN is
+  // refused rather than quietly downgraded.
+  //
+  // This runs before any write or delete on purpose. Rejecting *after*
+  // deleting the old logo — because the box got unticked with no text typed
+  // — would leave the row pointing at a file that no longer exists: the
+  // photographer sees an error, but the damage already happened.
+  if (data.watermarkEnabled === "on" && !data.watermarkText?.trim() && !nextLogoPath) {
+    return { ok: false, error: "empty" };
+  }
+
+  let logo: Buffer | undefined;
+  if (hasNewLogo) {
+    try {
+      logo = await buildWatermarkLogo(Buffer.from(await logoFile!.arrayBuffer()));
+    } catch {
+      return { ok: false, error: "logo_bad_format" };
+    }
+  }
+
+  // Every rejection has already returned by this point — the only paths left
+  // either keep the logo untouched, delete it, or replace it.
+  if (data.removeLogo === "on") {
+    if (event.watermarkLogoPath) await deleteStoragePath(event.watermarkLogoPath);
+  } else if (logo) {
+    await writeStorageFile(nextLogoPath!, logo);
+  }
+
+  await db
+    .update(events)
+    .set({
+      watermarkEnabled: data.watermarkEnabled === "on",
+      watermarkText: data.watermarkText || null,
+      watermarkLogoPath: nextLogoPath,
+      watermarkPosition: data.watermarkPosition,
+      watermarkOpacity: data.watermarkOpacity,
+      watermarkScale: data.watermarkScale,
+      updatedAt: new Date(),
+    })
+    .where(eq(events.id, event.id));
+
+  revalidatePath(`/studio/events/${event.id}/settings`);
+  revalidatePath(`/studio/events/${event.id}`);
+  return { ok: true };
 }
 
 const Delete = z.object({
@@ -334,4 +663,108 @@ export async function deleteEvent(formData: FormData): Promise<void> {
   revalidatePath("/events");
   revalidatePath("/admin");
   redirect("/studio");
+}
+
+const DeletePhotos = z.object({
+  eventId: z.string().uuid(),
+  photoIds: z.array(z.string().uuid()).min(1),
+});
+
+/**
+ * Deletes one or more photos from an event — a single checked box or a
+ * hundred, the same action either way, since a native checkbox group posts
+ * every checked value under one field name with no JavaScript required.
+ *
+ * Same ordering as `deleteEvent` and for the same reason: Rekognition holds
+ * the face vectors and lives outside this database entirely, so it goes
+ * first regardless of what happens to the rows and files after it. Storage
+ * then the database — a row surviving with no file behind it just shows a
+ * broken thumbnail the photographer can select and delete again; a file
+ * surviving with no row is invisible and orphaned forever.
+ */
+export async function deletePhotos(formData: FormData): Promise<void> {
+  const { photographer } = await requireApprovedPhotographer();
+
+  const parsed = DeletePhotos.safeParse({
+    eventId: formData.get("eventId"),
+    photoIds: formData.getAll("photoIds"),
+  });
+  if (!parsed.success) return;
+  const { eventId, photoIds } = parsed.data;
+
+  // Ownership is part of the lookup, not a check on the result — the ids in
+  // the form are whatever the caller sent.
+  const [event] = await db
+    .select({ id: events.id, faceCollectionId: events.faceCollectionId })
+    .from(events)
+    .where(and(eq(events.id, eventId), eq(events.ownerId, photographer.id)))
+    .limit(1);
+  if (!event) return;
+
+  const rows = await db
+    .select({
+      id: photos.id,
+      originalPath: photos.originalPath,
+      previewPath: photos.previewPath,
+      thumbPath: photos.thumbPath,
+    })
+    .from(photos)
+    .where(and(eq(photos.eventId, event.id), inArray(photos.id, photoIds)));
+  if (rows.length === 0) return;
+
+  if (event.faceCollectionId) {
+    const faceRows = await db
+      .select({ faceId: photoFaces.faceId })
+      .from(photoFaces)
+      .where(
+        inArray(
+          photoFaces.photoId,
+          rows.map((row) => row.id),
+        ),
+      );
+
+    if (faceRows.length > 0) {
+      try {
+        await faceProvider.deleteFaces(
+          event.faceCollectionId,
+          faceRows.map((row) => row.faceId),
+        );
+      } catch (error) {
+        // Logged loudly rather than swallowed — see the note on `deleteEvent`.
+        console.error(
+          "[find-ku-dae] face vectors not deleted for photos",
+          rows.map((row) => row.id),
+          error,
+        );
+      }
+    }
+  }
+
+  await Promise.all(
+    rows.flatMap((row) => [
+      deleteStoragePath(row.originalPath),
+      deleteStoragePath(row.previewPath),
+      deleteStoragePath(row.thumbPath),
+    ]),
+  );
+
+  await db.transaction(async (tx) => {
+    await tx.delete(photos).where(
+      inArray(
+        photos.id,
+        rows.map((row) => row.id),
+      ),
+    );
+
+    // `greatest(..., 0)` rather than trusting the count stays in sync — a
+    // concurrent upload finishing between the select above and this update
+    // must not push the count negative.
+    await tx
+      .update(events)
+      .set({ photoCount: sql`greatest(${events.photoCount} - ${rows.length}, 0)` })
+      .where(eq(events.id, event.id));
+  });
+
+  revalidatePath("/studio");
+  revalidatePath(`/studio/events/${eventId}`);
 }
