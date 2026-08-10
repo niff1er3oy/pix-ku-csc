@@ -34,7 +34,7 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
     // is signed in, so everyone is treated as a signed-out visitor — the
     // header, footer and 404 page still render instead of the whole site
     // returning a 500 because the database blinked.
-    console.warn("[find-ku-dae] session lookup failed, treating as guest:", error);
+    console.warn("[pix-ku-csc] session lookup failed, treating as guest:", error);
     return null;
   }
 
@@ -72,7 +72,7 @@ export const getPhotographer = cache(
     } catch (error) {
       // Same reasoning as getSessionUser: unproven means not granted. Callers
       // that gate on an approved photographer will simply refuse access.
-      console.warn("[find-ku-dae] photographer lookup failed:", error);
+      console.warn("[pix-ku-csc] photographer lookup failed:", error);
       return null;
     }
   },

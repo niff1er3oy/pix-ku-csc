@@ -33,7 +33,7 @@ export default function ErrorBoundary({
   const dict = lang === "en" ? dictionaries.en : dictionaries.th;
 
   useEffect(() => {
-    console.error("[find-ku-dae] route error:", error);
+    console.error("[pix-ku-csc] route error:", error);
   }, [error]);
 
   const button =

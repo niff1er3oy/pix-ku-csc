@@ -113,7 +113,7 @@ export async function safely<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
   try {
     return await fn();
   } catch (error) {
-    console.warn("[find-ku-dae] query failed, using fallback:", error);
+    console.warn("[pix-ku-csc] query failed, using fallback:", error);
     return fallback;
   }
 }

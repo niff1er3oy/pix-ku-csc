@@ -38,7 +38,7 @@ export async function GET(
       // their downloads folder can tell which sign is which.
       ...(download
         ? {
-            "Content-Disposition": `attachment; filename="findkudae-${event.code}.svg"`,
+            "Content-Disposition": `attachment; filename="pixkucsc-${event.code}.svg"`,
           }
         : {}),
       // Never cached by a shared proxy: this is per-event private material.

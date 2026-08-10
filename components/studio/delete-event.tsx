@@ -41,7 +41,7 @@ export function DeleteEvent({
   const matches = typed.trim().toUpperCase() === accessCode.toUpperCase();
 
   return (
-    <details className="mt-16 border-t border-edge pt-8">
+    <details id="delete-event" className="mt-16 scroll-mt-8 border-t border-edge pt-8">
       <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-2 text-label font-medium text-danger">
         <AlertIcon size={18} />
         {labels.deleteEvent}

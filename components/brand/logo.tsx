@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 
 /**
- * The Find KU Dae wordmark.
+ * The PIX KU CSC wordmark.
  *
  * Built to echo the university mark's own composition rather than reinterpret
  * it: teal letterforms sitting on the lime bar, exactly as "KU" sits on it in
@@ -39,9 +39,9 @@ export function Logo({
           scale.gap,
         )}
       >
-        <span className="text-ink">Find </span>
+        <span className="text-ink">PIX </span>
         <span className="text-green-600">KU</span>
-        <span className="text-ink"> Dae</span>
+        <span className="text-ink"> CSC</span>
       </span>
       <span
         aria-hidden

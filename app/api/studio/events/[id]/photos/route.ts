@@ -149,7 +149,7 @@ export async function POST(
         .where(eq(events.id, id));
     });
   } catch (error) {
-    console.warn("[find-ku-dae] photo upload failed:", error);
+    console.warn("[pix-ku-csc] photo upload failed:", error);
     return json({ ok: false, reason: "server" }, 500);
   }
 

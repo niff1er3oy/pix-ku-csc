@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { Button, ButtonLink } from "@/components/ui/button";
+import { GridBackground } from "@/components/ui/grid-background";
 import {
   CalendarIcon,
   ChevronLeftIcon,
@@ -18,6 +19,7 @@ import { eventQrSvg, eventUrl } from "@/lib/qr";
 import { DeletePhotosForm } from "@/components/studio/delete-photos-form";
 import { PhotoUploader } from "@/components/studio/photo-uploader";
 import { PhotoGallery } from "@/components/photos/photo-gallery";
+import { StatusChip } from "@/components/studio/status-chip";
 import { getMyEvent, getMyEventPhotos } from "@/lib/queries/studio";
 import { formatDate, formatNumber } from "@/lib/utils";
 
@@ -98,7 +100,10 @@ export default async function StudioEventPage({
         />
       )}
 
-      <h1 className="mt-4 text-h1 font-bold">{event.nameTh}</h1>
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <h1 className="text-h1 font-bold">{event.nameTh}</h1>
+        <StatusChip status={event.status} labels={dict.status} />
+      </div>
 
       <p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-label text-slate">
         <span className="inline-flex items-center gap-1.5">
@@ -114,7 +119,7 @@ export default async function StudioEventPage({
         {event.location && <span>{event.location}</span>}
       </p>
 
-      <p className="mt-4 text-body text-ink">{statusNote}</p>
+      <p className="mt-3 text-label text-slate">{statusNote}</p>
       {event.status === "rejected" && event.rejectionReason && (
         <p className="mt-2 text-label text-danger">{event.rejectionReason}</p>
       )}
@@ -184,13 +189,17 @@ export default async function StudioEventPage({
         <h2 className="text-h2">{dict.studio.photosTitle}</h2>
 
         {photos.length === 0 ? (
-          <p className="mt-5 rounded-card bg-cloud px-6 py-12 text-center text-body text-slate">
-            {dict.studio.photosNone}
-          </p>
+          <div className="relative mt-5 overflow-hidden rounded-card bg-cloud px-6 py-16 text-center">
+            <GridBackground />
+            <p className="relative text-body text-slate">
+              {dict.studio.photosNone}
+            </p>
+          </div>
         ) : (
           <DeletePhotosForm
             eventId={event.id}
             submitLabel={dict.studio.photosDeleteSelected}
+            selectAllLabel={dict.studio.photosSelectAll}
             confirmMessage={dict.studio.photosDeleteConfirm}
             selectNoneMessage={dict.studio.photosSelectNone}
           >

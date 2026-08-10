@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { events, photos } from "@/db/schema";
@@ -18,6 +18,16 @@ export type StudioEvent = {
   coverPath: string | null;
 };
 
+/** Same shape as `StudioEvent`, but for the list rather than one event's own
+ *  detail page: `coverThumbPath` falls back to the first photo uploaded, so
+ *  a draft with no cover chosen yet still shows *something* in the row
+ *  instead of a blank square. `getMyEvent` deliberately does not do this —
+ *  its page shows the cover the photographer actually picked, or nothing,
+ *  never a stand-in they never chose. */
+export type StudioEventListItem = Omit<StudioEvent, "coverPath"> & {
+  coverThumbPath: string | null;
+};
+
 /**
  * A photographer's own events, newest first.
  *
@@ -27,7 +37,7 @@ export type StudioEvent = {
  */
 export async function getMyEvents(
   photographerId: string,
-): Promise<StudioEvent[]> {
+): Promise<StudioEventListItem[]> {
   return db
     .select({
       id: events.id,
@@ -39,7 +49,19 @@ export async function getMyEvents(
       isPrivate: events.isPrivate,
       accessCode: events.accessCode,
       photoCount: events.photoCount,
-      coverPath: events.coverPath,
+      // The cover the photographer chose, falling back to the first photo
+      // uploaded — see the identical coalesce in `lib/queries/public.ts`.
+      // Most events in this list are still drafts with no cover set yet, and
+      // a row of blank squares reads as broken rather than as pending.
+      coverThumbPath: sql<string | null>`coalesce(
+        ${events.coverPath},
+        (
+          select ${photos.thumbPath} from ${photos}
+          where ${photos.eventId} = ${events.id}
+          order by ${photos.createdAt} asc
+          limit 1
+        )
+      )`,
     })
     .from(events)
     .where(eq(events.ownerId, photographerId))

@@ -3,12 +3,18 @@ import Link from "next/link";
 
 import { ButtonLink } from "@/components/ui/button";
 import { GridBackground } from "@/components/ui/grid-background";
-import { CalendarIcon, PhotoIcon } from "@/components/ui/icon";
+import {
+  CalendarIcon,
+  PhotoIcon,
+  SettingsIcon,
+  TrashIcon,
+} from "@/components/ui/icon";
+import { StatusChip } from "@/components/studio/status-chip";
 import { requireApprovedPhotographer } from "@/lib/dal";
 import { getDictionary, getLocale, t } from "@/lib/i18n";
 import { getMyEvents } from "@/lib/queries/studio";
 import { safely } from "@/lib/queries/public";
-import { cn, formatDate, formatNumber } from "@/lib/utils";
+import { formatDate, formatNumber } from "@/lib/utils";
 
 export async function generateMetadata(): Promise<Metadata> {
   const dict = await getDictionary();
@@ -54,45 +60,88 @@ export default async function StudioPage() {
             <p className="mx-auto mt-3 max-w-sm text-body text-slate">
               {dict.studio.eventsEmptyBody}
             </p>
+            <ButtonLink href="/studio/events/new" size="md" className="mt-6">
+              {dict.studio.newEvent}
+            </ButtonLink>
           </div>
         </div>
       ) : (
         <ul className="mt-10">
           {events.map((event) => (
             <li key={event.id} className="border-t border-edge">
-              <Link
-                href={`/studio/events/${event.id}`}
-                className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-5 transition-colors duration-200 hover:bg-cloud"
-              >
-                <div className="min-w-0">
-                  <p className="font-display text-h3 text-ink">
-                    {event.nameTh}
-                  </p>
-                  <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-label text-slate">
-                    <span className="inline-flex items-center gap-1.5">
-                      <CalendarIcon size={16} />
-                      {formatDate(event.eventDate, locale)}
-                    </span>
-                    <span className="inline-flex items-center gap-1.5">
-                      <PhotoIcon size={16} />
-                      {t(dict.studio.photosInEvent, {
-                        count: formatNumber(event.photoCount, locale),
-                      })}
-                    </span>
-                    {/* The code is on the list, not buried one level down: a
-                        photographer setting up a booth needs it to print, and
-                        it is the one field they cannot look up anywhere else. */}
-                    <span className="tnum tracking-[0.15em] text-ink">
-                      {event.accessCode}
-                    </span>
-                  </p>
-                </div>
+              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 py-4">
+                <Link
+                  href={`/studio/events/${event.id}`}
+                  className="group flex min-w-0 flex-1 items-center gap-4 rounded-field transition-colors duration-200 hover:bg-cloud"
+                >
+                  <div className="aspect-[4/3] w-20 shrink-0 overflow-hidden rounded-media bg-cloud ring-1 ring-inset ring-edge">
+                    {event.coverThumbPath ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={`/api/media/${event.coverThumbPath}`}
+                        alt=""
+                        loading="lazy"
+                        className="h-full w-full object-cover transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.04]"
+                      />
+                    ) : (
+                      <div className="grid h-full place-items-center">
+                        <PhotoIcon size={20} className="text-slate" />
+                      </div>
+                    )}
+                  </div>
 
-                <StatusChip status={event.status} labels={dict.status} />
-              </Link>
+                  <div className="min-w-0">
+                    <p className="font-display text-h3 text-ink">
+                      {event.nameTh}
+                    </p>
+                    <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-label text-slate">
+                      <span className="inline-flex items-center gap-1.5">
+                        <CalendarIcon size={16} />
+                        {formatDate(event.eventDate, locale)}
+                      </span>
+                      <span className="inline-flex items-center gap-1.5">
+                        <PhotoIcon size={16} />
+                        {t(dict.studio.photosInEvent, {
+                          count: formatNumber(event.photoCount, locale),
+                        })}
+                      </span>
+                      {/* The code is on the list, not buried one level down: a
+                          photographer setting up a booth needs it to print, and
+                          it is the one field they cannot look up anywhere else. */}
+                      <span className="tnum tracking-[0.15em] text-ink">
+                        {event.accessCode}
+                      </span>
+                    </p>
+                  </div>
+                </Link>
+
+                <div className="flex shrink-0 items-center gap-1">
+                  <StatusChip status={event.status} labels={dict.status} />
+
+                  <Link
+                    href={`/studio/events/${event.id}/settings`}
+                    aria-label={dict.studio.settingsButton}
+                    className="inline-flex size-11 shrink-0 items-center justify-center rounded-pill text-slate transition-colors duration-200 hover:bg-cloud hover:text-green-700"
+                  >
+                    <SettingsIcon size={18} />
+                  </Link>
+
+                  {/* Straight to the confirm-by-retyping-the-code section on
+                      the settings page rather than a second copy of it here
+                      — a list row is not where a destructive action with its
+                      own warning text and confirmation input belongs. */}
+                  <Link
+                    href={`/studio/events/${event.id}/settings#delete-event`}
+                    aria-label={dict.studio.deleteEvent}
+                    className="inline-flex size-11 shrink-0 items-center justify-center rounded-pill text-slate transition-colors duration-200 hover:bg-cloud hover:text-danger"
+                  >
+                    <TrashIcon size={18} />
+                  </Link>
+                </div>
+              </div>
 
               {event.status === "rejected" && event.rejectionReason && (
-                <p className="pb-5 text-label text-danger">
+                <p className="pb-4 text-label text-danger">
                   {event.rejectionReason}
                 </p>
               )}
@@ -101,35 +150,5 @@ export default async function StudioPage() {
         </ul>
       )}
     </section>
-  );
-}
-
-/**
- * The event's state, in the photographer's own terms.
- *
- * `draft` and `pending` are deliberately not both grey. A draft is waiting on
- * the photographer; a pending event is waiting on somebody else. Telling those
- * apart at a glance is the whole reason this chip exists.
- */
-function StatusChip({
-  status,
-  labels,
-}: {
-  status: "draft" | "pending" | "approved" | "rejected" | "archived";
-  labels: Record<string, string>;
-}) {
-  return (
-    <span
-      className={cn(
-        "shrink-0 rounded-pill px-3 py-1 text-caption font-semibold",
-        status === "approved" && "bg-green-600 text-paper",
-        status === "pending" && "bg-lime-500 text-green-950",
-        status === "draft" && "bg-cloud text-slate",
-        status === "rejected" && "bg-danger text-paper",
-        status === "archived" && "bg-cloud text-slate",
-      )}
-    >
-      {labels[status]}
-    </span>
   );
 }

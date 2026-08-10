@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeftIcon } from "@/components/ui/icon";
 import { DeleteEvent } from "@/components/studio/delete-event";
 import { EventSettingsForm } from "@/components/studio/event-settings-form";
-import { WatermarkForm } from "@/components/studio/watermark-form";
 import { pauseEvent, resumeEvent } from "@/lib/actions/studio";
 import { requireApprovedPhotographer } from "@/lib/dal";
 import { getDictionary } from "@/lib/i18n";
@@ -57,40 +56,35 @@ export default async function StudioEventSettingsPage({
 
       <h1 className="mt-4 text-h1 font-bold">{dict.studio.settingsTitle}</h1>
 
-      {canPause && (
-        <section className="mt-8 rounded-card bg-cloud p-5">
-          <h2 className="text-label font-medium text-ink">
-            {dict.studio.pauseTitle}
-          </h2>
-          <p className="mt-1 text-caption text-slate">
-            {dict.studio.pauseEventHint}
-          </p>
-          <form
-            action={event.status === "approved" ? pauseEvent : resumeEvent}
-            className="mt-3"
-          >
-            <input type="hidden" name="id" value={event.id} />
-            <Button
-              type="submit"
-              variant={event.status === "approved" ? "danger" : "secondary"}
-              size="md"
+      <div className="mt-8 space-y-6">
+        {canPause && (
+          <section className="rounded-card bg-cloud p-5 sm:p-6">
+            <h2 className="text-h3 font-semibold text-ink">
+              {dict.studio.pauseTitle}
+            </h2>
+            <p className="mt-1 text-label text-slate">
+              {dict.studio.pauseEventHint}
+            </p>
+            <form
+              action={event.status === "approved" ? pauseEvent : resumeEvent}
+              className="mt-5"
             >
-              {event.status === "approved"
-                ? dict.studio.pauseEvent
-                : dict.studio.resumeEvent}
-            </Button>
-          </form>
-        </section>
-      )}
+              <input type="hidden" name="id" value={event.id} />
+              <Button
+                type="submit"
+                variant={event.status === "approved" ? "danger" : "secondary"}
+                size="md"
+              >
+                {event.status === "approved"
+                  ? dict.studio.pauseEvent
+                  : dict.studio.resumeEvent}
+              </Button>
+            </form>
+          </section>
+        )}
 
-      <h2 className="mt-10 text-h2">{dict.studio.settingsInfoTitle}</h2>
-      <div className="mt-5">
         <EventSettingsForm event={event} labels={dict.studio} />
       </div>
-
-      <h2 className="mt-12 text-h2">{dict.studio.watermarkTitle}</h2>
-      <p className="mt-2 text-body text-slate">{dict.studio.watermarkLede}</p>
-      <WatermarkForm event={event} labels={dict.studio} />
 
       <DeleteEvent
         eventId={event.id}

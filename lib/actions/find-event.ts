@@ -60,7 +60,7 @@ export async function findEvent(
       )
       .limit(1);
   } catch (error) {
-    console.warn("[find-ku-dae] event lookup failed:", error);
+    console.warn("[pix-ku-csc] event lookup failed:", error);
     return { error: "unavailable" };
   }
 

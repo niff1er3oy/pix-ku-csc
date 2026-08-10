@@ -141,7 +141,7 @@ export async function POST(
       } as const;
       return json({ ok: false, error: map[error.code] }, 400);
     }
-    console.error("[find-ku-dae] face search failed:", error);
+    console.error("[pix-ku-csc] face search failed:", error);
     return json({ ok: false, error: "generic" }, 500);
   }
   // `source` and `detection` fall out of scope here and are never persisted.

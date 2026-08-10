@@ -5,7 +5,7 @@
 
 export const th = {
   brand: {
-    name: "Find KU Dae",
+    name: "PIX KU CSC",
     tagline: "หารูปตัวเองจากงานอีเวนต์",
   },
 
@@ -303,7 +303,10 @@ export const th = {
     settingsTitle: "ตั้งค่างาน",
     settingsSaved: "บันทึกการเปลี่ยนแปลงแล้ว",
     settingsInfoTitle: "ข้อมูลพื้นฐาน",
+    settingsInfoLede: "ชื่อ วันที่ สถานที่ และรูปปกที่แสดงบนหน้างาน",
     settingsAccessTitle: "ความเป็นส่วนตัวและรหัสเข้างาน",
+    settingsAccessLede: "ใครดูรูปได้บ้าง และต้องมีรหัสก่อนเข้าดูหรือไม่",
+    settingsDownloadTitle: "การดาวน์โหลด",
     pauseTitle: "เปิด/ปิดงาน",
     pauseEvent: "พักงานชั่วคราว",
     pauseEventHint:
@@ -357,6 +360,7 @@ export const th = {
     photosTitle: "รูปในงานนี้",
     photosNone: "ยังไม่มีรูป",
     photosSelect: "เลือกรูป {name}",
+    photosSelectAll: "เลือกทั้งหมด",
     photosDeleteSelected: "ลบรูปที่เลือก",
     photosDeleteConfirm: "ลบ {count} รูปที่เลือก? กู้คืนไม่ได้",
     photosSelectNone: "เลือกอย่างน้อย 1 รูปก่อนลบ",
@@ -563,7 +567,7 @@ export type Dictionary = typeof th;
 /** `en` is typed against `th`, so a missing key fails the build. */
 export const en: Dictionary = {
   brand: {
-    name: "Find KU Dae",
+    name: "PIX KU CSC",
     tagline: "Find your photos from any event",
   },
 
@@ -862,7 +866,10 @@ export const en: Dictionary = {
     settingsTitle: "Event settings",
     settingsSaved: "Changes saved",
     settingsInfoTitle: "Basic info",
+    settingsInfoLede: "Name, date, location, and the cover shown on the event page",
     settingsAccessTitle: "Privacy and entry PIN",
+    settingsAccessLede: "Who can see the photos, and whether they need a PIN first",
+    settingsDownloadTitle: "Downloads",
     pauseTitle: "Open / close",
     pauseEvent: "Pause event",
     pauseEventHint:
@@ -917,6 +924,7 @@ export const en: Dictionary = {
     photosTitle: "Photos in this event",
     photosNone: "No photos yet",
     photosSelect: "Select photo {name}",
+    photosSelectAll: "Select all",
     photosDeleteSelected: "Delete selected",
     photosDeleteConfirm: "Delete {count} selected photos? This cannot be undone.",
     photosSelectNone: "Select at least one photo first",

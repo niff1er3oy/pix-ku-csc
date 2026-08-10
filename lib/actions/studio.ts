@@ -201,7 +201,7 @@ export async function createEvent(
       })
       .returning({ id: events.id });
   } catch (error) {
-    console.warn("[find-ku-dae] event insert failed:", error);
+    console.warn("[pix-ku-csc] event insert failed:", error);
     return { error: "unavailable", values: echo };
   }
 
@@ -220,13 +220,29 @@ export async function createEvent(
         .set({ coverPath })
         .where(eq(events.id, created.id));
     } catch (error) {
-      console.warn("[find-ku-dae] cover write failed:", error);
+      console.warn("[pix-ku-csc] cover write failed:", error);
     }
   }
 
   revalidatePath("/studio");
   redirect(`/studio/events/${created.id}`);
 }
+
+const WatermarkInput = z.object({
+  watermarkEnabled: z.union([z.literal("on"), z.null(), z.undefined()]),
+  watermarkText: z.string().trim().max(120).nullish(),
+  watermarkPosition: z.enum([
+    "bottom_right",
+    "bottom_left",
+    "top_right",
+    "top_left",
+    "center",
+    "tiled",
+  ]),
+  watermarkOpacity: z.coerce.number().int().min(5).max(100),
+  watermarkScale: z.coerce.number().int().min(4).max(60),
+  removeLogo: z.union([z.literal("on"), z.null(), z.undefined()]),
+});
 
 export type EventSettingsState =
   | { ok: true }
@@ -237,25 +253,31 @@ export type EventSettingsState =
         | "unavailable"
         | "pin_required"
         | "cover_too_large"
-        | "cover_bad_format";
+        | "cover_bad_format"
+        | "logo_too_large"
+        | "logo_bad_format"
+        | "watermark_empty";
       values?: Record<string, string>;
     }
   | undefined;
 
 /**
- * Edits an existing event's basic info, cover and privacy — everything on
- * `EventInput`, the same shape `createEvent` validates, minus the fields
- * that are never editable after the fact (`status`, `accessCode`).
+ * Edits everything about an existing event from one form and one save:
+ * basic info, cover, privacy, the download toggle, and the watermark. These
+ * used to be two actions behind two submit buttons on the same page — a
+ * photographer does not think of "rename the event" and "adjust the
+ * watermark" as two separate saves, and a second button on the same screen
+ * mostly just meant it went unnoticed.
  *
- * The PIN is the one field that behaves differently from creation: it is
- * `.nullish()` here in the sense that leaving it blank does not mean "no
- * PIN," it means "keep the one already set." A hash cannot be shown back to
- * the photographer to confirm — see the note on `entryPinHash` — so a
- * settings form that required retyping it on every save would force a new
- * PIN, and therefore a new round of telling people the old one no longer
- * works, every time somebody just wanted to fix a typo in the description.
- * Typing a fresh PIN still replaces it; the "randomise" control on the form
- * works exactly as it does on creation.
+ * The PIN behaves differently from creation: leaving it blank means "keep
+ * the one already set," not "no PIN" — see the note on `entryPinHash`, a
+ * hash cannot be shown back to confirm, so requiring a retype on every save
+ * would force a new PIN every time somebody fixed a typo in the description.
+ *
+ * Every field is validated before anything touches storage. That matters
+ * most for the watermark: rejecting an empty-watermark save *after*
+ * deleting the old logo, or after writing a half-uploaded new one, would
+ * leave the row pointing at a file that no longer matches it.
  */
 export async function updateEvent(
   _prev: EventSettingsState,
@@ -290,6 +312,17 @@ export async function updateEvent(
   const data = parsed.data;
   const wantsPrivate = data.isPrivate === "on";
 
+  const watermarkParsed = WatermarkInput.safeParse({
+    watermarkEnabled: formData.get("watermarkEnabled"),
+    watermarkText: formData.get("watermarkText"),
+    watermarkPosition: formData.get("watermarkPosition"),
+    watermarkOpacity: formData.get("watermarkOpacity"),
+    watermarkScale: formData.get("watermarkScale"),
+    removeLogo: formData.get("removeLogo"),
+  });
+  if (!watermarkParsed.success) return { ok: false, error: "invalid", values: echo };
+  const watermarkData = watermarkParsed.data;
+
   // Ownership is part of the lookup, not a check on the result.
   const [event] = await db
     .select({
@@ -297,6 +330,7 @@ export async function updateEvent(
       isPrivate: events.isPrivate,
       entryPinHash: events.entryPinHash,
       coverPath: events.coverPath,
+      watermarkLogoPath: events.watermarkLogoPath,
     })
     .from(events)
     .where(and(eq(events.id, idResult.data), eq(events.ownerId, photographer.id)))
@@ -331,15 +365,66 @@ export async function updateEvent(
     throw error;
   }
 
+  const logoFile = formData.get("watermarkLogo") as File | null;
+  const hasNewLogo = Boolean(logoFile && logoFile.size > 0);
+
+  if (hasNewLogo) {
+    if (logoFile!.size > MAX_WATERMARK_LOGO_BYTES) {
+      return { ok: false, error: "logo_too_large", values: echo };
+    }
+    if (logoFile!.type !== "image/png") {
+      return { ok: false, error: "logo_bad_format", values: echo };
+    }
+  }
+
+  // Fixed filename, like the cover: replacing a logo overwrites rather than
+  // accumulating orphaned files from every previous upload. Computed before
+  // anything touches storage, so the "empty" check below sees the shape the
+  // row would end up in rather than the shape it is in right now.
+  const nextLogoPath =
+    watermarkData.removeLogo === "on"
+      ? null
+      : hasNewLogo
+        ? storagePaths.eventWatermark(event.id, "logo.png")
+        : event.watermarkLogoPath;
+
+  // `applyWatermark` draws nothing at all when both are empty — text or a
+  // logo is what it composites, and "on" with neither is a switch that does
+  // nothing while looking, from the settings screen, like it did something.
+  if (
+    watermarkData.watermarkEnabled === "on" &&
+    !watermarkData.watermarkText?.trim() &&
+    !nextLogoPath
+  ) {
+    return { ok: false, error: "watermark_empty", values: echo };
+  }
+
+  let logo: Buffer | undefined;
+  if (hasNewLogo) {
+    try {
+      logo = await buildWatermarkLogo(Buffer.from(await logoFile!.arrayBuffer()));
+    } catch {
+      return { ok: false, error: "logo_bad_format", values: echo };
+    }
+  }
+
+  // Every rejection has already returned by this point — everything below
+  // only writes.
   let coverPath = event.coverPath;
   if (cover) {
     coverPath = storagePaths.eventCover(event.id);
     try {
       await writeStorageFile(coverPath, cover);
     } catch (error) {
-      console.warn("[find-ku-dae] cover write failed:", error);
+      console.warn("[pix-ku-csc] cover write failed:", error);
       return { ok: false, error: "unavailable", values: echo };
     }
+  }
+
+  if (watermarkData.removeLogo === "on") {
+    if (event.watermarkLogoPath) await deleteStoragePath(event.watermarkLogoPath);
+  } else if (logo) {
+    await writeStorageFile(nextLogoPath!, logo);
   }
 
   try {
@@ -357,11 +442,17 @@ export async function updateEvent(
         // A plain checkbox, not part of `EventInput` — it has no interplay
         // with the other fields the way privacy and the PIN do.
         allowOriginalDownload: formData.get("allowOriginalDownload") === "on",
+        watermarkEnabled: watermarkData.watermarkEnabled === "on",
+        watermarkText: watermarkData.watermarkText || null,
+        watermarkLogoPath: nextLogoPath,
+        watermarkPosition: watermarkData.watermarkPosition,
+        watermarkOpacity: watermarkData.watermarkOpacity,
+        watermarkScale: watermarkData.watermarkScale,
         updatedAt: new Date(),
       })
       .where(eq(events.id, event.id));
   } catch (error) {
-    console.warn("[find-ku-dae] event update failed:", error);
+    console.warn("[pix-ku-csc] event update failed:", error);
     return { ok: false, error: "unavailable", values: echo };
   }
 
@@ -459,135 +550,6 @@ export async function resumeEvent(formData: FormData) {
   revalidatePath("/events");
 }
 
-const WatermarkInput = z.object({
-  watermarkEnabled: z.union([z.literal("on"), z.null(), z.undefined()]),
-  watermarkText: z.string().trim().max(120).nullish(),
-  watermarkPosition: z.enum([
-    "bottom_right",
-    "bottom_left",
-    "top_right",
-    "top_left",
-    "center",
-    "tiled",
-  ]),
-  watermarkOpacity: z.coerce.number().int().min(5).max(100),
-  watermarkScale: z.coerce.number().int().min(4).max(60),
-  removeLogo: z.union([z.literal("on"), z.null(), z.undefined()]),
-});
-
-export type WatermarkState =
-  | { ok: true }
-  | {
-      ok: false;
-      error: "invalid" | "logo_too_large" | "logo_bad_format" | "empty";
-    }
-  | undefined;
-
-/**
- * A separate form and a separate action from `updateEvent`, on purpose: the
- * watermark has its own file upload and its own failure modes (a bad logo
- * should not also discard a rename typed in the other form), and it is a
- * setting a photographer reasonably visits without touching anything else.
- */
-export async function updateWatermark(
-  _prev: WatermarkState,
-  formData: FormData,
-): Promise<WatermarkState> {
-  const { photographer } = await requireApprovedPhotographer();
-
-  const idResult = z.string().uuid().safeParse(formData.get("id"));
-  if (!idResult.success) return { ok: false, error: "invalid" };
-
-  const parsed = WatermarkInput.safeParse({
-    watermarkEnabled: formData.get("watermarkEnabled"),
-    watermarkText: formData.get("watermarkText"),
-    watermarkPosition: formData.get("watermarkPosition"),
-    watermarkOpacity: formData.get("watermarkOpacity"),
-    watermarkScale: formData.get("watermarkScale"),
-    removeLogo: formData.get("removeLogo"),
-  });
-  if (!parsed.success) return { ok: false, error: "invalid" };
-  const data = parsed.data;
-
-  const [event] = await db
-    .select({ id: events.id, watermarkLogoPath: events.watermarkLogoPath })
-    .from(events)
-    .where(and(eq(events.id, idResult.data), eq(events.ownerId, photographer.id)))
-    .limit(1);
-  if (!event) return { ok: false, error: "invalid" };
-
-  const logoFile = formData.get("watermarkLogo") as File | null;
-  const hasNewLogo = Boolean(logoFile && logoFile.size > 0);
-
-  if (hasNewLogo) {
-    if (logoFile!.size > MAX_WATERMARK_LOGO_BYTES) {
-      return { ok: false, error: "logo_too_large" };
-    }
-    if (logoFile!.type !== "image/png") {
-      return { ok: false, error: "logo_bad_format" };
-    }
-  }
-
-  // Fixed filename, like the cover: replacing a logo overwrites rather than
-  // accumulating orphaned files from every previous upload. Computed before
-  // anything touches storage, so the "empty" check below sees the shape the
-  // row would end up in rather than the shape it is in right now.
-  const nextLogoPath =
-    data.removeLogo === "on"
-      ? null
-      : hasNewLogo
-        ? storagePaths.eventWatermark(event.id, "logo.png")
-        : event.watermarkLogoPath;
-
-  // `applyWatermark` draws nothing at all when both are empty — text or a
-  // logo is what it composites, and "on" with neither is a switch that does
-  // nothing while looking, from the settings screen, like it did something.
-  // Refused here for the same reason a private event without a PIN is
-  // refused rather than quietly downgraded.
-  //
-  // This runs before any write or delete on purpose. Rejecting *after*
-  // deleting the old logo — because the box got unticked with no text typed
-  // — would leave the row pointing at a file that no longer exists: the
-  // photographer sees an error, but the damage already happened.
-  if (data.watermarkEnabled === "on" && !data.watermarkText?.trim() && !nextLogoPath) {
-    return { ok: false, error: "empty" };
-  }
-
-  let logo: Buffer | undefined;
-  if (hasNewLogo) {
-    try {
-      logo = await buildWatermarkLogo(Buffer.from(await logoFile!.arrayBuffer()));
-    } catch {
-      return { ok: false, error: "logo_bad_format" };
-    }
-  }
-
-  // Every rejection has already returned by this point — the only paths left
-  // either keep the logo untouched, delete it, or replace it.
-  if (data.removeLogo === "on") {
-    if (event.watermarkLogoPath) await deleteStoragePath(event.watermarkLogoPath);
-  } else if (logo) {
-    await writeStorageFile(nextLogoPath!, logo);
-  }
-
-  await db
-    .update(events)
-    .set({
-      watermarkEnabled: data.watermarkEnabled === "on",
-      watermarkText: data.watermarkText || null,
-      watermarkLogoPath: nextLogoPath,
-      watermarkPosition: data.watermarkPosition,
-      watermarkOpacity: data.watermarkOpacity,
-      watermarkScale: data.watermarkScale,
-      updatedAt: new Date(),
-    })
-    .where(eq(events.id, event.id));
-
-  revalidatePath(`/studio/events/${event.id}/settings`);
-  revalidatePath(`/studio/events/${event.id}`);
-  return { ok: true };
-}
-
 const Delete = z.object({
   id: z.string().uuid(),
   /** The event's own code, retyped. See the note below. */
@@ -649,7 +611,7 @@ export async function deleteEvent(formData: FormData): Promise<void> {
       // Logged loudly rather than swallowed: this is biometric data left
       // behind on a third-party service, and nothing else sweeps it up.
       console.error(
-        "[find-ku-dae] face collection not deleted for event",
+        "[pix-ku-csc] face collection not deleted for event",
         event.id,
         error,
       );
@@ -732,7 +694,7 @@ export async function deletePhotos(formData: FormData): Promise<void> {
       } catch (error) {
         // Logged loudly rather than swallowed — see the note on `deleteEvent`.
         console.error(
-          "[find-ku-dae] face vectors not deleted for photos",
+          "[pix-ku-csc] face vectors not deleted for photos",
           rows.map((row) => row.id),
           error,
         );
