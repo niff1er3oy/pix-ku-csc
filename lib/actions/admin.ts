@@ -260,6 +260,12 @@ export async function makePhotographer(formData: FormData) {
       .where(and(eq(users.id, data.userId), eq(users.role, "user")));
   });
 
+  await notify({
+    userId: data.userId,
+    type: "photographer_granted",
+    href: "/studio",
+  });
+
   revalidatePath("/admin");
 }
 
@@ -285,7 +291,7 @@ export async function revokePhotographer(formData: FormData) {
     reason: formData.get("reason"),
   });
 
-  await db.transaction(async (tx) => {
+  const revokedUserId = await db.transaction(async (tx) => {
     const [row] = await tx
       .update(photographers)
       .set({
@@ -297,7 +303,7 @@ export async function revokePhotographer(formData: FormData) {
       .where(eq(photographers.id, id))
       .returning({ userId: photographers.userId });
 
-    if (!row) return;
+    if (!row) return null;
 
     // Back to a plain user, unless they are an admin — an admin who also shot
     // events keeps the role that lets them run this page.
@@ -305,7 +311,18 @@ export async function revokePhotographer(formData: FormData) {
       .update(users)
       .set({ role: "user" })
       .where(and(eq(users.id, row.userId), eq(users.role, "photographer")));
+
+    return row.userId;
   });
+
+  if (revokedUserId) {
+    await notify({
+      userId: revokedUserId,
+      type: "photographer_revoked",
+      href: "/photographer/apply",
+      data: reason ? { reason } : undefined,
+    });
+  }
 
   revalidatePath("/admin");
 }

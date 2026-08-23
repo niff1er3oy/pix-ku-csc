@@ -75,6 +75,8 @@ export const notificationType = pgEnum("notification_type", [
   "photographer_application_received", // -> every admin
   "photographer_approved", // -> the applicant
   "photographer_rejected", // -> the applicant
+  "photographer_granted", // -> an account an admin made a photographer directly
+  "photographer_revoked", // -> a photographer an admin demoted
   "event_approved", // -> the event's owner
   "event_rejected", // -> the event's owner
   "photo_index_failed", // -> the event's owner

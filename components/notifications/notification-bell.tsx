@@ -132,9 +132,11 @@ function NotificationTypeIcon({ type }: { type: NotificationType }) {
     case "photographer_application_received":
       return <CameraIcon size={18} className={className} />;
     case "photographer_approved":
+    case "photographer_granted":
     case "event_approved":
       return <CheckIcon size={18} className={className} />;
     case "photographer_rejected":
+    case "photographer_revoked":
     case "event_rejected":
       return <CloseIcon size={18} className={className} />;
     case "photo_index_failed":

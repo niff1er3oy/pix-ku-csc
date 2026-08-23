@@ -488,6 +488,8 @@ export const th = {
       photographer_application_received: "{name} ส่งใบสมัครช่างภาพเข้ามา รอคุณตรวจสอบ",
       photographer_approved: "ใบสมัครช่างภาพของคุณได้รับอนุมัติแล้ว สร้างงานแรกได้เลย",
       photographer_rejected: "ใบสมัครช่างภาพของคุณไม่ผ่าน",
+      photographer_granted: "ผู้ดูแลตั้งให้คุณเป็นช่างภาพแล้ว สร้างงานแรกได้เลย",
+      photographer_revoked: "สิทธิ์ช่างภาพของคุณถูกถอดโดยผู้ดูแล",
       event_approved: "งาน “{eventName}” เปิดให้ค้นหาแล้ว",
       event_rejected: "งาน “{eventName}” ถูกปิดโดยผู้ดูแล",
       photo_index_failed:
@@ -1084,6 +1086,9 @@ export const en: Dictionary = {
       photographer_approved:
         "Your photographer application was approved. Create your first event.",
       photographer_rejected: "Your photographer application was not approved",
+      photographer_granted:
+        "An admin made you a photographer. Create your first event.",
+      photographer_revoked: "Your photographer access was revoked by an admin",
       event_approved: "“{eventName}” is now live and searchable",
       event_rejected: "“{eventName}” was taken down by an admin",
       photo_index_failed:
