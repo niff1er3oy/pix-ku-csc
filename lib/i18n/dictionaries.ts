@@ -293,6 +293,7 @@ export const th = {
     photosInEvent: "{count} รูป",
     facesInEvent: "{count} ใบหน้าที่พบ",
     photosProcessed: "ประมวลผลแล้ว {done} จาก {total}",
+    downloadsCount: "{count} ครั้งที่โหลด",
     backToStudio: "กลับไปสตูดิโอ",
     openPublicPage: "ดูหน้างานจริง",
     qrPrint: "หน้าพร้อมพิมพ์",
@@ -367,6 +368,8 @@ export const th = {
     searchesAnonymous: "ไม่ระบุตัวตน",
     searchesMatchCount: "พบ {count} รูปที่ตรงกัน",
     searchesNoMatch: "ไม่พบรูปที่ตรงกัน",
+    downloadsTitle: "การดาวน์โหลดในงานนี้",
+    downloadsWatermarked: "มีลายน้ำ",
     photosTitle: "รูปในงานนี้",
     photosNone: "ยังไม่มีรูป",
     photosSelect: "เลือกรูป {name}",
@@ -455,6 +458,7 @@ export const th = {
     statPhotos: "รูปในระบบ",
     statFaces: "ใบหน้าที่ index แล้ว",
     statSearches: "การค้นหาทั้งหมด",
+    statDownloads: "การดาวน์โหลดทั้งหมด",
 
     searchesTitle: "การค้นหาราย 30 วัน",
     searchesUnit: "ครั้ง",
@@ -473,6 +477,23 @@ export const th = {
     indexWorking: "กำลังประมวลผล",
     indexNoFace: "ไม่พบใบหน้า",
     indexFailed: "ล้มเหลว",
+  },
+
+  notifications: {
+    title: "การแจ้งเตือน",
+    empty: "ยังไม่มีการแจ้งเตือน",
+    markAllRead: "อ่านทั้งหมดแล้ว",
+    unreadCount: "มี {count} รายการยังไม่ได้อ่าน",
+    types: {
+      photographer_application_received: "{name} ส่งใบสมัครช่างภาพเข้ามา รอคุณตรวจสอบ",
+      photographer_approved: "ใบสมัครช่างภาพของคุณได้รับอนุมัติแล้ว สร้างงานแรกได้เลย",
+      photographer_rejected: "ใบสมัครช่างภาพของคุณไม่ผ่าน",
+      event_approved: "งาน “{eventName}” เปิดให้ค้นหาแล้ว",
+      event_rejected: "งาน “{eventName}” ถูกปิดโดยผู้ดูแล",
+      photo_index_failed:
+        "รูปในงาน “{eventName}” ประมวลผลใบหน้าไม่สำเร็จ {count} รูป กดเข้าไปลองใหม่ได้",
+      photo_downloaded: "มีการดาวน์โหลดรูปจากงาน “{eventName}” แล้ว {count} ครั้ง",
+    },
   },
 
   auth: {
@@ -867,6 +888,7 @@ export const en: Dictionary = {
     photosInEvent: "{count} photos",
     facesInEvent: "{count} faces found",
     photosProcessed: "Processed {done} of {total}",
+    downloadsCount: "{count} downloads",
     backToStudio: "Back to studio",
     openPublicPage: "Open the public page",
     qrPrint: "Print sheet",
@@ -942,6 +964,8 @@ export const en: Dictionary = {
     searchesAnonymous: "Anonymous",
     searchesMatchCount: "{count} photos matched",
     searchesNoMatch: "No match found",
+    downloadsTitle: "Downloads for this event",
+    downloadsWatermarked: "Watermarked",
     photosTitle: "Photos in this event",
     photosNone: "No photos yet",
     photosSelect: "Select photo {name}",
@@ -1028,6 +1052,7 @@ export const en: Dictionary = {
     statPhotos: "Photos",
     statFaces: "Faces indexed",
     statSearches: "Searches",
+    statDownloads: "Downloads",
 
     searchesTitle: "Searches, last 30 days",
     searchesUnit: "total",
@@ -1046,6 +1071,25 @@ export const en: Dictionary = {
     indexWorking: "In progress",
     indexNoFace: "No face found",
     indexFailed: "Failed",
+  },
+
+  notifications: {
+    title: "Notifications",
+    empty: "No notifications yet",
+    markAllRead: "Mark all as read",
+    unreadCount: "{count} unread",
+    types: {
+      photographer_application_received:
+        "{name} applied to become a photographer — waiting on your review",
+      photographer_approved:
+        "Your photographer application was approved. Create your first event.",
+      photographer_rejected: "Your photographer application was not approved",
+      event_approved: "“{eventName}” is now live and searchable",
+      event_rejected: "“{eventName}” was taken down by an admin",
+      photo_index_failed:
+        "{count} photos in “{eventName}” failed face indexing. Tap to retry.",
+      photo_downloaded: "{count} downloads so far from “{eventName}”",
+    },
   },
 
   auth: {

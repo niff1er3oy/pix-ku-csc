@@ -85,6 +85,20 @@
       "when": 1787474167902,
       "tag": "0011_petite_justin_hammer",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1787513906165,
+      "tag": "0012_silent_moonstone",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1787515965652,
+      "tag": "0013_youthful_tyrannus",
+      "breakpoints": true
     }
   ]
 }

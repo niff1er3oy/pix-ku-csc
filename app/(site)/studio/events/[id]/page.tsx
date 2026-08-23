@@ -25,6 +25,7 @@ import { PhotoGallery } from "@/components/photos/photo-gallery";
 import { StatusChip } from "@/components/studio/status-chip";
 import {
   getMyEvent,
+  getMyEventDownloads,
   getMyEventFaces,
   getMyEventPhotos,
   getMyEventSearches,
@@ -66,10 +67,11 @@ export default async function StudioEventPage({
   const event = await getMyEvent(photographer.id, id);
   if (!event) notFound();
 
-  const [photos, faces, searches] = await Promise.all([
+  const [photos, faces, searches, downloads] = await Promise.all([
     getMyEventPhotos(photographer.id, id, { faceId: face }),
     getMyEventFaces(photographer.id, id),
     getMyEventSearches(photographer.id, id),
+    getMyEventDownloads(photographer.id, id),
   ]);
   const [qr, url] = [await eventQrSvg(event.accessCode), eventUrl(event.accessCode)];
 
@@ -160,6 +162,14 @@ export default async function StudioEventPage({
             {t(dict.studio.photosProcessed, {
               done: formatNumber(event.processedCount, locale),
               total: formatNumber(event.photoCount, locale),
+            })}
+          </span>
+        )}
+        {event.downloadCount > 0 && (
+          <span className="inline-flex items-center gap-1.5">
+            <DownloadIcon size={16} />
+            {t(dict.studio.downloadsCount, {
+              count: formatNumber(event.downloadCount, locale),
             })}
           </span>
         )}
@@ -301,6 +311,35 @@ export default async function StudioEventPage({
                     })}
                   </div>
                 )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {downloads.length > 0 && (
+        <section className="mt-12">
+          <h2 className="text-h2">{dict.studio.downloadsTitle}</h2>
+          <ul className="mt-4 divide-y divide-edge rounded-card ring-1 ring-edge">
+            {downloads.map((d) => (
+              <li key={d.id} className="p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-label font-medium text-ink">
+                    {d.userName ?? d.userEmail ?? dict.studio.searchesAnonymous}
+                  </p>
+                  <p className="tnum text-caption text-slate">
+                    {formatDate(d.createdAt, locale, {
+                      day: "numeric",
+                      month: "short",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </p>
+                </div>
+                <p className="mt-1 truncate text-label text-slate">
+                  {d.photoFilename}
+                  {d.watermarked && ` · ${dict.studio.downloadsWatermarked}`}
+                </p>
               </li>
             ))}
           </ul>

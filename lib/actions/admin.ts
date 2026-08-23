@@ -7,6 +7,7 @@ import * as z from "zod";
 import { db } from "@/db";
 import { events, photographers, users } from "@/db/schema";
 import { requireRole } from "@/lib/dal";
+import { notify } from "@/lib/notifications";
 
 const Review = z.object({
   id: z.string().uuid(),
@@ -36,7 +37,7 @@ export async function approvePhotographer(formData: FormData) {
   const admin = await requireRole("admin");
   const { id } = Review.parse({ id: formData.get("id") });
 
-  await db.transaction(async (tx) => {
+  const approvedUserId = await db.transaction(async (tx) => {
     const [row] = await tx
       .update(photographers)
       .set({
@@ -48,7 +49,7 @@ export async function approvePhotographer(formData: FormData) {
       .where(eq(photographers.id, id))
       .returning({ userId: photographers.userId });
 
-    if (!row) return;
+    if (!row) return null;
 
     // The role is cosmetic next to `photographer.status`, which is what
     // `requireApprovedPhotographer` actually gates on — but leaving it at
@@ -64,7 +65,17 @@ export async function approvePhotographer(formData: FormData) {
       .update(users)
       .set({ role: "photographer" })
       .where(and(eq(users.id, row.userId), eq(users.role, "user")));
+
+    return row.userId;
   });
+
+  if (approvedUserId) {
+    await notify({
+      userId: approvedUserId,
+      type: "photographer_approved",
+      href: "/studio",
+    });
+  }
 
   revalidatePath("/admin");
 }
@@ -76,7 +87,7 @@ export async function rejectPhotographer(formData: FormData) {
     reason: formData.get("reason"),
   });
 
-  await db
+  const [row] = await db
     .update(photographers)
     .set({
       status: "rejected",
@@ -84,7 +95,17 @@ export async function rejectPhotographer(formData: FormData) {
       reviewedAt: new Date(),
       rejectionReason: reason || null,
     })
-    .where(eq(photographers.id, id));
+    .where(eq(photographers.id, id))
+    .returning({ userId: photographers.userId });
+
+  if (row) {
+    await notify({
+      userId: row.userId,
+      type: "photographer_rejected",
+      href: "/photographer/apply",
+      data: reason ? { reason } : undefined,
+    });
+  }
 
   revalidatePath("/admin");
 }
@@ -102,7 +123,7 @@ export async function approveEvent(formData: FormData) {
   const admin = await requireRole("admin");
   const { id } = Review.parse({ id: formData.get("id") });
 
-  await db
+  const [row] = await db
     .update(events)
     .set({
       status: "approved",
@@ -110,7 +131,10 @@ export async function approveEvent(formData: FormData) {
       reviewedAt: new Date(),
       rejectionReason: null,
     })
-    .where(eq(events.id, id));
+    .where(eq(events.id, id))
+    .returning({ nameTh: events.nameTh, ownerId: events.ownerId });
+
+  if (row) await notifyEventOwner(row.ownerId, "event_approved", id, row.nameTh);
 
   revalidatePath("/admin");
   revalidatePath("/events");
@@ -129,7 +153,7 @@ export async function rejectEvent(formData: FormData) {
     reason: formData.get("reason"),
   });
 
-  await db
+  const [row] = await db
     .update(events)
     .set({
       status: "rejected",
@@ -137,10 +161,41 @@ export async function rejectEvent(formData: FormData) {
       reviewedAt: new Date(),
       rejectionReason: reason || null,
     })
-    .where(eq(events.id, id));
+    .where(eq(events.id, id))
+    .returning({ nameTh: events.nameTh, ownerId: events.ownerId });
+
+  if (row) {
+    await notifyEventOwner(row.ownerId, "event_rejected", id, row.nameTh, reason);
+  }
 
   revalidatePath("/admin");
   revalidatePath("/events");
+}
+
+/**
+ * `event.owner_id` points at `photographer.id`, not a user — every event
+ * notification needs one extra hop to find who actually gets it.
+ */
+async function notifyEventOwner(
+  photographerId: string,
+  type: "event_approved" | "event_rejected",
+  eventId: string,
+  eventName: string,
+  reason?: string | null,
+): Promise<void> {
+  const [owner] = await db
+    .select({ userId: photographers.userId })
+    .from(photographers)
+    .where(eq(photographers.id, photographerId))
+    .limit(1);
+  if (!owner) return;
+
+  await notify({
+    userId: owner.userId,
+    type,
+    href: `/studio/events/${eventId}`,
+    data: reason ? { eventName, reason } : { eventName },
+  });
 }
 
 // ---------------------------------------------------------------------------

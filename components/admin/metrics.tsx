@@ -7,6 +7,7 @@ import {
   CameraIcon,
   CheckIcon,
   ClockIcon,
+  DownloadIcon,
   FaceScanIcon,
   PhotoIcon,
   SearchIcon,
@@ -45,6 +46,7 @@ export function StatTiles({
     { label: labels.statPhotos, value: totals.photos, Icon: PhotoIcon },
     { label: labels.statFaces, value: totals.faces, Icon: FaceScanIcon },
     { label: labels.statSearches, value: totals.searches, Icon: SearchIcon },
+    { label: labels.statDownloads, value: totals.downloads, Icon: DownloadIcon },
   ];
 
   return (
