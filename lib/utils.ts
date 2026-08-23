@@ -32,7 +32,12 @@ export function slugify(input: string) {
     .trim()
     .toLowerCase()
     .replace(/[\s_]+/g, "-")
-    .replace(/[^\p{L}\p{N}-]+/gu, "")
+    // `\p{M}` is not optional here. Thai vowels and tone marks are combining
+    // marks, not letters, so a set of `\p{L}\p{N}` alone strips them — it
+    // turned "งานกีฬาสีทดสอบ" into "งานกฬาสทดสอบ", which is not a word. The
+    // slug is the public URL and the QR's destination, so it has to survive as
+    // readable Thai.
+    .replace(/[^\p{L}\p{N}\p{M}-]+/gu, "")
     .replace(/-{2,}/g, "-")
     .replace(/^-|-$/g, "")
     .slice(0, 80);

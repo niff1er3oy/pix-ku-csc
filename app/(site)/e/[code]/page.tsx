@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ViewTransition } from "react";
 
+import { PhotoGallery } from "@/components/photos/photo-gallery";
 import { FaceSearchPanel } from "@/components/search/face-search-panel";
 import { GridBackground } from "@/components/ui/grid-background";
 import { getPhotographer, getSessionUser } from "@/lib/dal";
@@ -19,12 +19,12 @@ const PAGE_SIZE = 60;
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ slug: string }>;
+  params: Promise<{ code: string }>;
 }): Promise<Metadata> {
-  const { slug } = await params;
+  const { code } = await params;
   const [locale, event] = await Promise.all([
     getLocale(),
-    getEventBySlug(slug).catch(() => null),
+    getEventBySlug(code).catch(() => null),
   ]);
   if (!event) return {};
 
@@ -32,7 +32,7 @@ export async function generateMetadata({
   return {
     title: name,
     // Unlisted events must not be indexed — the URL is the access control.
-    robots: event.isUnlisted ? { index: false, follow: false } : undefined,
+    robots: event.isPrivate ? { index: false, follow: false } : undefined,
   };
 }
 
@@ -46,17 +46,17 @@ export default async function EventPage({
   params,
   searchParams,
 }: {
-  params: Promise<{ slug: string }>;
+  params: Promise<{ code: string }>;
   searchParams: Promise<{ page?: string }>;
 }) {
-  const [{ slug }, { page: pageParam }, locale, dict] = await Promise.all([
+  const [{ code }, { page: pageParam }, locale, dict] = await Promise.all([
     params,
     searchParams,
     getLocale(),
     getDictionary(),
   ]);
 
-  const event = await getEventBySlug(slug);
+  const event = await getEventBySlug(code);
   if (!event) notFound();
 
   const user = await getSessionUser();
@@ -95,7 +95,7 @@ export default async function EventPage({
 
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <span className="rounded-pill bg-paper px-3 py-1 text-caption font-medium text-green-700">
-              {formatDate(event.startsAt, locale)}
+              {formatDate(event.eventDate, locale)}
             </span>
             {event.location && (
               <span className="rounded-pill bg-paper px-3 py-1 text-caption font-medium text-green-700">
@@ -129,10 +129,11 @@ export default async function EventPage({
       {/* --- Face search, inline ------------------------------------------ */}
       <FaceSearchPanel
         eventId={event.id}
-        eventSlug={event.slug}
+        eventSlug={event.accessCode}
         dict={dict}
         signedIn={Boolean(user)}
         watermarked={event.watermarkEnabled}
+        allowDownload={event.allowOriginalDownload}
       />
 
       {/* --- Gallery ------------------------------------------------------ */}
@@ -153,32 +154,32 @@ export default async function EventPage({
           </div>
         ) : (
           <>
-            <ul className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
-              {photos.map((photo) => (
-                <li key={photo.id}>
-                  <ViewTransition name={`photo-${photo.id}`}>
-                    <div className="overflow-hidden rounded-media bg-green-100">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={`/api/media/${photo.thumbPath}`}
-                        alt=""
-                        loading="lazy"
-                        decoding="async"
-                        width={photo.width}
-                        height={photo.height}
-                        className="aspect-[4/3] h-full w-full object-cover"
-                      />
-                    </div>
-                  </ViewTransition>
-                </li>
-              ))}
-            </ul>
+            <PhotoGallery
+              className="mt-8"
+              items={photos.map((photo) => ({
+                id: photo.id,
+                thumbSrc: `/api/media/${photo.thumbPath}`,
+                previewSrc: `/api/media/${photo.previewPath}`,
+                width: photo.width,
+                height: photo.height,
+                viewTransitionName: `photo-${photo.id}`,
+                downloadHref: event.allowOriginalDownload
+                  ? `/api/media/${photo.originalPath}?download=1`
+                  : undefined,
+              }))}
+              labels={{
+                close: dict.common.close,
+                previous: dict.common.back,
+                next: dict.common.next,
+                download: dict.results.downloadOne,
+              }}
+            />
 
             {pageCount > 1 && (
               <Pagination
                 page={page}
                 pageCount={pageCount}
-                slug={event.slug}
+                code={event.accessCode}
                 dict={dict}
               />
             )}
@@ -196,12 +197,12 @@ export default async function EventPage({
 function Pagination({
   page,
   pageCount,
-  slug,
+  code,
   dict,
 }: {
   page: number;
   pageCount: number;
-  slug: string;
+  code: string;
   dict: Awaited<ReturnType<typeof getDictionary>>;
 }) {
   const link =
@@ -213,7 +214,7 @@ function Pagination({
       aria-label={dict.event.browseAll}
     >
       {page > 1 ? (
-        <Link href={`/e/${slug}?page=${page - 1}`} className={link}>
+        <Link href={`/e/${code}?page=${page - 1}`} className={link}>
           {dict.common.back}
         </Link>
       ) : (
@@ -227,7 +228,7 @@ function Pagination({
       </span>
 
       {page < pageCount ? (
-        <Link href={`/e/${slug}?page=${page + 1}`} className={link}>
+        <Link href={`/e/${code}?page=${page + 1}`} className={link}>
           {dict.common.next}
         </Link>
       ) : (

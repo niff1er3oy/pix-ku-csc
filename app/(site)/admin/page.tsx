@@ -156,9 +156,9 @@ export default async function AdminPage({
                 key={row.id}
                 id={row.id}
                 title={row.nameTh}
-                meta={[row.ownerName, row.location, `/e/${row.slug}`]}
+                meta={[row.ownerName, row.location, `/e/${row.accessCode}`]}
                 body={row.descriptionTh}
-                submitted={formatDate(row.startsAt, locale)}
+                submitted={formatDate(row.eventDate, locale)}
                 approve={approveEvent}
                 reject={rejectEvent}
                 labels={dict.admin}

@@ -30,7 +30,7 @@ if (process.env.NODE_ENV === "production") {
 
   if (inside) {
     console.warn(
-      `[find-ku-dae] STORAGE_ROOT (${STORAGE_ROOT}) is inside the application ` +
+      `[pix-ku-csc] STORAGE_ROOT (${STORAGE_ROOT}) is inside the application ` +
         `directory (${appDir}). Uploaded photographs will be destroyed by the ` +
         `next deployment. Set STORAGE_ROOT to an absolute path outside it.`,
     );
@@ -53,6 +53,9 @@ export const storagePaths = {
     path.posix.join("events", eventId, "preview", `${photoId}.webp`),
   eventThumb: (eventId: string, photoId: string) =>
     path.posix.join("events", eventId, "thumb", `${photoId}.webp`),
+  /** One per event, so replacing a cover overwrites rather than accumulates. */
+  eventCover: (eventId: string) =>
+    path.posix.join("events", eventId, "cover", "cover.webp"),
   eventWatermark: (eventId: string, filename: string) =>
     path.posix.join("events", eventId, "watermark", filename),
   eventDir: (eventId: string) => path.posix.join("events", eventId),

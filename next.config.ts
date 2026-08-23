@@ -2,6 +2,16 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   experimental: {
+    serverActions: {
+      /**
+       * Next defaults to 1 MB, which a photograph off any modern phone exceeds
+       * before it leaves the camera roll. The event cover travels through a
+       * Server Action, so this has to clear a real file: `MAX_COVER_BYTES` in
+       * lib/images.ts is 10 MB, and the rest is room for the multipart
+       * envelope and the other form fields around it.
+       */
+      bodySizeLimit: "12mb",
+    },
     // `forbidden()` and `unauthorized()` in lib/dal.ts do nothing catchable
     // without this. Measured before enabling it: a signed-in non-admin
     // requesting /admin got HTTP 200 and a loading state that never resolved —

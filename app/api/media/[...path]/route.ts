@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 
 import { db } from "@/db";
-import { downloads, events, photos } from "@/db/schema";
+import { downloads, events, photos, type Event } from "@/db/schema";
 import { getPhotographer, getSessionUser } from "@/lib/dal";
 import { applyWatermark } from "@/lib/images";
 import { readStorageFile } from "@/lib/storage";
@@ -133,8 +133,38 @@ async function authorize(
     return { ok: false, status: 404 };
   }
 
-  if (kind === "thumb" || kind === "preview" || kind === "watermark") {
+  // `cover` belongs with the public derivatives: it is the image on the event
+  // card and the page header, so anyone who can see the event can see it.
+  // `thumb` stays unwatermarked too — it is small enough (640px) that
+  // burning a mark into every grid tile would cost a composite per request
+  // for little real protection.
+  if (kind === "thumb" || kind === "watermark" || kind === "cover") {
     return { ok: true, private: !isManager ? false : true };
+  }
+
+  // `preview` is the large (2000px) image the gallery and lightbox actually
+  // display — the one a visitor can just right-click "Save image as" on
+  // without ever touching the download button. It gets the same mark the
+  // original download does, computed fresh on every request rather than
+  // baked into the stored file, so turning the watermark on or off in
+  // settings takes effect immediately without re-processing every photo.
+  //
+  // `private: true` here is deliberate, not the previous long-lived public
+  // cache: the bytes now depend on event settings that can change at any
+  // time, and a CDN holding a year-old "immutable" copy would keep serving
+  // last week's watermark — or none at all — long after it stopped being
+  // true.
+  if (kind === "preview") {
+    // The owner/admin's own on-screen browsing skips the mark here — this is
+    // what the studio's photo grid and lightbox load while reviewing an
+    // upload, and a giant watermark over every tile would get in the way of
+    // checking focus and framing. See `resolveWatermark` for why *downloads*
+    // do not get the same exemption.
+    return {
+      ok: true,
+      private: true,
+      watermark: await resolveWatermark(event, isManager),
+    };
   }
 
   if (kind !== "originals") return { ok: false, status: 404 };
@@ -153,28 +183,39 @@ async function authorize(
 
   if (!photo || photo.eventId !== event.id) return { ok: false, status: 404 };
 
-  // Managers pull the clean file; everyone else gets the photographer's mark.
-  const watermark =
-    !isManager && event.watermarkEnabled
-      ? {
-          text: event.watermarkText,
-          logo: event.watermarkLogoPath
-            ? await readStorageFile(event.watermarkLogoPath).catch(() => null)
-            : null,
-          position: event.watermarkPosition,
-          opacity: event.watermarkOpacity,
-          scale: event.watermarkScale,
-        }
-      : undefined;
-
   return {
     ok: true,
     private: true,
     filename: photo.originalFilename,
-    watermark,
+    // `false`, not `isManager`: once a watermark is turned on, every actual
+    // download carries it — the owner's and admin's included. The clean
+    // file behind it never goes anywhere on its own; the only way to get
+    // one out of this endpoint is to turn the watermark off first, the same
+    // door everyone else uses.
+    watermark: await resolveWatermark(event, false),
     logDownload:
       request.nextUrl.searchParams.get("download") === "1"
         ? { photoId: photo.id, userId: user?.id ?? null }
         : undefined,
+  };
+}
+
+/** `skipForOwner` exempts only the on-screen preview an owner/admin browses
+ *  in their own studio — see the call sites for why each does or does not
+ *  pass it. */
+async function resolveWatermark(
+  event: Event,
+  skipForOwner: boolean,
+): Promise<Parameters<typeof applyWatermark>[1] | undefined> {
+  if (skipForOwner || !event.watermarkEnabled) return undefined;
+
+  return {
+    text: event.watermarkText,
+    logo: event.watermarkLogoPath
+      ? await readStorageFile(event.watermarkLogoPath).catch(() => null)
+      : null,
+    position: event.watermarkPosition,
+    opacity: event.watermarkOpacity,
+    scale: event.watermarkScale,
   };
 }

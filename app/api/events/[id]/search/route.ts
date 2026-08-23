@@ -5,7 +5,15 @@ import { cookies } from "next/headers";
 import type { NextRequest } from "next/server";
 
 import { db } from "@/db";
-import { consents, events, photoFaces, photos, searches, userFaces } from "@/db/schema";
+import {
+  consents,
+  events,
+  photoFaces,
+  photos,
+  searches,
+  searchMatches,
+  userFaces,
+} from "@/db/schema";
 import { getSessionUser } from "@/lib/dal";
 import {
   assertSingleFace,
@@ -27,6 +35,8 @@ const RATE_LIMIT_PER_MINUTE = 12;
 export type SearchMatch = {
   photoId: string;
   thumbPath: string;
+  previewPath: string;
+  originalPath: string;
   similarity: number;
 };
 
@@ -117,15 +127,34 @@ export async function POST(
       FACE_MATCH_THRESHOLD,
     );
 
-    const matches = await resolvePhotos(eventId, rawMatches);
+    const { matches, faceMatches } = await resolvePhotos(eventId, rawMatches);
 
-    await db.insert(searches).values({
-      eventId,
-      userId: user?.id ?? null,
-      mode,
-      matchCount: matches.length,
-      topSimilarity: matches[0]?.similarity ?? null,
-      ipHash,
+    // One transaction: a `searches` row whose `matchCount` disagrees with
+    // how many `search_matches` rows actually exist for it is worse than
+    // neither existing — the studio page's match count and its face chips
+    // would tell two different stories for the same search.
+    await db.transaction(async (tx) => {
+      const [inserted] = await tx
+        .insert(searches)
+        .values({
+          eventId,
+          userId: user?.id ?? null,
+          mode,
+          matchCount: matches.length,
+          topSimilarity: matches[0]?.similarity ?? null,
+          ipHash,
+        })
+        .returning({ id: searches.id });
+
+      if (faceMatches.length > 0) {
+        await tx.insert(searchMatches).values(
+          faceMatches.map((m) => ({
+            searchId: inserted.id,
+            faceId: m.faceId,
+            similarity: m.similarity,
+          })),
+        );
+      }
     });
 
     return json({ ok: true, matches });
@@ -139,18 +168,20 @@ export async function POST(
       } as const;
       return json({ ok: false, error: map[error.code] }, 400);
     }
-    console.error("[find-ku-dae] face search failed:", error);
+    console.error("[pix-ku-csc] face search failed:", error);
     return json({ ok: false, error: "generic" }, 500);
   }
   // `source` and `detection` fall out of scope here and are never persisted.
 }
 
+type FaceMatch = { faceId: string; similarity: number };
+
 /** Joins Rekognition face ids back to the photos they came from. */
 async function resolvePhotos(
   eventId: string,
-  raw: { faceId: string; similarity: number }[],
-): Promise<SearchMatch[]> {
-  if (raw.length === 0) return [];
+  raw: FaceMatch[],
+): Promise<{ matches: SearchMatch[]; faceMatches: FaceMatch[] }> {
+  if (raw.length === 0) return { matches: [], faceMatches: [] };
 
   const best = new Map<string, number>();
   for (const match of raw) {
@@ -161,6 +192,8 @@ async function resolvePhotos(
     .select({
       photoId: photos.id,
       thumbPath: photos.thumbPath,
+      previewPath: photos.previewPath,
+      originalPath: photos.originalPath,
       faceId: photoFaces.faceId,
     })
     .from(photoFaces)
@@ -172,21 +205,33 @@ async function resolvePhotos(
       ),
     );
 
-  // One photo can hold several matching faces; keep its strongest score once.
+  // One photo can hold several matching faces; keep its strongest score once
+  // for the results the visitor sees. `faceMatches` keeps every one of them —
+  // it is what `search_match` records, and a visitor's own results collapsing
+  // to "best per photo" is a display choice, not a reason to under-record
+  // which faces this search actually reached.
   const byPhoto = new Map<string, SearchMatch>();
+  const faceMatches: FaceMatch[] = [];
   for (const row of rows) {
     const similarity = best.get(row.faceId) ?? 0;
+    faceMatches.push({ faceId: row.faceId, similarity });
+
     const existing = byPhoto.get(row.photoId);
     if (!existing || similarity > existing.similarity) {
       byPhoto.set(row.photoId, {
         photoId: row.photoId,
         thumbPath: row.thumbPath,
+        previewPath: row.previewPath,
+        originalPath: row.originalPath,
         similarity,
       });
     }
   }
 
-  return [...byPhoto.values()].sort((a, b) => b.similarity - a.similarity);
+  return {
+    matches: [...byPhoto.values()].sort((a, b) => b.similarity - a.similarity),
+    faceMatches,
+  };
 }
 
 /**

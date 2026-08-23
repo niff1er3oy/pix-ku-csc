@@ -169,10 +169,37 @@ export const ChevronRightIcon = (p: Props) => (
   </Icon>
 );
 
+/** Eight spokes around a hub read as "settings" without drawing literal gear
+ *  teeth, which do not survive this house style's stroke weight at 20-24px. */
+export const SettingsIcon = (p: Props) => (
+  <Icon {...p}>
+    <circle cx="12" cy="12" r="3" />
+    <path d="M12 3v2.75M12 18.25V21M4.93 4.93l1.94 1.94M17.13 17.13l1.94 1.94M3 12h2.75M18.25 12H21M4.93 19.07l1.94-1.94M17.13 6.87l1.94-1.94" />
+  </Icon>
+);
+
+export const TrashIcon = (p: Props) => (
+  <Icon {...p}>
+    <path d="M4 7h16" />
+    <path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
+    <path d="M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13" />
+    <path d="M10 11v6M14 11v6" />
+  </Icon>
+);
+
 export const DownloadIcon = (p: Props) => (
   <Icon {...p}>
     <path d="M12 4v10" />
     <path d="m8 10.5 4 4 4-4" />
     <path d="M5 17.5v1.5a1.5 1.5 0 0 0 1.5 1.5h11a1.5 1.5 0 0 0 1.5-1.5v-1.5" />
+  </Icon>
+);
+
+export const RefreshIcon = (p: Props) => (
+  <Icon {...p}>
+    <path d="M4 12a8 8 0 0 1 13.66-5.66L20 8.5" />
+    <path d="M20 4v4.5h-4.5" />
+    <path d="M20 12a8 8 0 0 1-13.66 5.66L4 15.5" />
+    <path d="M4 20v-4.5h4.5" />
   </Icon>
 );

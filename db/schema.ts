@@ -1,5 +1,6 @@
 import {
   boolean,
+  date,
   index,
   integer,
   jsonb,
@@ -164,15 +165,24 @@ export const events = pgTable(
   "event",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    /** Short, URL-safe. This is what the QR code points at: /e/{slug} */
-    slug: text("slug").notNull().unique(),
     nameTh: text("name_th").notNull(),
     nameEn: text("name_en"),
     descriptionTh: text("description_th"),
     descriptionEn: text("description_en"),
     location: text("location"),
-    startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
-    endsAt: timestamp("ends_at", { withTimezone: true }),
+    /**
+     * The day the event happened. A date, not a timestamp, and that removes a
+     * problem rather than deferring it: a timestamp forces every read and
+     * write to agree on a timezone, and the previous `timestamptz` needed the
+     * Bangkok offset pinned by hand on the way in because `datetime-local`
+     * carries no zone. A `date` has no zone to get wrong — 2026-09-10 is that
+     * day in every timezone there is.
+     *
+     * Held as a string rather than a JS `Date` for the same reason: a Date is
+     * an instant, and constructing one from a date-only value re-introduces
+     * the midnight-in-which-zone question this column exists to avoid.
+     */
+    eventDate: date("event_date", { mode: "string" }).notNull(),
 
     ownerId: uuid("owner_id")
       .notNull()
@@ -189,13 +199,49 @@ export const events = pgTable(
      *  Null until the first photo is uploaded. */
     faceCollectionId: text("face_collection_id"),
 
-    coverPhotoId: uuid("cover_photo_id"),
+    /**
+     * The event's cover image, relative to STORAGE_ROOT.
+     *
+     * Replaces an unused `cover_photo_id` that pointed at a photo inside the
+     * event. That could never work at the moment it is needed: a photographer
+     * sets the cover while creating the event, before a single photo has been
+     * uploaded. This is its own image, chosen deliberately, rather than
+     * whichever frame happened to land first.
+     *
+     * Null falls back to the first photo's thumbnail, so an event that never
+     * gets a cover still looks like something.
+     */
+    coverPath: text("cover_path"),
 
-    /** Unlisted events are reachable only by someone holding the URL/QR. */
-    isUnlisted: boolean("is_unlisted").notNull().default(false),
+    /**
+     * A private event: kept out of every public list *and* gated behind an
+     * entry PIN.
+     *
+     * One switch rather than two, because the two always travelled together —
+     * a gallery worth hiding from the index is a gallery worth asking for a
+     * PIN, and an unlisted event with no PIN was only ever a guessable URL
+     * away from public. Replaces the previous `is_unlisted`, which did the
+     * first half and called it privacy.
+     */
+    isPrivate: boolean("is_private").notNull().default(false),
+
+    /**
+     * scrypt hash of the six-digit entry PIN, as `salt:hash`. Null on a public
+     * event.
+     *
+     * Hashed rather than stored, at the owner's direction, so the PIN cannot be
+     * read back out of the database — not by an admin screen, not by whoever
+     * ends up with a backup. The photographer sees it once when it is set and
+     * generates a new one if they lose it. See lib/event-pin.ts.
+     */
+    entryPinHash: text("entry_pin_hash"),
     /**
      * The six-character code printed under the QR — never chosen by a
-     * photographer or a visitor.
+     * photographer or a visitor, and **the event's public address**: the page
+     * lives at /e/{accessCode} and the QR points there. One identifier rather
+     * than a slug beside a code, so the person who scans and the person who
+     * types the code off the sign land in the same place, and there is no
+     * second value to keep unique.
      *
      * **Issued by the database**, by `gen_event_code()` in migration 0002.
      * Generating it here rather than in Node means no write path can produce
@@ -245,7 +291,7 @@ export const events = pgTable(
   (t) => [
     index("event_status_idx").on(t.status),
     index("event_owner_idx").on(t.ownerId),
-    index("event_starts_at_idx").on(t.startsAt),
+    index("event_date_idx").on(t.eventDate),
     // Unique, and also the index the finder's lookup runs on — every visit
     // that starts from a printed code hits exactly this.
     uniqueIndex("event_access_code_idx").on(t.accessCode),
@@ -393,6 +439,46 @@ export const searches = pgTable(
     index("search_event_idx").on(t.eventId),
     index("search_user_idx").on(t.userId),
     index("search_created_idx").on(t.createdAt),
+  ],
+);
+
+/**
+ * Which faces a search actually matched — one row per distinct face id, not
+ * per raw Rekognition hit (`SearchFacesByImage` can return several matches
+ * against the same indexed face; the search route already collapses those to
+ * one best-similarity score before this is written).
+ *
+ * Split from `searches` rather than a `faceIds` array column on it: this is a
+ * step up in sensitivity from what `searches` already keeps (count and top
+ * score only) — it is the record of exactly which detected faces a specific
+ * account's search reached, which `matchCount`/`topSimilarity` deliberately
+ * stopped short of. A separate table keeps that distinction visible in the
+ * schema instead of buried in a column, and lets it be pruned or restricted
+ * independently of the aggregate search log later if that turns out to matter.
+ */
+export const searchMatches = pgTable(
+  "search_match",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    searchId: uuid("search_id")
+      .notNull()
+      .references(() => searches.id, { onDelete: "cascade" }),
+    /** References the same Rekognition id `photo_face.face_id` holds, not
+     *  that row's own uuid — so this stays meaningful even if a photo (and
+     *  its `photo_face` row) is deleted; `onDelete: cascade` here means the
+     *  match record disappears with it rather than pointing at nothing. */
+    faceId: text("face_id")
+      .notNull()
+      .references(() => photoFaces.faceId, { onDelete: "cascade" }),
+    /** 0-100, Rekognition's own score for this specific face. */
+    similarity: real("similarity").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("search_match_search_idx").on(t.searchId),
+    index("search_match_face_idx").on(t.faceId),
   ],
 );
 

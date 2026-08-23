@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "Find KU Dae";
+export const alt = "PIX KU CSC";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -30,9 +30,9 @@ export default function OpengraphImage() {
         }}
       >
         <div style={{ display: "flex", fontSize: 92, fontWeight: 700 }}>
-          <span>Find </span>
+          <span>PIX </span>
           <span style={{ color: "#e4ee4a" }}>KU</span>
-          <span> Dae</span>
+          <span> CSC</span>
         </div>
         <div
           style={{

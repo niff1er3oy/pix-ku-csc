@@ -91,8 +91,12 @@ export async function rejectPhotographer(formData: FormData) {
 
 /**
  * Approving an event is what makes it publicly reachable — the finder, the
- * event page and /api/media all refuse anything that is not `approved`, so
- * until this runs the photographs are not exposed to anyone but their owner.
+ * event page and /api/media all refuse anything that is not `approved`.
+ *
+ * A photographer's own `publishEvent` (in `lib/actions/studio.ts`) already
+ * takes a draft straight to `approved` with no admin step in between; this
+ * exists for the rare event that is still sitting at `pending` from before
+ * that changed, or that got moved back there by hand.
  */
 export async function approveEvent(formData: FormData) {
   const admin = await requireRole("admin");
@@ -112,6 +116,12 @@ export async function approveEvent(formData: FormData) {
   revalidatePath("/events");
 }
 
+/**
+ * Takes an event down — from `pending`, or from `approved` and already live.
+ * Events publish without admin review now (see `publishEvent`), so this is
+ * the only backstop left: an admin who finds a live event that should not be
+ * uses this the same way they would have rejected it beforehand.
+ */
 export async function rejectEvent(formData: FormData) {
   const admin = await requireRole("admin");
   const { id, reason } = Review.parse({

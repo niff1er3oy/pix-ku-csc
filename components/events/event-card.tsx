@@ -28,7 +28,7 @@ export function EventCard({
   return (
     <li className={className} style={style}>
       <Link
-        href={`/e/${event.slug}`}
+        href={`/e/${event.accessCode}`}
         className="group block overflow-hidden rounded-card bg-paper shadow-[var(--shadow-card)] transition-[transform,box-shadow] duration-[250ms] ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-[3px] hover:shadow-[var(--shadow-lift)]"
       >
         <ViewTransition name={`event-cover-${event.id}`}>
@@ -55,7 +55,7 @@ export function EventCard({
           </h3>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <span className="rounded-pill bg-green-50 px-3 py-1 text-caption font-medium text-green-700">
-              {formatDate(event.startsAt, locale)}
+              {formatDate(event.eventDate, locale)}
             </span>
             <span className="tnum rounded-pill bg-green-50 px-3 py-1 text-caption font-medium text-green-700">
               {formatNumber(event.photoCount, locale)} {dict.common.photos}

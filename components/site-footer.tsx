@@ -54,7 +54,7 @@ export async function SiteFooter() {
 
         <div className="border-t border-edge">
           <p className="mx-auto max-w-6xl px-5 py-4 text-caption text-slate sm:px-8">
-            Find KU Dae · มหาวิทยาลัยเกษตรศาสตร์
+            {dict.brand.name} · มหาวิทยาลัยเกษตรศาสตร์
           </p>
         </div>
       </div>
