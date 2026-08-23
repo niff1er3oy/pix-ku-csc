@@ -9,6 +9,7 @@ import {
   photographers,
   photos,
   searches,
+  searchMatches,
   sessions,
   userFaces,
   users,
@@ -62,18 +63,31 @@ export const photosRelations = relations(photos, ({ one, many }) => ({
   downloads: many(downloads),
 }));
 
-export const photoFacesRelations = relations(photoFaces, ({ one }) => ({
+export const photoFacesRelations = relations(photoFaces, ({ one, many }) => ({
   photo: one(photos, { fields: [photoFaces.photoId], references: [photos.id] }),
   event: one(events, { fields: [photoFaces.eventId], references: [events.id] }),
+  matches: many(searchMatches),
 }));
 
 export const userFacesRelations = relations(userFaces, ({ one }) => ({
   user: one(users, { fields: [userFaces.userId], references: [users.id] }),
 }));
 
-export const searchesRelations = relations(searches, ({ one }) => ({
+export const searchesRelations = relations(searches, ({ one, many }) => ({
   event: one(events, { fields: [searches.eventId], references: [events.id] }),
   user: one(users, { fields: [searches.userId], references: [users.id] }),
+  matches: many(searchMatches),
+}));
+
+export const searchMatchesRelations = relations(searchMatches, ({ one }) => ({
+  search: one(searches, {
+    fields: [searchMatches.searchId],
+    references: [searches.id],
+  }),
+  face: one(photoFaces, {
+    fields: [searchMatches.faceId],
+    references: [photoFaces.faceId],
+  }),
 }));
 
 export const downloadsRelations = relations(downloads, ({ one }) => ({

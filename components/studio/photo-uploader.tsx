@@ -85,6 +85,18 @@ export function PhotoUploader({
   const add = (files: FileList | null) => {
     if (!files || files.length === 0) return;
 
+    // Snapshotted now, not read inside the `setItems` updater below. The
+    // updater runs after this whole handler returns — including the
+    // `event.target.value = ""` two lines below wherever `add` is called
+    // from — and clearing an <input type="file"> empties the very
+    // `FileList` object already captured here, not just future reads of
+    // `.files`. Reading `files` lazily inside the updater meant a second
+    // pick, made after the input had already been reset once, silently
+    // evaporated: React (in development) even caught this directly, since
+    // Strict Mode's double-invoke of the updater showed the file count
+    // disagreeing between the two calls.
+    const incoming = Array.from(files);
+
     setItems((current) => {
       // Picking the same folder twice is common — the photographer is not sure
       // whether the first pick registered. Matching on name+size+mtime keeps
@@ -93,7 +105,7 @@ export function PhotoUploader({
         current.map((i) => `${i.file.name}:${i.file.size}:${i.file.lastModified}`),
       );
 
-      const fresh = Array.from(files)
+      const fresh = incoming
         .filter(
           (file) => !seen.has(`${file.name}:${file.size}:${file.lastModified}`),
         )

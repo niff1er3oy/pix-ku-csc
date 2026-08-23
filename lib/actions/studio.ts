@@ -12,13 +12,16 @@ import { hashPin, isPin } from "@/lib/event-pin";
 import {
   ACCEPTED_MIME,
   buildCoverImage,
+  buildDetectionCopy,
   buildWatermarkLogo,
   MAX_COVER_BYTES,
   MAX_WATERMARK_LOGO_BYTES,
 } from "@/lib/images";
 import { faceProvider } from "@/lib/face";
+import { indexPhotoFaces } from "@/lib/face/pipeline";
 import {
   deleteStoragePath,
+  readStorageFile,
   storagePaths,
   writeStorageFile,
 } from "@/lib/storage";
@@ -728,5 +731,55 @@ export async function deletePhotos(formData: FormData): Promise<void> {
   });
 
   revalidatePath("/studio");
+  revalidatePath(`/studio/events/${eventId}`);
+}
+
+const RetryIndex = z.object({
+  eventId: z.string().uuid(),
+  photoId: z.string().uuid(),
+});
+
+/**
+ * Re-runs Rekognition indexing for one photo whose first attempt failed —
+ * the studio grid's "!" badge is the only way a photographer reaches this.
+ *
+ * Rebuilds the detection copy from the stored original rather than keeping
+ * the one from upload time around: that copy exists only for the length of
+ * the original request, and a photo can sit in `failed` indefinitely before
+ * anyone notices and retries.
+ *
+ * Silently no-ops on anything that does not match — wrong owner, wrong event,
+ * or a photo that is not actually `failed` — the same shape as `deletePhotos`
+ * and for the same reason: a stale button in an already-open tab should do
+ * nothing, not throw.
+ */
+export async function retryPhotoIndex(formData: FormData): Promise<void> {
+  const { photographer } = await requireApprovedPhotographer();
+  const parsed = RetryIndex.safeParse({
+    eventId: formData.get("eventId"),
+    photoId: formData.get("photoId"),
+  });
+  if (!parsed.success) return;
+  const { eventId, photoId } = parsed.data;
+
+  const [event] = await db
+    .select({ id: events.id, faceCollectionId: events.faceCollectionId })
+    .from(events)
+    .where(and(eq(events.id, eventId), eq(events.ownerId, photographer.id)))
+    .limit(1);
+  if (!event) return;
+
+  const [photo] = await db
+    .select({ originalPath: photos.originalPath, indexStatus: photos.indexStatus })
+    .from(photos)
+    .where(and(eq(photos.id, photoId), eq(photos.eventId, eventId)))
+    .limit(1);
+  if (!photo || photo.indexStatus !== "failed") return;
+
+  const original = await readStorageFile(photo.originalPath);
+  const detection = await buildDetectionCopy(original);
+
+  await indexPhotoFaces(eventId, photoId, detection, event.faceCollectionId);
+
   revalidatePath(`/studio/events/${eventId}`);
 }

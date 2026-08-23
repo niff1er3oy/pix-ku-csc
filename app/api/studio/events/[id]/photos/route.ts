@@ -4,6 +4,7 @@ import path from "node:path";
 import { db } from "@/db";
 import { events, photos } from "@/db/schema";
 import { requireApprovedPhotographer } from "@/lib/dal";
+import { indexPhotoFaces } from "@/lib/face/pipeline";
 import {
   ACCEPTED_MIME,
   buildDerivatives,
@@ -55,7 +56,7 @@ export async function POST(
   // photographer who guesses somebody else's must not be able to write into
   // their event.
   const [event] = await db
-    .select({ id: events.id })
+    .select({ id: events.id, faceCollectionId: events.faceCollectionId })
     .from(events)
     .where(and(eq(events.id, id), eq(events.ownerId, photographer.id)))
     .limit(1);
@@ -152,6 +153,11 @@ export async function POST(
     console.warn("[pix-ku-csc] photo upload failed:", error);
     return json({ ok: false, reason: "server" }, 500);
   }
+
+  // The photo is already saved and visible in the gallery at this point, so a
+  // Rekognition problem here becomes an "indexed: failed" badge, not a failed
+  // upload — the photographer keeps the file either way.
+  await indexPhotoFaces(id, photoId, derived.detection, event.faceCollectionId);
 
   return json({ ok: true, id: photoId, duplicate: false, thumbPath });
 }

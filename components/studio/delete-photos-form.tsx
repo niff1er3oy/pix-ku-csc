@@ -47,6 +47,15 @@ export function DeletePhotosForm({
   }
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
+    // A per-photo retry button (`name="photoId"`, its own `formAction`)
+    // lives inside this same form — see `PhotoGallery`'s `select` slot on the
+    // studio page. It submits through here too, and must skip the "select at
+    // least one" / confirm checks below, which only make sense for a delete.
+    const submitter = (event.nativeEvent as SubmitEvent).submitter as
+      | HTMLButtonElement
+      | null;
+    if (submitter?.name === "photoId") return;
+
     const checked = event.currentTarget.querySelectorAll<HTMLInputElement>(
       'input[name="photoIds"]:checked',
     ).length;

@@ -194,3 +194,12 @@ export const DownloadIcon = (p: Props) => (
     <path d="M5 17.5v1.5a1.5 1.5 0 0 0 1.5 1.5h11a1.5 1.5 0 0 0 1.5-1.5v-1.5" />
   </Icon>
 );
+
+export const RefreshIcon = (p: Props) => (
+  <Icon {...p}>
+    <path d="M4 12a8 8 0 0 1 13.66-5.66L20 8.5" />
+    <path d="M20 4v4.5h-4.5" />
+    <path d="M20 12a8 8 0 0 1-13.66 5.66L4 15.5" />
+    <path d="M4 20v-4.5h4.5" />
+  </Icon>
+);

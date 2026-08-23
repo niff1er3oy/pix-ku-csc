@@ -6,9 +6,11 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { GridBackground } from "@/components/ui/grid-background";
 import {
   CalendarIcon,
+  CheckIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   DownloadIcon,
+  FaceScanIcon,
   PhotoIcon,
   SettingsIcon,
 } from "@/components/ui/icon";
@@ -18,10 +20,16 @@ import { getDictionary, getLocale, t } from "@/lib/i18n";
 import { eventQrSvg, eventUrl } from "@/lib/qr";
 import { DeletePhotosForm } from "@/components/studio/delete-photos-form";
 import { PhotoUploader } from "@/components/studio/photo-uploader";
+import { RetryIndexButton } from "@/components/studio/retry-index-button";
 import { PhotoGallery } from "@/components/photos/photo-gallery";
 import { StatusChip } from "@/components/studio/status-chip";
-import { getMyEvent, getMyEventPhotos } from "@/lib/queries/studio";
-import { formatDate, formatNumber } from "@/lib/utils";
+import {
+  getMyEvent,
+  getMyEventFaces,
+  getMyEventPhotos,
+  getMyEventSearches,
+} from "@/lib/queries/studio";
+import { cn, formatDate, formatNumber } from "@/lib/utils";
 
 export async function generateMetadata({
   params,
@@ -43,18 +51,42 @@ export async function generateMetadata({
  */
 export default async function StudioEventPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ face?: string }>;
 }) {
   const { photographer } = await requireApprovedPhotographer();
   const { id } = await params;
+  // Rekognition face ids are UUIDs (36 chars); sliced defensively the same
+  // way `admin`'s `q` param is, since this reaches a `where` clause below.
+  const face = (await searchParams).face?.slice(0, 64) || undefined;
   const [locale, dict] = await Promise.all([getLocale(), getDictionary()]);
 
   const event = await getMyEvent(photographer.id, id);
   if (!event) notFound();
 
-  const photos = await getMyEventPhotos(photographer.id, id);
+  const [photos, faces, searches] = await Promise.all([
+    getMyEventPhotos(photographer.id, id, { faceId: face }),
+    getMyEventFaces(photographer.id, id),
+    getMyEventSearches(photographer.id, id),
+  ]);
   const [qr, url] = [await eventQrSvg(event.accessCode), eventUrl(event.accessCode)];
+
+  // Shared by the face-id list below and each search row's own chips, so a
+  // click lands on the same filtered photo grid regardless of which list it
+  // came from.
+  const faceHref = (faceId: string) =>
+    faceId === face
+      ? `/studio/events/${event.id}#photos`
+      : `/studio/events/${event.id}?face=${faceId}#photos`;
+  const faceChipClass = (active: boolean) =>
+    cn(
+      "inline-flex min-h-11 items-center whitespace-nowrap rounded-pill px-4 font-mono text-sm font-medium transition-colors duration-200",
+      active
+        ? "bg-green-600 text-paper"
+        : "bg-cloud text-slate hover:bg-green-50 hover:text-green-700",
+    );
 
   const statusNote =
     event.status === "draft"
@@ -116,6 +148,21 @@ export default async function StudioEventPage({
             count: formatNumber(event.photoCount, locale),
           })}
         </span>
+        <span className="inline-flex items-center gap-1.5">
+          <FaceScanIcon size={16} />
+          {t(dict.studio.facesInEvent, {
+            count: formatNumber(event.faceCount, locale),
+          })}
+        </span>
+        {event.photoCount > 0 && (
+          <span className="inline-flex items-center gap-1.5">
+            <CheckIcon size={16} />
+            {t(dict.studio.photosProcessed, {
+              done: formatNumber(event.processedCount, locale),
+              total: formatNumber(event.photoCount, locale),
+            })}
+          </span>
+        )}
         {event.location && <span>{event.location}</span>}
       </p>
 
@@ -185,8 +232,98 @@ export default async function StudioEventPage({
 
       <PhotoUploader eventId={event.id} labels={dict.studio} />
 
-      <section className="mt-12">
-        <h2 className="text-h2">{dict.studio.photosTitle}</h2>
+      {faces.length > 0 && (
+        <section className="mt-12">
+          <h2 className="text-h2">{dict.studio.facesListTitle}</h2>
+          <nav
+            className="mt-4 flex flex-wrap gap-1.5"
+            aria-label={dict.studio.facesListTitle}
+          >
+            {faces.map((f) => {
+              const active = f.faceId === face;
+              return (
+                <Link
+                  key={f.faceId}
+                  href={faceHref(f.faceId)}
+                  aria-current={active ? "page" : undefined}
+                  title={f.faceId}
+                  className={faceChipClass(active)}
+                >
+                  {f.faceId.slice(0, 8)}
+                </Link>
+              );
+            })}
+          </nav>
+        </section>
+      )}
+
+      {searches.length > 0 && (
+        <section className="mt-12">
+          <h2 className="text-h2">{dict.studio.searchesTitle}</h2>
+          <ul className="mt-4 divide-y divide-edge rounded-card ring-1 ring-edge">
+            {searches.map((s) => (
+              <li key={s.id} className="p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-label font-medium text-ink">
+                    {s.userName ?? s.userEmail ?? dict.studio.searchesAnonymous}
+                  </p>
+                  <p className="tnum text-caption text-slate">
+                    {formatDate(s.createdAt, locale, {
+                      day: "numeric",
+                      month: "short",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </p>
+                </div>
+                <p className="mt-1 text-label text-slate">
+                  {s.matchCount > 0
+                    ? t(dict.studio.searchesMatchCount, {
+                        count: formatNumber(s.matchCount, locale),
+                      })
+                    : dict.studio.searchesNoMatch}
+                </p>
+                {s.faceIds.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {s.faceIds.map((faceId) => {
+                      const active = faceId === face;
+                      return (
+                        <Link
+                          key={faceId}
+                          href={faceHref(faceId)}
+                          aria-current={active ? "page" : undefined}
+                          title={faceId}
+                          className={faceChipClass(active)}
+                        >
+                          {faceId.slice(0, 8)}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <section id="photos" className="mt-12 scroll-mt-20">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-h2">{dict.studio.photosTitle}</h2>
+          {face && (
+            <p className="flex flex-wrap items-center gap-2 text-label text-slate">
+              <span className="font-mono">
+                {t(dict.studio.facesFilterActive, { id: face.slice(0, 8) })}
+              </span>
+              <Link
+                href={`/studio/events/${event.id}#photos`}
+                className="font-medium text-green-700 underline underline-offset-4"
+              >
+                {dict.studio.facesFilterClear}
+              </Link>
+            </p>
+          )}
+        </div>
 
         {photos.length === 0 ? (
           <div className="relative mt-5 overflow-hidden rounded-card bg-cloud px-6 py-16 text-center">
@@ -194,6 +331,14 @@ export default async function StudioEventPage({
             <p className="relative text-body text-slate">
               {dict.studio.photosNone}
             </p>
+            {face && (
+              <Link
+                href={`/studio/events/${event.id}#photos`}
+                className="relative mt-3 inline-block text-label font-medium text-green-700 underline underline-offset-4"
+              >
+                {dict.studio.facesFilterClear}
+              </Link>
+            )}
           </div>
         ) : (
           <DeletePhotosForm
@@ -222,15 +367,23 @@ export default async function StudioEventPage({
                     </span>
                   ) : undefined,
                 select: (
-                  <input
-                    type="checkbox"
-                    name="photoIds"
-                    value={photo.id}
-                    aria-label={t(dict.studio.photosSelect, {
-                      name: photo.originalFilename,
-                    })}
-                    className="size-5 rounded border-2 border-paper bg-paper/80 accent-[var(--color-green-600)] shadow-[var(--shadow-card)]"
-                  />
+                  <div className="flex flex-col items-start gap-1">
+                    <input
+                      type="checkbox"
+                      name="photoIds"
+                      value={photo.id}
+                      aria-label={t(dict.studio.photosSelect, {
+                        name: photo.originalFilename,
+                      })}
+                      className="size-5 rounded border-2 border-paper bg-paper/80 accent-[var(--color-green-600)] shadow-[var(--shadow-card)]"
+                    />
+                    {photo.indexStatus === "failed" && (
+                      <RetryIndexButton
+                        photoId={photo.id}
+                        label={dict.studio.photosRetryIndex}
+                      />
+                    )}
+                  </div>
                 ),
               }))}
               labels={{

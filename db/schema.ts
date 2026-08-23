@@ -442,6 +442,46 @@ export const searches = pgTable(
   ],
 );
 
+/**
+ * Which faces a search actually matched — one row per distinct face id, not
+ * per raw Rekognition hit (`SearchFacesByImage` can return several matches
+ * against the same indexed face; the search route already collapses those to
+ * one best-similarity score before this is written).
+ *
+ * Split from `searches` rather than a `faceIds` array column on it: this is a
+ * step up in sensitivity from what `searches` already keeps (count and top
+ * score only) — it is the record of exactly which detected faces a specific
+ * account's search reached, which `matchCount`/`topSimilarity` deliberately
+ * stopped short of. A separate table keeps that distinction visible in the
+ * schema instead of buried in a column, and lets it be pruned or restricted
+ * independently of the aggregate search log later if that turns out to matter.
+ */
+export const searchMatches = pgTable(
+  "search_match",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    searchId: uuid("search_id")
+      .notNull()
+      .references(() => searches.id, { onDelete: "cascade" }),
+    /** References the same Rekognition id `photo_face.face_id` holds, not
+     *  that row's own uuid — so this stays meaningful even if a photo (and
+     *  its `photo_face` row) is deleted; `onDelete: cascade` here means the
+     *  match record disappears with it rather than pointing at nothing. */
+    faceId: text("face_id")
+      .notNull()
+      .references(() => photoFaces.faceId, { onDelete: "cascade" }),
+    /** 0-100, Rekognition's own score for this specific face. */
+    similarity: real("similarity").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("search_match_search_idx").on(t.searchId),
+    index("search_match_face_idx").on(t.faceId),
+  ],
+);
+
 export const downloads = pgTable(
   "download",
   {

@@ -69,6 +69,7 @@ export default async function RootLayout({
   return (
     <html
       lang={locale}
+      data-scroll-behavior="smooth"
       className={`${k2d.variable} ${notoThai.variable} h-full`}
     >
       <body className="flex min-h-full flex-col bg-paper text-ink antialiased">

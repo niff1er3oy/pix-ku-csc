@@ -423,6 +423,8 @@ function messageFor(code: string, dict: Dictionary): string {
       return dict.search.errorRateLimited;
     case "consent_required":
       return dict.search.consentRequired;
+    case "no_saved_face":
+      return dict.search.errorNoSavedFace;
     default:
       return dict.search.errorGeneric;
   }
