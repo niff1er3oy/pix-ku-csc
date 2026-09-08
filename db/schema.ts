@@ -69,6 +69,20 @@ export const searchMode = pgEnum("search_mode", [
   "uploaded_selfie", // anonymous or logged-in one-off upload, never stored
 ]);
 
+/** What a `notification` row is about. Drives which message template renders
+ *  it — see `dict.notifications.types` — and who it gets sent to. */
+export const notificationType = pgEnum("notification_type", [
+  "photographer_application_received", // -> every admin
+  "photographer_approved", // -> the applicant
+  "photographer_rejected", // -> the applicant
+  "photographer_granted", // -> an account an admin made a photographer directly
+  "photographer_revoked", // -> a photographer an admin demoted
+  "event_approved", // -> the event's owner
+  "event_rejected", // -> the event's owner
+  "photo_index_failed", // -> the event's owner
+  "photo_downloaded", // -> the event's owner
+]);
+
 // ---------------------------------------------------------------------------
 // Auth.js tables (shape dictated by @auth/drizzle-adapter)
 // ---------------------------------------------------------------------------
@@ -532,6 +546,53 @@ export const consents = pgTable(
 );
 
 // ---------------------------------------------------------------------------
+// Notifications
+// ---------------------------------------------------------------------------
+
+/**
+ * In-app only — no email/SMS provider is wired up, see PRODUCT.md. One row
+ * per recipient rather than per event, so an application that goes to every
+ * admin is a handful of inserts up front instead of a fan-out read on every
+ * page view.
+ */
+export const notifications = pgTable(
+  "notification",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    type: notificationType("type").notNull(),
+    /** Where opening the notification takes the user. */
+    href: text("href"),
+    /** Fills the `{placeholder}` tokens in that type's message template. */
+    data: jsonb("data").$type<Record<string, string | number>>(),
+    /**
+     * Collapses repeats of the same kind about the same thing onto one row
+     * instead of one per occurrence. A bulk upload that fails indexing on 400
+     * photos bumps `data.count` on a single row keyed
+     * `photo_index_failed:{eventId}` rather than posting 400 of them.
+     *
+     * Null for every other type here, and that is deliberate: an approval or
+     * a rejection only ever happens once per thing, so there is nothing to
+     * collapse and every row stays its own.
+     */
+    dedupKey: text("dedup_key"),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("notification_user_idx").on(t.userId, t.createdAt),
+    // Also the upsert target for the dedup path above. NULL `dedup_key`
+    // values never collide with each other under Postgres unique-index
+    // semantics, so this only ever collapses the one type that opts in.
+    uniqueIndex("notification_user_dedup_idx").on(t.userId, t.dedupKey),
+  ],
+);
+
+// ---------------------------------------------------------------------------
 // Inferred types
 // ---------------------------------------------------------------------------
 
@@ -543,6 +604,8 @@ export type Photo = typeof photos.$inferSelect;
 export type PhotoFace = typeof photoFaces.$inferSelect;
 export type UserFace = typeof userFaces.$inferSelect;
 export type Consent = typeof consents.$inferSelect;
+export type Notification = typeof notifications.$inferSelect;
 export type UserRole = (typeof userRole.enumValues)[number];
 export type EventStatus = (typeof eventStatus.enumValues)[number];
 export type WatermarkPosition = (typeof watermarkPosition.enumValues)[number];
+export type NotificationType = (typeof notificationType.enumValues)[number];

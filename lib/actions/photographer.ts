@@ -7,6 +7,7 @@ import * as z from "zod";
 import { db } from "@/db";
 import { photographers } from "@/db/schema";
 import { getSessionUser } from "@/lib/dal";
+import { notifyAdmins } from "@/lib/notifications";
 
 const ApplicationSchema = z.object({
   displayName: z.string().trim().min(2).max(80),
@@ -56,6 +57,12 @@ export async function applyAsPhotographer(
     // `photographer.user_id` is unique — one application per account.
     return { error: "duplicate" };
   }
+
+  await notifyAdmins({
+    type: "photographer_application_received",
+    href: "/admin",
+    data: { name: data.displayName },
+  });
 
   revalidatePath("/photographer/apply");
   redirect("/photographer/apply");

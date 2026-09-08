@@ -3,7 +3,15 @@ import "server-only";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { events, photoFaces, photos, searches, searchMatches, users } from "@/db/schema";
+import {
+  downloads,
+  events,
+  photoFaces,
+  photos,
+  searches,
+  searchMatches,
+  users,
+} from "@/db/schema";
 
 export type StudioEvent = {
   id: string;
@@ -24,6 +32,9 @@ export type StudioEvent = {
    *  photographer "Rekognition is still working through these" apart from
    *  "these are done, this is really how many faces there are." */
   processedCount: number;
+  /** Rows in `download` for any photo in this event — every original-file
+   *  pull, watermarked or not. See the logging in `/api/media`'s `authorize`. */
+  downloadCount: number;
   coverPath: string | null;
 };
 
@@ -35,7 +46,7 @@ export type StudioEvent = {
  *  never a stand-in they never chose. */
 export type StudioEventListItem = Omit<
   StudioEvent,
-  "coverPath" | "faceCount" | "processedCount"
+  "coverPath" | "faceCount" | "processedCount" | "downloadCount"
 > & {
   coverThumbPath: string | null;
 };
@@ -69,7 +80,7 @@ export async function getMyEvents(
         ${events.coverPath},
         (
           select ${photos.thumbPath} from ${photos}
-          where ${photos.eventId} = ${events.id}
+          where photo.event_id = event.id
           order by ${photos.createdAt} asc
           limit 1
         )
@@ -102,16 +113,31 @@ export async function getMyEvent(
       // aggregate. Cast to `::int` because Postgres `sum()` over an integer
       // column returns `bigint`, which the driver hands back as a string —
       // the cast is what keeps `faceCount` an actual number on this side.
+      //
+      // The correlation is written as the literal `photo.event_id = event.id`
+      // rather than `${photos.eventId} = ${events.id}` — interpolating a
+      // `Column` into a `sql` template renders its bare name, not
+      // table-qualified, so the interpolated form silently compiled to
+      // `where event_id = id`, which Postgres resolved entirely inside the
+      // subquery's own `photo` table (it has its own `id`) and never touched
+      // the outer row. Every count below came back 0 regardless of the real
+      // count. Literal text is what `getDirectory`'s `eventCount` already
+      // does for the same reason.
       faceCount: sql<number>`coalesce((
         select sum(${photos.faceCount})::int from ${photos}
-        where ${photos.eventId} = ${events.id}
+        where photo.event_id = event.id
       ), 0)`,
       // `count(*)` on Postgres already comes back as `bigint`/string too, so
       // this gets the same `::int` treatment as `faceCount` above.
       processedCount: sql<number>`coalesce((
         select count(*)::int from ${photos}
-        where ${photos.eventId} = ${events.id}
+        where photo.event_id = event.id
         and ${photos.indexStatus} in ('indexed', 'no_face', 'failed')
+      ), 0)`,
+      downloadCount: sql<number>`coalesce((
+        select count(*)::int from ${downloads}
+        inner join ${photos} on photo.id = download.photo_id
+        where photo.event_id = event.id
       ), 0)`,
       coverPath: events.coverPath,
     })
@@ -339,5 +365,45 @@ export async function getMyEventSearches(
     )
     .groupBy(searches.id, users.name, users.email)
     .orderBy(desc(searches.createdAt))
+    .limit(limit);
+}
+
+export type StudioDownload = {
+  id: string;
+  photoFilename: string;
+  userId: string | null;
+  userName: string | null;
+  userEmail: string | null;
+  watermarked: boolean;
+  createdAt: Date;
+};
+
+/**
+ * Every logged download of a photo from this event, most recent first — same
+ * shape of question as `getMyEventSearches`: anonymous downloads keep a null
+ * user rather than being dropped, since "who's actually taking photos home"
+ * needs the anonymous volume in the picture too.
+ */
+export async function getMyEventDownloads(
+  photographerId: string,
+  eventId: string,
+  limit = 100,
+): Promise<StudioDownload[]> {
+  return db
+    .select({
+      id: downloads.id,
+      photoFilename: photos.originalFilename,
+      userId: downloads.userId,
+      userName: users.name,
+      userEmail: users.email,
+      watermarked: downloads.watermarked,
+      createdAt: downloads.createdAt,
+    })
+    .from(downloads)
+    .innerJoin(photos, eq(downloads.photoId, photos.id))
+    .innerJoin(events, eq(photos.eventId, events.id))
+    .leftJoin(users, eq(downloads.userId, users.id))
+    .where(and(eq(events.id, eventId), eq(events.ownerId, photographerId)))
+    .orderBy(desc(downloads.createdAt))
     .limit(limit);
 }

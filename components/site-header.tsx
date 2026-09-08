@@ -3,10 +3,15 @@ import Link from "next/link";
 import { HomeLink } from "@/components/brand/home-link";
 import { Logo } from "@/components/brand/logo";
 import { LocaleSwitcher } from "@/components/locale-switcher";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { Avatar } from "@/components/ui/avatar";
 import { buttonClass } from "@/components/ui/button";
 import { getPhotographer, getSessionUser } from "@/lib/dal";
 import { getDictionary, getLocale } from "@/lib/i18n";
+import {
+  getUnreadNotificationCount,
+  listRecentNotifications,
+} from "@/lib/queries/notifications";
 
 /* `min-h-11` is 44px — DESIGN.md §9's floor. `py-2` alone came to ~36px,
    which is a real miss on a phone held one-handed in a crowd.
@@ -32,7 +37,13 @@ export async function SiteHeader() {
     getSessionUser(),
   ]);
 
-  const photographer = user ? await getPhotographer(user.id) : null;
+  const [photographer, notifications, unreadCount] = user
+    ? await Promise.all([
+        getPhotographer(user.id),
+        listRecentNotifications(user.id),
+        getUnreadNotificationCount(user.id),
+      ])
+    : [null, [], 0];
   const showStudio = photographer?.status === "approved";
 
   return (
@@ -75,6 +86,15 @@ export async function SiteHeader() {
           )}
 
           <LocaleSwitcher locale={locale} label={dict.nav.switchLanguage} />
+
+          {user && (
+            <NotificationBell
+              notifications={notifications}
+              unreadCount={unreadCount}
+              dict={dict}
+              locale={locale}
+            />
+          )}
 
           {user ? (
             <Link

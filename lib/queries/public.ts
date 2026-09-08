@@ -41,11 +41,15 @@ export async function getPublicEvents(limit = 12): Promise<EventCard[]> {
        * query. The fallback exists because a cover is optional and an event
        * card with a blank rectangle reads as broken rather than as pending.
        */
+      // Correlation written as literal `photo.event_id = event.id` rather
+      // than interpolated columns — see the note in `getMyEvent` in
+      // `lib/queries/studio.ts` for why the interpolated form silently never
+      // matched a row.
       coverThumbPath: sql<string | null>`coalesce(
         ${events.coverPath},
         (
           select ${photos.thumbPath} from ${photos}
-          where ${photos.eventId} = ${events.id}
+          where photo.event_id = event.id
           order by ${photos.createdAt} asc
           limit 1
         )

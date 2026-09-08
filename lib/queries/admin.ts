@@ -246,6 +246,7 @@ export type AdminMetrics = {
     photos: number;
     faces: number;
     searches: number;
+    downloads: number;
   };
   /** One entry per day for the window, including days with no activity. */
   searchesPerDay: DayPoint[];
@@ -284,6 +285,7 @@ export async function getAdminMetrics(): Promise<AdminMetrics> {
       photos: sql<number>`(select count(*) from photo)::int`,
       faces: sql<number>`(select count(*) from photo_face)::int`,
       searches: sql<number>`(select count(*) from search)::int`,
+      downloads: sql<number>`(select count(*) from download)::int`,
     })
     .from(sql`(select 1) as one`);
 
