@@ -25,6 +25,11 @@ const field =
  * with its QR. Letting a photographer choose either would hand out a guessable
  * gate to an unlisted gallery and put a second identifier in play that has to
  * be kept unique for no benefit.
+ *
+ * There is also no date field and no location field — asking for them here
+ * is friction a photographer setting up in a hurry does not need. `createEvent`
+ * defaults the date to today in Bangkok time; both can be filled in afterward
+ * from the event's settings page, where `EventSettingsForm` still has them.
  */
 export function EventForm({ labels }: { labels: Dictionary["studio"] }) {
   const [state, action] = useActionState<StudioState, FormData>(
@@ -82,27 +87,6 @@ export function EventForm({ labels }: { labels: Dictionary["studio"] }) {
       </Field>
 
       <CoverField labels={labels} currentPath={null} />
-
-      <Field id="eventDate" label={labels.formEventDate}>
-        <input
-          id="eventDate"
-          name="eventDate"
-          type="date"
-          required
-          defaultValue={prior.eventDate}
-          className={field}
-        />
-      </Field>
-
-      <Field id="location" label={labels.formLocation}>
-        <input
-          id="location"
-          name="location"
-          maxLength={160}
-          defaultValue={prior.location}
-          className={field}
-        />
-      </Field>
 
       <Field id="descriptionTh" label={labels.formDescription}>
         <textarea

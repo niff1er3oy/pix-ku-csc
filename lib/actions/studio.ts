@@ -61,6 +61,18 @@ class CoverError extends Error {
   }
 }
 
+/** Today's date in Bangkok, in the same `YYYY-MM-DD` shape `<input
+ *  type="date">` gives — see the note on `EventInput.eventDate`. Used to
+ *  fill in the date `createEvent` no longer asks for. */
+function todayInBangkok(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Bangkok",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
 /**
  * Every optional field is `.nullish()`, not `.optional()`.
  *
@@ -136,7 +148,10 @@ export async function createEvent(
     nameEn: formData.get("nameEn"),
     descriptionTh: formData.get("descriptionTh"),
     location: formData.get("location"),
-    eventDate: formData.get("eventDate"),
+    // Not a form field here — see the note on `EventForm`. Filled in with
+    // today rather than left for the photographer to set later, since the
+    // column is `NOT NULL` and this form has nothing else to put in it.
+    eventDate: todayInBangkok(),
     isPrivate: formData.get("isPrivate"),
     entryPin: formData.get("entryPin"),
   };

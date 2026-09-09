@@ -25,7 +25,6 @@ import { PhotoGallery } from "@/components/photos/photo-gallery";
 import { StatusChip } from "@/components/studio/status-chip";
 import {
   getMyEvent,
-  getMyEventFaces,
   getMyEventPhotos,
   getMyEventSearches,
 } from "@/lib/queries/studio";
@@ -54,32 +53,40 @@ export default async function StudioEventPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ face?: string }>;
+  searchParams: Promise<{ face?: string; search?: string }>;
 }) {
   const { photographer } = await requireApprovedPhotographer();
   const { id } = await params;
   // Rekognition face ids are UUIDs (36 chars); sliced defensively the same
   // way `admin`'s `q` param is, since this reaches a `where` clause below.
-  const face = (await searchParams).face?.slice(0, 64) || undefined;
+  // `search` is a `search.id`, same shape, same reasoning.
+  const resolvedSearchParams = await searchParams;
+  const face = resolvedSearchParams.face?.slice(0, 64) || undefined;
+  const search = resolvedSearchParams.search?.slice(0, 64) || undefined;
   const [locale, dict] = await Promise.all([getLocale(), getDictionary()]);
 
   const event = await getMyEvent(photographer.id, id);
   if (!event) notFound();
 
-  const [photos, faces, searches] = await Promise.all([
-    getMyEventPhotos(photographer.id, id, { faceId: face }),
-    getMyEventFaces(photographer.id, id),
+  const [photos, searches] = await Promise.all([
+    getMyEventPhotos(photographer.id, id, { faceId: face, searchId: search }),
     getMyEventSearches(photographer.id, id),
   ]);
   const [qr, url] = [await eventQrSvg(event.accessCode), eventUrl(event.accessCode)];
+  const activeSearch = search ? searches.find((s) => s.id === search) : undefined;
 
-  // Shared by the face-id list below and each search row's own chips, so a
-  // click lands on the same filtered photo grid regardless of which list it
-  // came from.
+  // Builds the link each search row's face chips use, so clicking one lands
+  // on the same filtered photo grid no matter which search it came from.
   const faceHref = (faceId: string) =>
     faceId === face
       ? `/studio/events/${event.id}#photos`
       : `/studio/events/${event.id}?face=${faceId}#photos`;
+  // Same idea, but for a search row's own "view all matches" button — this
+  // filters by every face that one search hit, not just one of them.
+  const searchHref = (searchId: string) =>
+    searchId === search
+      ? `/studio/events/${event.id}#photos`
+      : `/studio/events/${event.id}?search=${searchId}#photos`;
   const faceChipClass = (active: boolean) =>
     cn(
       "inline-flex min-h-11 items-center whitespace-nowrap rounded-pill px-4 font-mono text-sm font-medium transition-colors duration-200",
@@ -232,31 +239,6 @@ export default async function StudioEventPage({
 
       <PhotoUploader eventId={event.id} labels={dict.studio} />
 
-      {faces.length > 0 && (
-        <section className="mt-12">
-          <h2 className="text-h2">{dict.studio.facesListTitle}</h2>
-          <nav
-            className="mt-4 flex flex-wrap gap-1.5"
-            aria-label={dict.studio.facesListTitle}
-          >
-            {faces.map((f) => {
-              const active = f.faceId === face;
-              return (
-                <Link
-                  key={f.faceId}
-                  href={faceHref(f.faceId)}
-                  aria-current={active ? "page" : undefined}
-                  title={f.faceId}
-                  className={faceChipClass(active)}
-                >
-                  {f.faceId.slice(0, 8)}
-                </Link>
-              );
-            })}
-          </nav>
-        </section>
-      )}
-
       {searches.length > 0 && (
         <section className="mt-12">
           <h2 className="text-h2">{dict.studio.searchesTitle}</h2>
@@ -284,7 +266,22 @@ export default async function StudioEventPage({
                     : dict.studio.searchesNoMatch}
                 </p>
                 {s.faceIds.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-1.5">
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    {s.faceIds.length > 1 && (
+                      <Link
+                        href={searchHref(s.id)}
+                        aria-current={s.id === search ? "page" : undefined}
+                        className={cn(
+                          "inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-pill px-4 text-label font-medium transition-colors duration-200",
+                          s.id === search
+                            ? "bg-green-600 text-paper"
+                            : "bg-green-50 text-green-700 hover:bg-green-100",
+                        )}
+                      >
+                        <PhotoIcon size={16} />
+                        {dict.studio.searchesViewAll}
+                      </Link>
+                    )}
                     {s.faceIds.map((faceId) => {
                       const active = faceId === face;
                       return (
@@ -310,10 +307,17 @@ export default async function StudioEventPage({
       <section id="photos" className="mt-12 scroll-mt-20">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-h2">{dict.studio.photosTitle}</h2>
-          {face && (
+          {(face || search) && (
             <p className="flex flex-wrap items-center gap-2 text-label text-slate">
-              <span className="font-mono">
-                {t(dict.studio.facesFilterActive, { id: face.slice(0, 8) })}
+              <span className={face ? "font-mono" : undefined}>
+                {face
+                  ? t(dict.studio.facesFilterActive, { id: face.slice(0, 8) })
+                  : t(dict.studio.searchesFilterActive, {
+                      name:
+                        activeSearch?.userName ??
+                        activeSearch?.userEmail ??
+                        dict.studio.searchesAnonymous,
+                    })}
               </span>
               <Link
                 href={`/studio/events/${event.id}#photos`}
@@ -331,7 +335,7 @@ export default async function StudioEventPage({
             <p className="relative text-body text-slate">
               {dict.studio.photosNone}
             </p>
-            {face && (
+            {(face || search) && (
               <Link
                 href={`/studio/events/${event.id}#photos`}
                 className="relative mt-3 inline-block text-label font-medium text-green-700 underline underline-offset-4"

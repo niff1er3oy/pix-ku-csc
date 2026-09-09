@@ -218,13 +218,18 @@ export type StudioPhoto = {
  * repeat appearance across photos, it mints a fresh id per detection — that
  * is always at most one photo, but the shape stays the same list either way,
  * so the grid below does not need a separate "single result" rendering path.
+ *
+ * `searchId` narrows this to every photo one specific search matched — one
+ * search can hold several `search_match` rows (one per distinct face it hit),
+ * so unlike `faceId` this can be many photos. The two are never passed
+ * together by the page today, but nothing stops a caller combining them.
  */
 export async function getMyEventPhotos(
   photographerId: string,
   eventId: string,
-  options: { limit?: number; faceId?: string } = {},
+  options: { limit?: number; faceId?: string; searchId?: string } = {},
 ): Promise<StudioPhoto[]> {
-  const { limit = 60, faceId } = options;
+  const { limit = 60, faceId, searchId } = options;
 
   return db
     .select({
@@ -251,36 +256,22 @@ export async function getMyEventPhotos(
                 .where(eq(photoFaces.faceId, faceId)),
             )
           : undefined,
+        searchId
+          ? inArray(
+              photos.id,
+              db
+                .select({ id: photoFaces.photoId })
+                .from(photoFaces)
+                .innerJoin(
+                  searchMatches,
+                  eq(searchMatches.faceId, photoFaces.faceId),
+                )
+                .where(eq(searchMatches.searchId, searchId)),
+            )
+          : undefined,
       ),
     )
     .orderBy(desc(photos.createdAt))
-    .limit(limit);
-}
-
-export type StudioFace = {
-  faceId: string;
-  photoId: string;
-};
-
-/**
- * Every face Rekognition has found in this event, most recent first — one row
- * per detection, not per person. Capped like `getMyEventPhotos`: this is a
- * flat list of small text chips rather than thumbnails, so the cap is looser,
- * but an event with thousands of indexed faces still needs one.
- */
-export async function getMyEventFaces(
-  photographerId: string,
-  eventId: string,
-  limit = 300,
-): Promise<StudioFace[]> {
-  return db
-    .select({ faceId: photoFaces.faceId, photoId: photoFaces.photoId })
-    .from(photoFaces)
-    .innerJoin(events, eq(photoFaces.eventId, events.id))
-    .where(
-      and(eq(photoFaces.eventId, eventId), eq(events.ownerId, photographerId)),
-    )
-    .orderBy(desc(photoFaces.createdAt))
     .limit(limit);
 }
 
