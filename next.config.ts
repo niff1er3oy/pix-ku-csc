@@ -5,8 +5,8 @@ const nextConfig: NextConfig = {
     serverActions: {
       /**
        * Next defaults to 1 MB, which a photograph off any modern phone exceeds
-       * before it leaves the camera roll. The event cover travels through a
-       * Server Action, so this has to clear a real file: `MAX_COVER_BYTES` in
+       * before it leaves the camera roll. The largest single file a Server
+       * Action here has to clear is a selfie upload: `MAX_SELFIE_BYTES` in
        * lib/images.ts is 10 MB, and the rest is room for the multipart
        * envelope and the other form fields around it.
        */

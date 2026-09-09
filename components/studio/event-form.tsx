@@ -25,6 +25,11 @@ const field =
  * with its QR. Letting a photographer choose either would hand out a guessable
  * gate to an unlisted gallery and put a second identifier in play that has to
  * be kept unique for no benefit.
+ *
+ * There is also no date field and no location field — asking for them here
+ * is friction a photographer setting up in a hurry does not need. `createEvent`
+ * defaults the date to today in Bangkok time; both can be filled in afterward
+ * from the event's settings page, where `EventSettingsForm` still has them.
  */
 export function EventForm({ labels }: { labels: Dictionary["studio"] }) {
   const [state, action] = useActionState<StudioState, FormData>(
@@ -47,6 +52,12 @@ export function EventForm({ labels }: { labels: Dictionary["studio"] }) {
 
   const prior = state?.values ?? {};
   const [isPrivate, setPrivate] = useState(prior.isPrivate === "on");
+  const [pinValue, setPinValue] = useState("");
+
+  // Mirrors the server check in `createEvent`: a private event needs a PIN.
+  // Shown live rather than only after a rejected submit — the round trip
+  // was otherwise the first place a photographer found out.
+  const needsPin = isPrivate && pinValue.length < 6;
 
   return (
     <form action={action} className="mt-10 space-y-6">
@@ -83,27 +94,6 @@ export function EventForm({ labels }: { labels: Dictionary["studio"] }) {
 
       <CoverField labels={labels} currentPath={null} />
 
-      <Field id="eventDate" label={labels.formEventDate}>
-        <input
-          id="eventDate"
-          name="eventDate"
-          type="date"
-          required
-          defaultValue={prior.eventDate}
-          className={field}
-        />
-      </Field>
-
-      <Field id="location" label={labels.formLocation}>
-        <input
-          id="location"
-          name="location"
-          maxLength={160}
-          defaultValue={prior.location}
-          className={field}
-        />
-      </Field>
-
       <Field id="descriptionTh" label={labels.formDescription}>
         <textarea
           id="descriptionTh"
@@ -137,7 +127,13 @@ export function EventForm({ labels }: { labels: Dictionary["studio"] }) {
           </span>
         </label>
 
-        <PinField labels={labels} enabled={isPrivate} />
+        {needsPin && (
+          <p className="mt-4 rounded-field bg-lime-100 px-4 py-3 text-label text-green-900">
+            {labels.formErrorPinRequired}
+          </p>
+        )}
+
+        <PinField labels={labels} enabled={isPrivate} onChange={setPinValue} />
       </div>
 
       <Submit label={labels.formCreate} />

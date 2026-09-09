@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, getTableName, inArray, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -18,6 +18,10 @@ export type StudioEvent = {
   nameTh: string;
   location: string | null;
   eventDate: string;
+  /** When the event row itself was created — distinct from `eventDate`,
+   *  which is the day the event happened and is set by the photographer, not
+   *  by the system. */
+  createdAt: Date;
   status: "draft" | "pending" | "approved" | "rejected" | "archived";
   rejectionReason: string | null;
   isPrivate: boolean;
@@ -32,9 +36,19 @@ export type StudioEvent = {
    *  photographer "Rekognition is still working through these" apart from
    *  "these are done, this is really how many faces there are." */
   processedCount: number;
-  /** Rows in `download` for any photo in this event — every original-file
-   *  pull, watermarked or not. See the logging in `/api/media`'s `authorize`. */
+  /** Of `processedCount`, the ones that ended in `failed` rather than
+   *  `indexed`/`no_face` — broken out so the studio page can flag "something
+   *  needs a retry" without a photographer scrolling the whole grid looking
+   *  for "!" badges. */
+  failedCount: number;
+  /** How many times any photo in this event has been downloaded — every
+   *  `download` row is a real request for a full-resolution file, joined
+   *  through `photo` since `download` itself has no `event_id` of its own. */
   downloadCount: number;
+  /** Every search run against this event, not just the ones
+   *  `getMyEventSearches` lists — that query caps at 100, so this is its own
+   *  count rather than a length read off that already-limited array. */
+  searchCount: number;
   coverPath: string | null;
 };
 
@@ -46,7 +60,13 @@ export type StudioEvent = {
  *  never a stand-in they never chose. */
 export type StudioEventListItem = Omit<
   StudioEvent,
-  "coverPath" | "faceCount" | "processedCount" | "downloadCount"
+  | "coverPath"
+  | "faceCount"
+  | "processedCount"
+  | "failedCount"
+  | "createdAt"
+  | "downloadCount"
+  | "searchCount"
 > & {
   coverThumbPath: string | null;
 };
@@ -96,12 +116,24 @@ export async function getMyEvent(
   photographerId: string,
   id: string,
 ): Promise<StudioEvent | null> {
+  // `${events.id}` inside a `sql` fragment renders as a bare `"id"`, not
+  // `"event"."id"` — Drizzle does not know this fragment lands inside a
+  // subquery correlated against a *different* table. That is harmless when
+  // the inner table has no column of its own called `id`, but `photo` does
+  // (its own primary key), so Postgres resolved the bare `"id"` to the
+  // subquery's *own* `photo.id` instead of reaching out to `event.id`. Every
+  // row then compared its own id against its `event_id` — never equal — so
+  // both subqueries silently matched nothing and `coalesce(..., 0)` always
+  // won. `qEventId` forces the qualification Postgres actually needs.
+  const qEventId = sql.raw(`"${getTableName(events)}"."id"`);
+
   const rows = await db
     .select({
       id: events.id,
       nameTh: events.nameTh,
       location: events.location,
       eventDate: events.eventDate,
+      createdAt: events.createdAt,
       status: events.status,
       rejectionReason: events.rejectionReason,
       isPrivate: events.isPrivate,
@@ -125,19 +157,37 @@ export async function getMyEvent(
       // does for the same reason.
       faceCount: sql<number>`coalesce((
         select sum(${photos.faceCount})::int from ${photos}
-        where photo.event_id = event.id
+        where ${photos.eventId} = ${qEventId}
       ), 0)`,
       // `count(*)` on Postgres already comes back as `bigint`/string too, so
       // this gets the same `::int` treatment as `faceCount` above.
       processedCount: sql<number>`coalesce((
         select count(*)::int from ${photos}
-        where photo.event_id = event.id
+        where ${photos.eventId} = ${qEventId}
         and ${photos.indexStatus} in ('indexed', 'no_face', 'failed')
       ), 0)`,
+      failedCount: sql<number>`coalesce((
+        select count(*)::int from ${photos}
+        where ${photos.eventId} = ${qEventId}
+        and ${photos.indexStatus} = 'failed'
+      ), 0)`,
+      // `download` has no `event_id` of its own — filtered by photo id
+      // through a plain `in`, not a join, for the same reason `qEventId`
+      // exists at all: a join would put `download` and `photo` in the same
+      // scope, and both have their own `id` column, so an unqualified `id`
+      // in the join condition would be ambiguous (or worse, silently wrong)
+      // the same way the bare `${events.id}` above used to be.
       downloadCount: sql<number>`coalesce((
         select count(*)::int from ${downloads}
-        inner join ${photos} on photo.id = download.photo_id
-        where photo.event_id = event.id
+        where ${downloads.photoId} in (
+          select id from ${photos} where ${photos.eventId} = ${qEventId}
+        )
+      ), 0)`,
+      // `search.event_id` references `event` directly, so this needs no
+      // join and no `in` — just the same `qEventId` correlation as above.
+      searchCount: sql<number>`coalesce((
+        select count(*)::int from ${searches}
+        where ${searches.eventId} = ${qEventId}
       ), 0)`,
       coverPath: events.coverPath,
     })
@@ -237,20 +287,41 @@ export type StudioPhoto = {
  *
  * Capped rather than unbounded: an event can hold thousands, and a studio page
  * that renders every one of them ships a megabyte of markup to say something
- * the count already said. Paging belongs here when the grid grows a pager.
+ * the count already said. The studio page raises `limit` in steps of 20 via
+ * its own "show more" link (a `?show=` search param, refetching this same
+ * query at a higher limit) rather than tracking an offset — simpler than
+ * real cursor pagination, and correct enough for a list that only grows by
+ * upload, never by insertion in the middle.
  *
  * `faceId` narrows this to whichever photo that exact Rekognition face came
  * from. Since `photo_face.face_id` is unique — indexing never recognizes a
  * repeat appearance across photos, it mints a fresh id per detection — that
  * is always at most one photo, but the shape stays the same list either way,
  * so the grid below does not need a separate "single result" rendering path.
+ *
+ * `searchId` narrows this to every photo one specific search matched — one
+ * search can hold several `search_match` rows (one per distinct face it hit),
+ * so unlike `faceId` this can be many photos. The two are never passed
+ * together by the page today, but nothing stops a caller combining them.
+ *
+ * `downloaderId` narrows this to every photo one specific person has
+ * downloaded from this event — a plain `downloads.userId` match, unlike the
+ * face-based filters above. `null` (as opposed to simply omitting it) asks
+ * for the anonymous slice instead — every download with no `userId` at all,
+ * which is the only grouping `getMyEventDownloaders` can offer for visitors
+ * who never signed in.
  */
 export async function getMyEventPhotos(
   photographerId: string,
   eventId: string,
-  options: { limit?: number; faceId?: string } = {},
+  options: {
+    limit?: number;
+    faceId?: string;
+    searchId?: string;
+    downloaderId?: string | null;
+  } = {},
 ): Promise<StudioPhoto[]> {
-  const { limit = 60, faceId } = options;
+  const { limit = 20, faceId, searchId, downloaderId } = options;
 
   return db
     .select({
@@ -277,36 +348,35 @@ export async function getMyEventPhotos(
                 .where(eq(photoFaces.faceId, faceId)),
             )
           : undefined,
+        searchId
+          ? inArray(
+              photos.id,
+              db
+                .select({ id: photoFaces.photoId })
+                .from(photoFaces)
+                .innerJoin(
+                  searchMatches,
+                  eq(searchMatches.faceId, photoFaces.faceId),
+                )
+                .where(eq(searchMatches.searchId, searchId)),
+            )
+          : undefined,
+        downloaderId !== undefined
+          ? inArray(
+              photos.id,
+              db
+                .select({ id: downloads.photoId })
+                .from(downloads)
+                .where(
+                  downloaderId === null
+                    ? isNull(downloads.userId)
+                    : eq(downloads.userId, downloaderId),
+                ),
+            )
+          : undefined,
       ),
     )
     .orderBy(desc(photos.createdAt))
-    .limit(limit);
-}
-
-export type StudioFace = {
-  faceId: string;
-  photoId: string;
-};
-
-/**
- * Every face Rekognition has found in this event, most recent first — one row
- * per detection, not per person. Capped like `getMyEventPhotos`: this is a
- * flat list of small text chips rather than thumbnails, so the cap is looser,
- * but an event with thousands of indexed faces still needs one.
- */
-export async function getMyEventFaces(
-  photographerId: string,
-  eventId: string,
-  limit = 300,
-): Promise<StudioFace[]> {
-  return db
-    .select({ faceId: photoFaces.faceId, photoId: photoFaces.photoId })
-    .from(photoFaces)
-    .innerJoin(events, eq(photoFaces.eventId, events.id))
-    .where(
-      and(eq(photoFaces.eventId, eventId), eq(events.ownerId, photographerId)),
-    )
-    .orderBy(desc(photoFaces.createdAt))
     .limit(limit);
 }
 
@@ -315,6 +385,8 @@ export type StudioSearch = {
   userId: string | null;
   userName: string | null;
   userEmail: string | null;
+  userImage: string | null;
+  userRole: "user" | "photographer" | "admin" | null;
   mode: "saved_face" | "uploaded_selfie";
   matchCount: number;
   topSimilarity: number | null;
@@ -343,6 +415,8 @@ export async function getMyEventSearches(
       userId: searches.userId,
       userName: users.name,
       userEmail: users.email,
+      userImage: users.image,
+      userRole: users.role,
       mode: searches.mode,
       matchCount: searches.matchCount,
       topSimilarity: searches.topSimilarity,
@@ -363,47 +437,117 @@ export async function getMyEventSearches(
     .where(
       and(eq(searches.eventId, eventId), eq(events.ownerId, photographerId)),
     )
-    .groupBy(searches.id, users.name, users.email)
+    .groupBy(searches.id, users.name, users.email, users.image, users.role)
     .orderBy(desc(searches.createdAt))
     .limit(limit);
 }
 
-export type StudioDownload = {
-  id: string;
-  photoFilename: string;
+export type StudioDownloader = {
   userId: string | null;
   userName: string | null;
   userEmail: string | null;
-  watermarked: boolean;
-  createdAt: Date;
+  userImage: string | null;
+  userRole: "user" | "photographer" | "admin" | null;
+  downloadCount: number;
+  lastDownloadAt: Date;
 };
 
 /**
- * Every logged download of a photo from this event, most recent first — same
- * shape of question as `getMyEventSearches`: anonymous downloads keep a null
- * user rather than being dropped, since "who's actually taking photos home"
- * needs the anonymous volume in the picture too.
+ * Who has downloaded from this event, one row per downloader rather than one
+ * per download — unlike a search, a single visit to "download selected"
+ * writes one `downloads` row *per photo*, so listing those raw would turn one
+ * click into fifty near-identical rows. Grouped by `userId` instead, which
+ * also does the right thing for anonymous downloads on its own: `downloads`
+ * carries no per-request identifier the way `searches.ipHash` does, so every
+ * anonymous download already shares the same (null) key and lands in one
+ * "anonymous" row rather than needing to be collapsed by hand.
  */
-export async function getMyEventDownloads(
+export async function getMyEventDownloaders(
   photographerId: string,
   eventId: string,
   limit = 100,
-): Promise<StudioDownload[]> {
+): Promise<StudioDownloader[]> {
   return db
     .select({
-      id: downloads.id,
-      photoFilename: photos.originalFilename,
       userId: downloads.userId,
       userName: users.name,
       userEmail: users.email,
-      watermarked: downloads.watermarked,
-      createdAt: downloads.createdAt,
+      userImage: users.image,
+      userRole: users.role,
+      downloadCount: sql<number>`count(*)::int`,
+      lastDownloadAt: sql<Date>`max(${downloads.createdAt})`,
     })
     .from(downloads)
     .innerJoin(photos, eq(downloads.photoId, photos.id))
     .innerJoin(events, eq(photos.eventId, events.id))
     .leftJoin(users, eq(downloads.userId, users.id))
-    .where(and(eq(events.id, eventId), eq(events.ownerId, photographerId)))
-    .orderBy(desc(downloads.createdAt))
+    .where(and(eq(photos.eventId, eventId), eq(events.ownerId, photographerId)))
+    .groupBy(downloads.userId, users.name, users.email, users.image, users.role)
+    .orderBy(desc(sql`max(${downloads.createdAt})`))
     .limit(limit);
+}
+
+export type StudioMemberProfile = {
+  id: string;
+  name: string | null;
+  email: string | null;
+  image: string | null;
+  role: "user" | "photographer" | "admin";
+  createdAt: Date;
+  /** Searches and downloads, counted only across events this photographer
+   *  owns — not the member's activity site-wide. */
+  searchCount: number;
+  downloadCount: number;
+};
+
+/**
+ * One member, as a photographer is allowed to see them: name, contact, and
+ * how much they have searched or downloaded — never their saved face, which
+ * is that account's own and is not exposed here or anywhere outside `/me`.
+ *
+ * Scoped by more than the id. A photographer can look up a member only
+ * because that member has already searched or downloaded from one of *this*
+ * photographer's own events — checked before the profile is ever fetched, so
+ * this cannot become a way to browse arbitrary user ids across the whole
+ * site. Returns null on either a missing user or a real one this
+ * photographer has no standing to view; the caller 404s on both the same way,
+ * so a probing request cannot tell the two apart.
+ */
+export async function getMemberProfile(
+  photographerId: string,
+  userId: string,
+): Promise<StudioMemberProfile | null> {
+  const [[searchRow], [downloadRow]] = await Promise.all([
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(searches)
+      .innerJoin(events, eq(searches.eventId, events.id))
+      .where(and(eq(searches.userId, userId), eq(events.ownerId, photographerId))),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(downloads)
+      .innerJoin(photos, eq(downloads.photoId, photos.id))
+      .innerJoin(events, eq(photos.eventId, events.id))
+      .where(and(eq(downloads.userId, userId), eq(events.ownerId, photographerId))),
+  ]);
+
+  const searchCount = searchRow?.count ?? 0;
+  const downloadCount = downloadRow?.count ?? 0;
+  if (searchCount === 0 && downloadCount === 0) return null;
+
+  const [user] = await db
+    .select({
+      id: users.id,
+      name: users.name,
+      email: users.email,
+      image: users.image,
+      role: users.role,
+      createdAt: users.createdAt,
+    })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  if (!user) return null;
+
+  return { ...user, searchCount, downloadCount };
 }

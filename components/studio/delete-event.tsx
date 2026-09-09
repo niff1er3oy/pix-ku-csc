@@ -1,12 +1,20 @@
 "use client";
 
-import { useState } from "react";
-import { useFormStatus } from "react-dom";
+import { useEffect, useState } from "react";
+import { createPortal, useFormStatus } from "react-dom";
 
 import { Button } from "@/components/ui/button";
-import { AlertIcon } from "@/components/ui/icon";
+import {
+  AlertIcon,
+  CloseIcon,
+  FaceScanIcon,
+  PhotoIcon,
+  ShieldIcon,
+  TrashIcon,
+} from "@/components/ui/icon";
 import { deleteEvent } from "@/lib/actions/studio";
 import { t, type Dictionary } from "@/lib/i18n/dictionaries";
+import { cn } from "@/lib/utils";
 
 /**
  * Deleting an event, with the friction the action deserves.
@@ -21,8 +29,18 @@ import { t, type Dictionary } from "@/lib/i18n/dictionaries";
  * are about to lose. An approved event says so too: students may already have
  * been handed the code and told to come back for their photographs.
  *
- * Collapsed by default. A destructive control sitting open at the bottom of a
- * working page is something to fall into, not to reach for.
+ * A popup rather than an inline disclosure — the same `PhotoUploader` uses,
+ * see the note there: it puts the confirm step on top of the page instead of
+ * pushing everything below it down, which matters more here than there,
+ * since this is the one control on the page a stray click should never
+ * casually reveal.
+ *
+ * `compact` swaps the trigger for a bare icon button sized to sit in a list
+ * row beside the settings gear on `/studio` — everything past that first
+ * click (the popup, the warning, the retype-to-confirm form, the server
+ * action) is the exact same component, not a second implementation of the
+ * same flow. That is the point: delete has to behave identically everywhere
+ * it appears, or "did that actually confirm?" becomes a real question.
  */
 export function DeleteEvent({
   eventId,
@@ -30,65 +48,163 @@ export function DeleteEvent({
   photoCount,
   isLive,
   labels,
+  closeLabel,
+  compact = false,
 }: {
   eventId: string;
   accessCode: string;
   photoCount: number;
   isLive: boolean;
   labels: Dictionary["studio"];
+  closeLabel: string;
+  compact?: boolean;
 }) {
+  const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState("");
   const matches = typed.trim().toUpperCase() === accessCode.toUpperCase();
 
+  // Scrolling the page behind the popup makes it look stuck rather than on
+  // top of it, and Escape is the fastest way out of a modal on a keyboard —
+  // see the same note on `PhotoUploader`.
+  useEffect(() => {
+    if (!open) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
   return (
-    <details id="delete-event" className="mt-16 scroll-mt-8 border-t border-edge pt-8">
-      <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-2 text-label font-medium text-danger">
-        <AlertIcon size={18} />
-        {labels.deleteEvent}
-      </summary>
+    <div className={compact ? undefined : "mt-6 text-right"}>
+      {compact ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label={labels.deleteEvent}
+          title={labels.deleteEvent}
+          className="inline-flex size-11 shrink-0 items-center justify-center rounded-pill text-danger transition-colors duration-200 hover:bg-danger/10"
+        >
+          <TrashIcon size={18} />
+        </button>
+      ) : (
+        <Button type="button" variant="danger" size="md" onClick={() => setOpen(true)}>
+          <AlertIcon size={18} />
+          {labels.deleteEvent}
+        </Button>
+      )}
 
-      <form action={deleteEvent} className="mt-4 max-w-lg">
-        <input type="hidden" name="id" value={eventId} />
-
-        <div className="rounded-card bg-cloud p-5">
-          <p className="text-label font-medium text-ink">
-            {labels.deleteWarnTitle}
-          </p>
-
-          <ul className="mt-3 list-disc space-y-1 pl-5 text-caption text-slate">
-            <li>
-              {t(labels.deleteWarnPhotos, { count: String(photoCount) })}
-            </li>
-            <li>{labels.deleteWarnFaces}</li>
-            <li>{labels.deleteWarnCode}</li>
-            {isLive && (
-              <li className="font-medium text-danger">
-                {labels.deleteWarnLive}
-              </li>
-            )}
-          </ul>
-
-          <label
-            htmlFor="confirm"
-            className="mt-5 block text-label font-medium text-ink"
+      {open &&
+        createPortal(
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-event-title"
+            className="modal-backdrop fixed inset-0 z-50 overflow-y-auto bg-ink/90 p-4 sm:p-8"
+            onClick={() => setOpen(false)}
           >
-            {t(labels.deleteConfirmLabel, { code: accessCode })}
-          </label>
-          <input
-            id="confirm"
-            name="confirm"
-            value={typed}
-            onChange={(event) => setTyped(event.target.value)}
-            autoComplete="off"
-            autoCapitalize="characters"
-            spellCheck={false}
-            className="tnum mt-1.5 h-[46px] w-full max-w-[14rem] rounded-field bg-paper px-4 text-center font-display text-lg font-semibold uppercase tracking-[0.2em] text-ink ring-1 ring-inset ring-edge focus:ring-2 focus:ring-danger"
-          />
+            <div className="mx-auto flex min-h-full max-w-lg items-center py-4">
+              <div
+                className="modal-content w-full rounded-card bg-paper p-5 shadow-[var(--shadow-lift)] sm:p-6"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3">
+                    <span className="grid size-11 shrink-0 place-items-center rounded-pill bg-danger/10 text-danger">
+                      <AlertIcon size={22} />
+                    </span>
+                    <h3
+                      id="delete-event-title"
+                      className="pt-2 text-h3 font-semibold text-ink"
+                    >
+                      {labels.deleteWarnTitle}
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setOpen(false)}
+                    aria-label={closeLabel}
+                    className="grid size-11 shrink-0 place-items-center rounded-pill text-slate transition-colors duration-200 hover:bg-cloud"
+                  >
+                    <CloseIcon size={20} />
+                  </button>
+                </div>
 
-          <Submit label={labels.deleteEventConfirm} enabled={matches} />
-        </div>
-      </form>
-    </details>
+                {/* What actually goes, read as a receipt rather than a
+                    disclaimer — a tinted row list carries more weight than
+                    gray bullet points, and each line earns its own icon
+                    instead of repeating the same dot three times. */}
+                <ul className="mt-5 divide-y divide-danger/15 overflow-hidden rounded-field bg-danger/5 ring-1 ring-inset ring-danger/15">
+                  <Row icon={PhotoIcon}>
+                    {t(labels.deleteWarnPhotos, { count: String(photoCount) })}
+                  </Row>
+                  <Row icon={FaceScanIcon}>{labels.deleteWarnFaces}</Row>
+                  <Row icon={ShieldIcon}>{labels.deleteWarnCode}</Row>
+                  {isLive && (
+                    <Row icon={AlertIcon} emphasis>
+                      {labels.deleteWarnLive}
+                    </Row>
+                  )}
+                </ul>
+
+                <form action={deleteEvent} className="mt-6 text-left">
+                  <input type="hidden" name="id" value={eventId} />
+
+                  <label
+                    htmlFor="confirm"
+                    className="block text-label font-medium text-ink"
+                  >
+                    {t(labels.deleteConfirmLabel, { code: accessCode })}
+                  </label>
+                  <input
+                    id="confirm"
+                    name="confirm"
+                    value={typed}
+                    onChange={(event) => setTyped(event.target.value)}
+                    autoComplete="off"
+                    autoCapitalize="characters"
+                    spellCheck={false}
+                    className="tnum mt-1.5 h-[46px] w-full rounded-field bg-paper px-4 text-center font-display text-lg font-semibold uppercase tracking-[0.2em] text-ink ring-1 ring-inset ring-edge focus:ring-2 focus:ring-danger"
+                  />
+
+                  <Submit label={labels.deleteEventConfirm} enabled={matches} />
+                </form>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+    </div>
+  );
+}
+
+/** One line of the "what this takes with it" list — an icon fixed to the
+ *  same column so three unrelated facts (a count, a dataset, a live gate)
+ *  still read as one list instead of three differently-shaped sentences. */
+function Row({
+  icon: Icon,
+  emphasis = false,
+  children,
+}: {
+  icon: (props: { size?: number; className?: string }) => React.ReactElement;
+  emphasis?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <li className="flex items-start gap-3 px-4 py-3">
+      <Icon size={18} className="mt-0.5 shrink-0 text-danger" />
+      <span className={cn("text-label", emphasis ? "font-semibold text-danger" : "text-ink")}>
+        {children}
+      </span>
+    </li>
   );
 }
 
@@ -99,10 +215,11 @@ function Submit({ label, enabled }: { label: string; enabled: boolean }) {
       type="submit"
       variant="danger"
       size="md"
-      className="mt-4"
+      className="mt-4 w-full sm:w-auto"
       disabled={!enabled || pending}
       pending={pending}
     >
+      <TrashIcon size={18} />
       {label}
     </Button>
   );

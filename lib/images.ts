@@ -16,19 +16,26 @@ export const ACCEPTED_MIME = [
   "image/webp",
 ] as const;
 
-export const MAX_UPLOAD_BYTES = 40 * 1024 * 1024;
+export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 export const MAX_SELFIE_BYTES = 10 * 1024 * 1024;
-export const MAX_COVER_BYTES = 10 * 1024 * 1024;
+export const MAX_COVER_BYTES = 5 * 1024 * 1024;
 export const MAX_WATERMARK_LOGO_BYTES = 3 * 1024 * 1024;
 
-/** A cover is shown at card size and as a page header; 1600px covers both. */
+/** A cover is shown at card size and as a page header, both square crops;
+ *  1600px covers both without needing a larger source than that. */
 const COVER_MAX_EDGE = 1600;
 /** A watermark logo is composited at a fraction of the photo's width — see
  *  `applyWatermark` — so it never needs to be photo-sized itself. */
 const WATERMARK_LOGO_MAX_EDGE = 800;
 
 /**
- * The event cover, as one WebP.
+ * The event cover, as one square WebP.
+ *
+ * Cropped to 1:1 with `fit: "cover"` rather than letterboxed with
+ * `"inside"` — every place a cover is shown (the event card, the header)
+ * lays it out as a square, so an uncropped landscape or portrait upload
+ * would otherwise be squeezed or padded by CSS instead of composed once
+ * here, in front of the photographer, before it is ever saved.
  *
  * Deliberately not `buildDerivatives`. That produces three outputs including a
  * Rekognition detection copy, and a cover is never searched — no face is ever
@@ -41,7 +48,8 @@ export async function buildCoverImage(input: Buffer): Promise<Buffer> {
     .resize({
       width: COVER_MAX_EDGE,
       height: COVER_MAX_EDGE,
-      fit: "inside",
+      fit: "cover",
+      position: "attention",
       withoutEnlargement: true,
     })
     .webp({ quality: 82 })

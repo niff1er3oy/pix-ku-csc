@@ -4,9 +4,7 @@ import { useActionState, useEffect, useRef, useState, type ReactNode } from "rea
 import { useFormStatus } from "react-dom";
 
 import { Button } from "@/components/ui/button";
-import { CloseIcon, PhotoIcon } from "@/components/ui/icon";
-import { CoverField } from "@/components/studio/cover-field";
-import { PinField } from "@/components/studio/pin-field";
+import { CheckIcon, CloseIcon, PhotoIcon, UploadIcon } from "@/components/ui/icon";
 import { updateEvent, type EventSettingsState } from "@/lib/actions/studio";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 import type { StudioEventSettings } from "@/lib/queries/studio";
@@ -37,31 +35,28 @@ const ANCHOR_CLASSES: Record<Exclude<Position, "tiled">, string> = {
 };
 
 /**
- * Everything about an event that isn't "add photos," in one form behind one
- * save button: basic info, cover, privacy and the PIN, the download toggle,
- * and the watermark. This used to be two forms with two buttons on the same
- * page — a photographer does not think of "rename the event" and "adjust
- * the watermark" as two different saves, and the second button just meant
- * it got missed.
+ * Everything about an event that isn't "add photos" or "who this event is
+ * and who can see it," in one form behind one save button: the download
+ * toggle and the watermark. Name, description, cover, privacy, and the PIN
+ * live in `EventInfoForm` instead — see the note there for why the split.
  *
- * Grouped into cloud-panel sections — the same block the pause/resume
- * control on the page above already uses — so four unrelated concerns
- * (who this event is, who can see it, who can download it, what gets
- * burned into a download) read as four distinct decisions instead of one
- * long column of fields with no seams.
+ * The watermark only ever does anything to a download, so it lives inside
+ * the same cloud-panel section as the download toggle rather than a section
+ * of its own — and its controls are hidden, not removed, once the toggle is
+ * off, so there is nothing left to configure for something that cannot
+ * currently happen. Hidden with CSS rather than unmounted: an unmounted
+ * `<select>`/`<input type="range">` stops posting with the form entirely,
+ * which would make an unrelated save (just flipping the download toggle)
+ * fail the server's watermark validation instead of quietly leaving those
+ * fields as they were.
  *
- * On a validation failure the action echoes back what was actually typed
- * (`state.values`) for the basic-info fields; on success it returns
- * `{ ok: true }` with nothing to echo, so those fields fall back to the
- * event's own values — which by then are the values just saved.
- *
- * The watermark and privacy fields are controlled instead, and are
- * deliberately *not* re-synced from `event` after a successful save: doing
- * that once caused a real regression (uncheck a box, save, watch it flip
- * back on) because `event` — a prop from the parent Server Component — is
- * not guaranteed to reflect the just-saved row by the time this re-renders.
- * Every controlled field already shows exactly what was submitted, which is
- * exactly what the server just saved. There is nothing to re-sync.
+ * The watermark fields are controlled instead, and are deliberately *not*
+ * re-synced from `event` after a successful save: doing that once caused a
+ * real regression (uncheck a box, save, watch it flip back on) because
+ * `event` — a prop from the parent Server Component — is not guaranteed to
+ * reflect the just-saved row by the time this re-renders. Every controlled
+ * field already shows exactly what was submitted, which is exactly what
+ * the server just saved. There is nothing to re-sync.
  */
 export function EventSettingsForm({
   event,
@@ -91,25 +86,16 @@ export function EventSettingsForm({
     state?.ok === false
       ? state.error === "invalid"
         ? labels.formErrorInvalid
-        : state.error === "pin_required"
-          ? labels.formErrorPinRequired
-          : state.error === "cover_too_large"
-            ? labels.formErrorCoverTooLarge
-            : state.error === "cover_bad_format"
-              ? labels.formErrorCoverBadFormat
-              : state.error === "logo_too_large"
-                ? labels.watermarkErrorLogoTooLarge
-                : state.error === "logo_bad_format"
-                  ? labels.watermarkErrorLogoBadFormat
-                  : state.error === "watermark_empty"
-                    ? labels.watermarkErrorEmpty
-                    : labels.formErrorUnavailable
+        : state.error === "logo_too_large"
+          ? labels.watermarkErrorLogoTooLarge
+          : state.error === "logo_bad_format"
+            ? labels.watermarkErrorLogoBadFormat
+            : state.error === "watermark_empty"
+              ? labels.watermarkErrorEmpty
+              : labels.formErrorUnavailable
       : null;
 
-  const prior = state?.ok === false ? state.values : undefined;
-  const [isPrivate, setPrivate] = useState(
-    prior ? prior.isPrivate === "on" : event.isPrivate,
-  );
+  const [allowDownload, setAllowDownload] = useState(event.allowOriginalDownload);
 
   const logoInput = useRef<HTMLInputElement>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -205,284 +191,237 @@ export function EventSettingsForm({
         </p>
       )}
 
-      <Section title={labels.settingsInfoTitle} lede={labels.settingsInfoLede}>
-        <div className="grid gap-5 sm:grid-cols-2">
-          <Field id="nameTh" label={labels.formNameTh}>
-            <input
-              id="nameTh"
-              name="nameTh"
-              required
-              minLength={2}
-              maxLength={160}
-              defaultValue={prior?.nameTh ?? event.nameTh}
-              className={field}
-            />
-          </Field>
-
-          <Field id="nameEn" label={labels.formNameEn}>
-            <input
-              id="nameEn"
-              name="nameEn"
-              maxLength={160}
-              defaultValue={prior?.nameEn ?? event.nameEn ?? ""}
-              className={field}
-            />
-          </Field>
-        </div>
-
-        <CoverField labels={labels} currentPath={event.coverPath} />
-
-        <div className="grid gap-5 sm:grid-cols-2">
-          <Field id="eventDate" label={labels.formEventDate}>
-            <input
-              id="eventDate"
-              name="eventDate"
-              type="date"
-              required
-              defaultValue={prior?.eventDate ?? event.eventDate}
-              className={field}
-            />
-          </Field>
-
-          <Field id="location" label={labels.formLocation}>
-            <input
-              id="location"
-              name="location"
-              maxLength={160}
-              defaultValue={prior?.location ?? event.location ?? ""}
-              className={field}
-            />
-          </Field>
-        </div>
-
-        <Field id="descriptionTh" label={labels.formDescription}>
-          <textarea
-            id="descriptionTh"
-            name="descriptionTh"
-            rows={4}
-            maxLength={2000}
-            defaultValue={prior?.descriptionTh ?? event.descriptionTh ?? ""}
-            className="w-full rounded-field bg-paper px-4 py-3 text-body leading-relaxed text-ink ring-1 ring-inset ring-edge transition-shadow duration-200 focus:ring-2 focus:ring-green-600"
-          />
-        </Field>
-      </Section>
-
-      <Section title={labels.settingsAccessTitle} lede={labels.settingsAccessLede}>
-        <CheckboxRow
-          name="isPrivate"
-          checked={isPrivate}
-          onChange={setPrivate}
-          label={labels.formPrivate}
-          hint={labels.formPrivateHint}
-        />
-
-        {isPrivate && event.hasPin && (
-          <p className="text-caption text-slate">{labels.formPinKeepHint}</p>
-        )}
-
-        <PinField labels={labels} enabled={isPrivate} />
-      </Section>
-
       <Section title={labels.settingsDownloadTitle}>
         <CheckboxRow
           name="allowOriginalDownload"
-          defaultChecked={event.allowOriginalDownload}
+          checked={allowDownload}
+          onChange={setAllowDownload}
           label={labels.formAllowDownload}
           hint={labels.formAllowDownloadHint}
         />
-      </Section>
 
-      <Section title={labels.watermarkTitle} lede={labels.watermarkLede}>
-        <CheckboxRow
-          name="watermarkEnabled"
-          checked={watermarkEnabled}
-          onChange={setWatermarkEnabled}
-          label={labels.watermarkEnabled}
-        />
+        {/* Hidden, not removed, once downloads are off — see the note at the
+            top of this file for why unmounting these would be the wrong
+            call. */}
+        <div className={cn("space-y-5", !allowDownload && "hidden")}>
+          <div className="border-t border-edge pt-5">
+            <h3 className="text-label font-semibold text-ink">
+              {labels.watermarkTitle}
+            </h3>
+            <p className="mt-1 text-caption text-slate">{labels.watermarkLede}</p>
+          </div>
 
-        {showEmptyWarning && (
-          <p className="rounded-field bg-lime-100 px-4 py-3 text-label text-green-900">
-            {labels.watermarkErrorEmpty}
-          </p>
-        )}
-
-        <Field id="watermarkText" label={labels.watermarkText}>
-          <input
-            id="watermarkText"
-            name="watermarkText"
-            maxLength={120}
-            value={watermarkText}
-            onChange={(event) => setWatermarkText(event.target.value)}
-            className={field}
+          <CheckboxRow
+            name="watermarkEnabled"
+            checked={watermarkEnabled}
+            onChange={setWatermarkEnabled}
+            label={labels.watermarkEnabled}
           />
-        </Field>
 
-        <div>
-          <label
-            htmlFor="watermarkLogo"
-            className="block text-label font-medium text-ink"
-          >
-            {labels.watermarkLogo}
-          </label>
-          <div className="mt-1.5 flex flex-wrap items-start gap-4">
-            <div className="grid h-16 w-24 shrink-0 place-items-center overflow-hidden rounded-field bg-paper ring-1 ring-inset ring-edge">
-              {shownLogo ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
-                  src={shownLogo}
-                  alt=""
-                  className="h-full w-full object-contain p-1"
-                />
-              ) : (
-                <span className="text-caption text-slate">—</span>
-              )}
-            </div>
+          {/* Hidden, not removed, once the watermark itself is off — same
+              reasoning as the download toggle above: these still have to
+              post with the form, or turning the watermark off would also
+              silently reset its text, logo, and position on the next save. */}
+          <div className={cn("space-y-5", !watermarkEnabled && "hidden")}>
+            {showEmptyWarning && (
+              <p className="rounded-field bg-lime-100 px-4 py-3 text-label text-green-900">
+                {labels.watermarkErrorEmpty}
+              </p>
+            )}
 
-            <div className="min-w-0 flex-1">
+            <Field id="watermarkText" label={labels.watermarkText}>
               <input
-                ref={logoInput}
-                id="watermarkLogo"
-                name="watermarkLogo"
-                type="file"
-                accept="image/png"
-                onChange={(event) => chooseLogo(event.target.files?.[0] ?? null)}
-                className="block w-full text-label text-slate file:mr-3 file:h-11 file:cursor-pointer file:rounded-pill file:border-0 file:bg-green-600 file:px-5 file:font-display file:text-sm file:font-semibold file:text-paper hover:file:bg-green-700"
+                id="watermarkText"
+                name="watermarkText"
+                maxLength={120}
+                value={watermarkText}
+                onChange={(event) => setWatermarkText(event.target.value)}
+                className={field}
               />
+            </Field>
 
-              {shownLogo ? (
-                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-                  <span className="min-w-0 truncate text-caption text-slate">
-                    {logoName ?? labels.watermarkLogoCurrent}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={clearLogo}
-                    className="inline-flex min-h-11 items-center gap-1 rounded-pill px-2 text-caption font-medium text-danger transition-colors duration-200 hover:bg-cloud"
-                  >
-                    <CloseIcon size={14} />
-                    {labels.watermarkRemoveLogo}
-                  </button>
+            <div>
+              <label
+                htmlFor="watermarkLogo"
+                className="block text-label font-medium text-ink"
+              >
+                {labels.watermarkLogo}
+              </label>
+              <div className="mt-1.5 flex flex-wrap items-start gap-4">
+                <div className="grid h-16 w-24 shrink-0 place-items-center overflow-hidden rounded-field bg-paper ring-1 ring-inset ring-edge">
+                  {shownLogo ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={shownLogo}
+                      alt=""
+                      className="h-full w-full object-contain p-1"
+                    />
+                  ) : (
+                    <span className="text-caption text-slate">—</span>
+                  )}
                 </div>
-              ) : (
-                <p className="mt-2 text-caption text-slate">
-                  {labels.watermarkLogoHint}
-                </p>
-              )}
+
+                <div className="min-w-0 flex-1">
+                  {/* Hidden and driven from a real Button instead — see the
+                      same note on `CoverField`, which this now matches: the
+                      native picker's own chrome varies by browser and OS and
+                      carries no icon of its own. */}
+                  <input
+                    ref={logoInput}
+                    id="watermarkLogo"
+                    name="watermarkLogo"
+                    type="file"
+                    accept="image/png"
+                    onChange={(event) => chooseLogo(event.target.files?.[0] ?? null)}
+                    className="sr-only"
+                  />
+
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => logoInput.current?.click()}
+                  >
+                    <UploadIcon size={16} />
+                    {labels.formCoverChoose}
+                  </Button>
+
+                  {shownLogo ? (
+                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <span className="min-w-0 truncate text-caption text-slate">
+                        {logoName ?? labels.watermarkLogoCurrent}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={clearLogo}
+                        className="inline-flex min-h-11 items-center gap-1 rounded-pill px-2 text-caption font-medium text-danger transition-colors duration-200 hover:bg-cloud"
+                      >
+                        <CloseIcon size={14} />
+                        {labels.watermarkRemoveLogo}
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-caption text-slate">
+                      {labels.watermarkLogoHint}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Position/opacity/scale and the preview both describe how the
+                mark *looks*, as distinct from the text/logo/enabled fields
+                above that decide *whether and what* it says — the divider is
+                the only separator this needs to read at a glance. */}
+            <div className="grid gap-5 border-t border-edge pt-5 sm:grid-cols-3">
+              <div>
+                <label
+                  htmlFor="watermarkPosition"
+                  className="block text-label font-medium text-ink"
+                >
+                  {labels.watermarkPosition}
+                </label>
+                <select
+                  id="watermarkPosition"
+                  name="watermarkPosition"
+                  value={position}
+                  onChange={(event) => setPosition(event.target.value as Position)}
+                  className={`mt-1.5 ${field}`}
+                >
+                  {POSITIONS.map((pos) => (
+                    <option key={pos} value={pos}>
+                      {labels.watermarkPositions[pos]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="watermarkOpacity"
+                  className="flex items-baseline justify-between text-label font-medium text-ink"
+                >
+                  {labels.watermarkOpacity}
+                  <span className="tnum text-caption font-normal text-slate">
+                    {opacity}%
+                  </span>
+                </label>
+                <input
+                  id="watermarkOpacity"
+                  name="watermarkOpacity"
+                  type="range"
+                  min={5}
+                  max={100}
+                  value={opacity}
+                  onChange={(event) => setOpacity(Number(event.target.value))}
+                  className="mt-3 h-[46px] w-full accent-green-600"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="watermarkScale"
+                  className="flex items-baseline justify-between text-label font-medium text-ink"
+                >
+                  {labels.watermarkScale}
+                  <span className="tnum text-caption font-normal text-slate">
+                    {scale}%
+                  </span>
+                </label>
+                <input
+                  id="watermarkScale"
+                  name="watermarkScale"
+                  type="range"
+                  min={4}
+                  max={60}
+                  value={scale}
+                  onChange={(event) => setScale(Number(event.target.value))}
+                  className="mt-3 h-[46px] w-full accent-green-600"
+                />
+              </div>
+            </div>
+
+            <div>
+              <p className="text-label font-medium text-ink">{labels.watermarkPreview}</p>
+              <div className="relative mt-1.5 aspect-[4/3] w-full max-w-sm overflow-hidden rounded-field bg-paper ring-1 ring-inset ring-edge [container-type:inline-size]">
+                {event.coverPath ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={`/api/media/${event.coverPath}`}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="grid h-full place-items-center">
+                    <PhotoIcon size={32} className="text-slate" />
+                  </div>
+                )}
+
+                {mark && position !== "tiled" && (
+                  <div
+                    className={cn(
+                      "pointer-events-none absolute inset-[3%] flex",
+                      ANCHOR_CLASSES[position],
+                    )}
+                  >
+                    {mark}
+                  </div>
+                )}
+
+                {mark && position === "tiled" && (
+                  <div className="pointer-events-none absolute inset-0 flex flex-wrap content-around items-center justify-around gap-2 p-2">
+                    {Array.from({ length: 6 }, (_, i) => (
+                      <div key={i}>{mark}</div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Position/opacity/scale and the preview both describe how the mark
-            *looks*, as distinct from the text/logo/enabled fields above that
-            decide *whether and what* it says — the divider is the only
-            separator this section needs for that to read at a glance. */}
-        <div className="grid gap-5 border-t border-edge pt-5 sm:grid-cols-3">
-          <div>
-            <label
-              htmlFor="watermarkPosition"
-              className="block text-label font-medium text-ink"
-            >
-              {labels.watermarkPosition}
-            </label>
-            <select
-              id="watermarkPosition"
-              name="watermarkPosition"
-              value={position}
-              onChange={(event) => setPosition(event.target.value as Position)}
-              className={`mt-1.5 ${field}`}
-            >
-              {POSITIONS.map((pos) => (
-                <option key={pos} value={pos}>
-                  {labels.watermarkPositions[pos]}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label
-              htmlFor="watermarkOpacity"
-              className="flex items-baseline justify-between text-label font-medium text-ink"
-            >
-              {labels.watermarkOpacity}
-              <span className="tnum text-caption font-normal text-slate">
-                {opacity}%
-              </span>
-            </label>
-            <input
-              id="watermarkOpacity"
-              name="watermarkOpacity"
-              type="range"
-              min={5}
-              max={100}
-              value={opacity}
-              onChange={(event) => setOpacity(Number(event.target.value))}
-              className="mt-3 h-[46px] w-full accent-green-600"
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="watermarkScale"
-              className="flex items-baseline justify-between text-label font-medium text-ink"
-            >
-              {labels.watermarkScale}
-              <span className="tnum text-caption font-normal text-slate">
-                {scale}%
-              </span>
-            </label>
-            <input
-              id="watermarkScale"
-              name="watermarkScale"
-              type="range"
-              min={4}
-              max={60}
-              value={scale}
-              onChange={(event) => setScale(Number(event.target.value))}
-              className="mt-3 h-[46px] w-full accent-green-600"
-            />
-          </div>
-        </div>
-
-        <div>
-          <p className="text-label font-medium text-ink">{labels.watermarkPreview}</p>
-          <div className="relative mt-1.5 aspect-[4/3] w-full max-w-sm overflow-hidden rounded-field bg-paper ring-1 ring-inset ring-edge [container-type:inline-size]">
-            {event.coverPath ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={`/api/media/${event.coverPath}`}
-                alt=""
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <div className="grid h-full place-items-center">
-                <PhotoIcon size={32} className="text-slate" />
-              </div>
-            )}
-
-            {mark && position !== "tiled" && (
-              <div
-                className={cn(
-                  "pointer-events-none absolute inset-[3%] flex",
-                  ANCHOR_CLASSES[position],
-                )}
-              >
-                {mark}
-              </div>
-            )}
-
-            {mark && position === "tiled" && (
-              <div className="pointer-events-none absolute inset-0 flex flex-wrap content-around items-center justify-around gap-2 p-2">
-                {Array.from({ length: 6 }, (_, i) => (
-                  <div key={i}>{mark}</div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
+        <Submit label={labels.formSave} />
       </Section>
-
-      <Submit label={labels.formSave} />
     </form>
   );
 }
@@ -513,24 +452,22 @@ function Section({
 
 /**
  * The checkbox-with-label-and-hint row every section uses at least once.
- * Controlled when `onChange` is given (`isPrivate`, `watermarkEnabled` need
- * their state read elsewhere on the same render); left uncontrolled
- * otherwise, since `allowOriginalDownload` has nothing else depending on it.
+ * Both are controlled: `allowOriginalDownload` decides whether the
+ * watermark controls beneath it are shown, and `watermarkEnabled` needs its
+ * own state read elsewhere on the same render.
  */
 function CheckboxRow({
   name,
   label,
   hint,
   checked,
-  defaultChecked,
   onChange,
 }: {
   name: string;
   label: string;
   hint?: string;
-  checked?: boolean;
-  defaultChecked?: boolean;
-  onChange?: (checked: boolean) => void;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
 }) {
   return (
     <label className="flex min-h-11 items-start gap-3">
@@ -538,8 +475,7 @@ function CheckboxRow({
         type="checkbox"
         name={name}
         checked={checked}
-        defaultChecked={defaultChecked}
-        onChange={onChange ? (event) => onChange(event.target.checked) : undefined}
+        onChange={(event) => onChange(event.target.checked)}
         className="mt-0.5 size-5 shrink-0 rounded-[6px] accent-green-600"
       />
       <span>
@@ -573,6 +509,7 @@ function Submit({ label }: { label: string }) {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" size="md" pending={pending} className="w-full sm:w-auto">
+      <CheckIcon size={18} />
       {label}
     </Button>
   );

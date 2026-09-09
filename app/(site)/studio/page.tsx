@@ -3,12 +3,8 @@ import Link from "next/link";
 
 import { ButtonLink } from "@/components/ui/button";
 import { GridBackground } from "@/components/ui/grid-background";
-import {
-  CalendarIcon,
-  PhotoIcon,
-  SettingsIcon,
-  TrashIcon,
-} from "@/components/ui/icon";
+import { CalendarIcon, PhotoIcon, SettingsIcon } from "@/components/ui/icon";
+import { DeleteEvent } from "@/components/studio/delete-event";
 import { StatusChip } from "@/components/studio/status-chip";
 import { requireApprovedPhotographer } from "@/lib/dal";
 import { getDictionary, getLocale, t } from "@/lib/i18n";
@@ -37,16 +33,7 @@ export default async function StudioPage() {
   return (
     <section className="mx-auto w-full max-w-4xl px-5 py-16 sm:px-8 sm:py-24">
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-h1 font-bold">{dict.studio.title}</h1>
-          <p className="mt-2 text-label text-slate">
-            {photographer.displayName}
-            {events.length > 0 &&
-              ` · ${t(dict.studio.eventsCount, {
-                count: formatNumber(events.length, locale),
-              })}`}
-          </p>
-        </div>
+        <h1 className="text-h1 font-bold">{dict.studio.title}</h1>
         <ButtonLink href="/studio/events/new" size="md">
           {dict.studio.newEvent}
         </ButtonLink>
@@ -66,13 +53,16 @@ export default async function StudioPage() {
           </div>
         </div>
       ) : (
-        <ul className="mt-10">
+        <ul className="mt-8 space-y-4">
           {events.map((event) => (
-            <li key={event.id} className="border-t border-edge">
-              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 py-4">
+            <li
+              key={event.id}
+              className="rounded-card bg-paper p-4 ring-1 ring-edge transition-shadow duration-200 hover:shadow-[var(--shadow-card)] sm:p-5"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
                 <Link
                   href={`/studio/events/${event.id}`}
-                  className="group flex min-w-0 flex-1 items-center gap-4 rounded-field transition-colors duration-200 hover:bg-cloud"
+                  className="group flex min-w-0 flex-1 items-center gap-4 rounded-field"
                 >
                   <div className="aspect-[4/3] w-20 shrink-0 overflow-hidden rounded-media bg-cloud ring-1 ring-inset ring-edge">
                     {event.coverThumbPath ? (
@@ -91,7 +81,7 @@ export default async function StudioPage() {
                   </div>
 
                   <div className="min-w-0">
-                    <p className="font-display text-h3 text-ink">
+                    <p className="font-display text-h3 text-ink transition-colors duration-200 group-hover:text-green-700">
                       {event.nameTh}
                     </p>
                     <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-label text-slate">
@@ -126,22 +116,23 @@ export default async function StudioPage() {
                     <SettingsIcon size={18} />
                   </Link>
 
-                  {/* Straight to the confirm-by-retyping-the-code section on
-                      the settings page rather than a second copy of it here
-                      — a list row is not where a destructive action with its
-                      own warning text and confirmation input belongs. */}
-                  <Link
-                    href={`/studio/events/${event.id}/settings#delete-event`}
-                    aria-label={dict.studio.deleteEvent}
-                    className="inline-flex size-11 shrink-0 items-center justify-center rounded-pill text-slate transition-colors duration-200 hover:bg-cloud hover:text-danger"
-                  >
-                    <TrashIcon size={18} />
-                  </Link>
+                  {/* The exact same popup `DeleteEvent` shows on the settings
+                      page — not a second copy of the warning/confirm flow,
+                      just a smaller trigger sized for this row. */}
+                  <DeleteEvent
+                    eventId={event.id}
+                    accessCode={event.accessCode}
+                    photoCount={event.photoCount}
+                    isLive={event.status === "approved"}
+                    labels={dict.studio}
+                    closeLabel={dict.common.close}
+                    compact
+                  />
                 </div>
               </div>
 
               {event.status === "rejected" && event.rejectionReason && (
-                <p className="pb-4 text-label text-danger">
+                <p className="mt-3 rounded-field bg-danger/5 px-3 py-2 text-label text-danger">
                   {event.rejectionReason}
                 </p>
               )}

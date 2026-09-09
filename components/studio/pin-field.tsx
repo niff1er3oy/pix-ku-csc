@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { RefreshIcon } from "@/components/ui/icon";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 
 const LENGTH = 6;
@@ -28,9 +29,14 @@ const SLOTS = Array.from({ length: LENGTH }, (_, index) => index);
 export function PinField({
   labels,
   enabled,
+  onChange,
 }: {
   labels: Dictionary["studio"];
   enabled: boolean;
+  /** Fires with the joined digit string on every change — lets a parent show
+   *  a live "you still need a PIN" notice before the round trip to the
+   *  server would otherwise be the first place that showed up. */
+  onChange?: (value: string) => void;
 }) {
   const [digits, setDigits] = useState<string[]>(SLOTS.map(() => ""));
   const boxes = useRef<(HTMLInputElement | null)[]>([]);
@@ -43,8 +49,17 @@ export function PinField({
     box?.select();
   };
 
-  const write = (index: number, next: string) =>
+  /** Every update to `digits` — typed, pasted, backspaced, or randomised —
+   *  goes through this so `onChange` never misses one. */
+  const apply = (next: (current: string[]) => string[]) =>
     setDigits((current) => {
+      const copy = next(current);
+      onChange?.(copy.join(""));
+      return copy;
+    });
+
+  const write = (index: number, next: string) =>
+    apply((current) => {
       const copy = [...current];
       copy[index] = next;
       return copy;
@@ -60,7 +75,7 @@ export function PinField({
     const response = await fetch("/api/studio/pin", { method: "POST" });
     if (!response.ok) return;
     const { pin } = (await response.json()) as { pin: string };
-    setDigits(pin.split(""));
+    apply(() => pin.split(""));
   };
 
   if (!enabled) return null;
@@ -93,7 +108,7 @@ export function PinField({
                 const raw = event.target.value.replace(/\D/g, "");
                 if (raw.length > 1) {
                   const spread = raw.slice(0, LENGTH - index).split("");
-                  setDigits((current) => {
+                  apply((current) => {
                     const copy = [...current];
                     spread.forEach((d, offset) => {
                       if (index + offset < LENGTH) copy[index + offset] = d;
@@ -127,6 +142,7 @@ export function PinField({
         </div>
 
         <Button type="button" variant="secondary" size="md" onClick={randomise}>
+          <RefreshIcon size={16} />
           {labels.formPinRandom}
         </Button>
       </div>

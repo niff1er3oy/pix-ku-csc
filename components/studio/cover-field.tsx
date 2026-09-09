@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { CloseIcon, PhotoIcon } from "@/components/ui/icon";
+import { Button } from "@/components/ui/button";
+import { CloseIcon, PhotoIcon, UploadIcon } from "@/components/ui/icon";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 
 /**
@@ -65,7 +66,7 @@ export function CoverField({
       </label>
 
       <div className="mt-1.5 flex flex-wrap items-start gap-4">
-        <div className="grid h-24 w-32 shrink-0 place-items-center overflow-hidden rounded-field bg-cloud ring-1 ring-inset ring-edge">
+        <div className="grid size-24 shrink-0 place-items-center overflow-hidden rounded-field bg-cloud ring-1 ring-inset ring-edge">
           {shown ? (
             /* eslint-disable-next-line @next/next/no-img-element */
             <img src={shown} alt="" className="h-full w-full object-cover" />
@@ -75,6 +76,10 @@ export function CoverField({
         </div>
 
         <div className="min-w-0 flex-1">
+          {/* The native picker's own chrome varies by browser and OS — this
+              hides it and drives the same input from a button in the app's
+              own style instead, the same split `PhotoUploader` uses for its
+              file input. */}
           <input
             ref={input}
             id="cover"
@@ -82,8 +87,18 @@ export function CoverField({
             type="file"
             accept="image/jpeg,image/png,image/webp"
             onChange={(event) => choose(event.target.files?.[0] ?? null)}
-            className="block w-full text-label text-slate file:mr-3 file:h-11 file:cursor-pointer file:rounded-pill file:border-0 file:bg-green-600 file:px-5 file:font-display file:text-sm file:font-semibold file:text-paper hover:file:bg-green-700"
+            className="sr-only"
           />
+
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => input.current?.click()}
+          >
+            <UploadIcon size={16} />
+            {labels.formCoverChoose}
+          </Button>
 
           {name ? (
             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
