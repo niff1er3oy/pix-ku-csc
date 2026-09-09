@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, desc, eq, getTableName, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, getTableName, inArray, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -293,13 +293,25 @@ export type StudioPhoto = {
  * search can hold several `search_match` rows (one per distinct face it hit),
  * so unlike `faceId` this can be many photos. The two are never passed
  * together by the page today, but nothing stops a caller combining them.
+ *
+ * `downloaderId` narrows this to every photo one specific person has
+ * downloaded from this event — a plain `downloads.userId` match, unlike the
+ * face-based filters above. `null` (as opposed to simply omitting it) asks
+ * for the anonymous slice instead — every download with no `userId` at all,
+ * which is the only grouping `getMyEventDownloaders` can offer for visitors
+ * who never signed in.
  */
 export async function getMyEventPhotos(
   photographerId: string,
   eventId: string,
-  options: { limit?: number; faceId?: string; searchId?: string } = {},
+  options: {
+    limit?: number;
+    faceId?: string;
+    searchId?: string;
+    downloaderId?: string | null;
+  } = {},
 ): Promise<StudioPhoto[]> {
-  const { limit = 20, faceId, searchId } = options;
+  const { limit = 20, faceId, searchId, downloaderId } = options;
 
   return db
     .select({
@@ -339,6 +351,19 @@ export async function getMyEventPhotos(
                 .where(eq(searchMatches.searchId, searchId)),
             )
           : undefined,
+        downloaderId !== undefined
+          ? inArray(
+              photos.id,
+              db
+                .select({ id: downloads.photoId })
+                .from(downloads)
+                .where(
+                  downloaderId === null
+                    ? isNull(downloads.userId)
+                    : eq(downloads.userId, downloaderId),
+                ),
+            )
+          : undefined,
       ),
     )
     .orderBy(desc(photos.createdAt))
@@ -350,6 +375,8 @@ export type StudioSearch = {
   userId: string | null;
   userName: string | null;
   userEmail: string | null;
+  userImage: string | null;
+  userRole: "user" | "photographer" | "admin" | null;
   mode: "saved_face" | "uploaded_selfie";
   matchCount: number;
   topSimilarity: number | null;
@@ -378,6 +405,8 @@ export async function getMyEventSearches(
       userId: searches.userId,
       userName: users.name,
       userEmail: users.email,
+      userImage: users.image,
+      userRole: users.role,
       mode: searches.mode,
       matchCount: searches.matchCount,
       topSimilarity: searches.topSimilarity,
@@ -398,7 +427,117 @@ export async function getMyEventSearches(
     .where(
       and(eq(searches.eventId, eventId), eq(events.ownerId, photographerId)),
     )
-    .groupBy(searches.id, users.name, users.email)
+    .groupBy(searches.id, users.name, users.email, users.image, users.role)
     .orderBy(desc(searches.createdAt))
     .limit(limit);
+}
+
+export type StudioDownloader = {
+  userId: string | null;
+  userName: string | null;
+  userEmail: string | null;
+  userImage: string | null;
+  userRole: "user" | "photographer" | "admin" | null;
+  downloadCount: number;
+  lastDownloadAt: Date;
+};
+
+/**
+ * Who has downloaded from this event, one row per downloader rather than one
+ * per download — unlike a search, a single visit to "download selected"
+ * writes one `downloads` row *per photo*, so listing those raw would turn one
+ * click into fifty near-identical rows. Grouped by `userId` instead, which
+ * also does the right thing for anonymous downloads on its own: `downloads`
+ * carries no per-request identifier the way `searches.ipHash` does, so every
+ * anonymous download already shares the same (null) key and lands in one
+ * "anonymous" row rather than needing to be collapsed by hand.
+ */
+export async function getMyEventDownloaders(
+  photographerId: string,
+  eventId: string,
+  limit = 100,
+): Promise<StudioDownloader[]> {
+  return db
+    .select({
+      userId: downloads.userId,
+      userName: users.name,
+      userEmail: users.email,
+      userImage: users.image,
+      userRole: users.role,
+      downloadCount: sql<number>`count(*)::int`,
+      lastDownloadAt: sql<Date>`max(${downloads.createdAt})`,
+    })
+    .from(downloads)
+    .innerJoin(photos, eq(downloads.photoId, photos.id))
+    .innerJoin(events, eq(photos.eventId, events.id))
+    .leftJoin(users, eq(downloads.userId, users.id))
+    .where(and(eq(photos.eventId, eventId), eq(events.ownerId, photographerId)))
+    .groupBy(downloads.userId, users.name, users.email, users.image, users.role)
+    .orderBy(desc(sql`max(${downloads.createdAt})`))
+    .limit(limit);
+}
+
+export type StudioMemberProfile = {
+  id: string;
+  name: string | null;
+  email: string | null;
+  image: string | null;
+  role: "user" | "photographer" | "admin";
+  createdAt: Date;
+  /** Searches and downloads, counted only across events this photographer
+   *  owns — not the member's activity site-wide. */
+  searchCount: number;
+  downloadCount: number;
+};
+
+/**
+ * One member, as a photographer is allowed to see them: name, contact, and
+ * how much they have searched or downloaded — never their saved face, which
+ * is that account's own and is not exposed here or anywhere outside `/me`.
+ *
+ * Scoped by more than the id. A photographer can look up a member only
+ * because that member has already searched or downloaded from one of *this*
+ * photographer's own events — checked before the profile is ever fetched, so
+ * this cannot become a way to browse arbitrary user ids across the whole
+ * site. Returns null on either a missing user or a real one this
+ * photographer has no standing to view; the caller 404s on both the same way,
+ * so a probing request cannot tell the two apart.
+ */
+export async function getMemberProfile(
+  photographerId: string,
+  userId: string,
+): Promise<StudioMemberProfile | null> {
+  const [[searchRow], [downloadRow]] = await Promise.all([
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(searches)
+      .innerJoin(events, eq(searches.eventId, events.id))
+      .where(and(eq(searches.userId, userId), eq(events.ownerId, photographerId))),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(downloads)
+      .innerJoin(photos, eq(downloads.photoId, photos.id))
+      .innerJoin(events, eq(photos.eventId, events.id))
+      .where(and(eq(downloads.userId, userId), eq(events.ownerId, photographerId))),
+  ]);
+
+  const searchCount = searchRow?.count ?? 0;
+  const downloadCount = downloadRow?.count ?? 0;
+  if (searchCount === 0 && downloadCount === 0) return null;
+
+  const [user] = await db
+    .select({
+      id: users.id,
+      name: users.name,
+      email: users.email,
+      image: users.image,
+      role: users.role,
+      createdAt: users.createdAt,
+    })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  if (!user) return null;
+
+  return { ...user, searchCount, downloadCount };
 }

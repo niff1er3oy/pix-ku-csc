@@ -41,6 +41,7 @@ export function PhotoGallery({
   gridClassName = "grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4",
   labels,
   className,
+  trailingItem,
 }: {
   items: PhotoGalleryItem[];
   aspect?: "square" | "wide";
@@ -48,6 +49,11 @@ export function PhotoGallery({
   gridClassName?: string;
   labels: LightboxLabels;
   className?: string;
+  /** One more grid cell after the last photo — a "load more" tile, say,
+   *  rather than a button sitting below the whole grid. Rendered
+   *  unconditionally so a caller can still anchor scroll position to it
+   *  even on the render where it has nothing to show. */
+  trailingItem?: ReactNode;
 }) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
@@ -75,6 +81,7 @@ export function PhotoGallery({
             />
           </li>
         ))}
+        {trailingItem && <li>{trailingItem}</li>}
       </ul>
 
       {openIndex !== null &&

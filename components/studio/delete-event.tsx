@@ -34,6 +34,13 @@ import { cn } from "@/lib/utils";
  * pushing everything below it down, which matters more here than there,
  * since this is the one control on the page a stray click should never
  * casually reveal.
+ *
+ * `compact` swaps the trigger for a bare icon button sized to sit in a list
+ * row beside the settings gear on `/studio` — everything past that first
+ * click (the popup, the warning, the retype-to-confirm form, the server
+ * action) is the exact same component, not a second implementation of the
+ * same flow. That is the point: delete has to behave identically everywhere
+ * it appears, or "did that actually confirm?" becomes a real question.
  */
 export function DeleteEvent({
   eventId,
@@ -42,6 +49,7 @@ export function DeleteEvent({
   isLive,
   labels,
   closeLabel,
+  compact = false,
 }: {
   eventId: string;
   accessCode: string;
@@ -49,6 +57,7 @@ export function DeleteEvent({
   isLive: boolean;
   labels: Dictionary["studio"];
   closeLabel: string;
+  compact?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState("");
@@ -75,11 +84,23 @@ export function DeleteEvent({
   }, [open]);
 
   return (
-    <div className="mt-6 text-right">
-      <Button type="button" variant="danger" size="md" onClick={() => setOpen(true)}>
-        <AlertIcon size={18} />
-        {labels.deleteEvent}
-      </Button>
+    <div className={compact ? undefined : "mt-6 text-right"}>
+      {compact ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label={labels.deleteEvent}
+          title={labels.deleteEvent}
+          className="inline-flex size-11 shrink-0 items-center justify-center rounded-pill text-danger transition-colors duration-200 hover:bg-danger/10"
+        >
+          <TrashIcon size={18} />
+        </button>
+      ) : (
+        <Button type="button" variant="danger" size="md" onClick={() => setOpen(true)}>
+          <AlertIcon size={18} />
+          {labels.deleteEvent}
+        </Button>
+      )}
 
       {open &&
         createPortal(

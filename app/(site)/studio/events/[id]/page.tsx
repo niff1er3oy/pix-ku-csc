@@ -10,12 +10,13 @@ import {
   ChevronRightIcon,
   ClockIcon,
   DownloadIcon,
-  PhotoIcon,
+  PlayIcon,
   PrintIcon,
   SettingsIcon,
   TrashIcon,
+  UsersIcon,
 } from "@/components/ui/icon";
-import { publishEvent } from "@/lib/actions/studio";
+import { publishEvent, resumeEvent } from "@/lib/actions/studio";
 import { requireApprovedPhotographer } from "@/lib/dal";
 import { getDictionary, getLocale, t } from "@/lib/i18n";
 import { eventQrSvg, eventUrl } from "@/lib/qr";
@@ -31,10 +32,11 @@ import { PhotoGallery } from "@/components/photos/photo-gallery";
 import { StatusChip } from "@/components/studio/status-chip";
 import {
   getMyEvent,
+  getMyEventDownloaders,
   getMyEventPhotos,
   getMyEventSearches,
 } from "@/lib/queries/studio";
-import { cn, formatDate, formatNumber } from "@/lib/utils";
+import { avatarRingClass, cn, formatDate, formatNumber } from "@/lib/utils";
 
 export async function generateMetadata({
   params,
@@ -59,16 +61,23 @@ export default async function StudioEventPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ face?: string; search?: string; show?: string }>;
+  searchParams: Promise<{
+    face?: string;
+    search?: string;
+    downloader?: string;
+    show?: string;
+  }>;
 }) {
   const { photographer } = await requireApprovedPhotographer();
   const { id } = await params;
   // Rekognition face ids are UUIDs (36 chars); sliced defensively the same
   // way `admin`'s `q` param is, since this reaches a `where` clause below.
-  // `search` is a `search.id`, same shape, same reasoning.
+  // `search` is a `search.id`, `downloader` a `user.id` — same shape, same
+  // reasoning.
   const resolvedSearchParams = await searchParams;
   const face = resolvedSearchParams.face?.slice(0, 64) || undefined;
   const search = resolvedSearchParams.search?.slice(0, 64) || undefined;
+  const downloader = resolvedSearchParams.downloader?.slice(0, 64) || undefined;
   // How many photos "show more" has raised the grid to, in steps of 20 —
   // clamped below so a hand-edited URL cannot ask for an unbounded fetch.
   const rawShow = Number(resolvedSearchParams.show);
@@ -81,16 +90,27 @@ export default async function StudioEventPage({
   const event = await getMyEvent(photographer.id, id);
   if (!event) notFound();
 
-  const [photos, searches] = await Promise.all([
+  // "anonymous" is a URL sentinel, not a real user id — `getMyEventPhotos`
+  // reads `null` as "every download with no userId" (see the note there),
+  // and a real UUID never collides with this literal string.
+  const downloaderId =
+    downloader === undefined ? undefined : downloader === "anonymous" ? null : downloader;
+
+  const [photos, searches, downloaders] = await Promise.all([
     getMyEventPhotos(photographer.id, id, {
       faceId: face,
       searchId: search,
+      downloaderId,
       limit: show,
     }),
     getMyEventSearches(photographer.id, id),
+    getMyEventDownloaders(photographer.id, id),
   ]);
   const [qr, url] = [await eventQrSvg(event.accessCode), eventUrl(event.accessCode)];
   const activeSearch = search ? searches.find((s) => s.id === search) : undefined;
+  const activeDownloader = downloader
+    ? downloaders.find((d) => (d.userId ?? "anonymous") === downloader)
+    : undefined;
 
   // What the lightbox shows next to "n / total" for one photo — the same
   // indexing state the grid's "!" badge and retry button react to, spelled
@@ -112,24 +132,28 @@ export default async function StudioEventPage({
     }
   };
 
-  // Builds the link each search row's face chips use, so clicking one lands
-  // on the same filtered photo grid no matter which search it came from.
-  const faceHref = (faceId: string) =>
-    faceId === face
-      ? `/studio/events/${event.id}#photos`
-      : `/studio/events/${event.id}?face=${faceId}#photos`;
-  // Same idea, but for a search row's own "view all matches" button — this
-  // filters by every face that one search hit, not just one of them.
+  // A search row's own "view all matches" button — filters the photo grid
+  // by every face that one search hit.
   const searchHref = (searchId: string) =>
     searchId === search
       ? `/studio/events/${event.id}#photos`
       : `/studio/events/${event.id}?search=${searchId}#photos`;
+  // Same idea for a downloader row's "view downloaded photos" button —
+  // `null` is the anonymous bucket, given no real id of its own, so it gets
+  // the same "anonymous" URL sentinel `downloaderId` above reads back.
+  const downloaderHref = (userId: string | null) => {
+    const key = userId ?? "anonymous";
+    return key === downloader
+      ? `/studio/events/${event.id}#photos`
+      : `/studio/events/${event.id}?downloader=${key}#photos`;
+  };
   // "Show more" just raises `show` by 20 and reloads this same query at the
-  // new limit — carrying `face`/`search` along so loading more photos never
-  // drops whichever filter is active.
+  // new limit — carrying `face`/`search`/`downloader` along so loading more
+  // photos never drops whichever filter is active.
   const loadMoreParams = new URLSearchParams();
   if (face) loadMoreParams.set("face", face);
   if (search) loadMoreParams.set("search", search);
+  if (downloader) loadMoreParams.set("downloader", downloader);
   loadMoreParams.set("show", String(show + 20));
   // `#load-more` rather than `#photos`: the button re-renders at the bottom
   // of the (now longer) grid on every click, so anchoring there lands the
@@ -137,13 +161,14 @@ export default async function StudioEventPage({
   // appeared — instead of yanking them up to the section heading they
   // already scrolled past to get here.
   const loadMoreHref = `/studio/events/${event.id}?${loadMoreParams}#load-more`;
-  const faceChipClass = (active: boolean) =>
-    cn(
-      "inline-flex min-h-11 items-center whitespace-nowrap rounded-pill px-4 font-mono text-sm font-medium transition-colors duration-200",
-      active
-        ? "bg-green-600 text-paper"
-        : "bg-cloud text-slate hover:bg-green-50 hover:text-green-700",
-    );
+  // `event.photoCount` is the whole event's total, which only means "how
+  // many are left" when nothing is filtering `photos` down to a subset of
+  // it — under a face/search/downloader filter there is no cheap total for
+  // *that* subset, so the count is left off rather than shown wrong.
+  const remaining =
+    face || search || downloader
+      ? null
+      : Math.max(event.photoCount - photos.length, 0);
 
   const statusNote =
     event.status === "draft"
@@ -280,6 +305,19 @@ export default async function StudioEventPage({
           </ButtonLink>
         )}
 
+        {/* The other half of the pause/resume switch on the settings page —
+            an archived event otherwise has no way back to "approved" from
+            here, and this is where a photographer lands to check on it. */}
+        {event.status === "archived" && (
+          <form action={resumeEvent}>
+            <input type="hidden" name="id" value={event.id} />
+            <Button type="submit" variant="secondary" size="md">
+              <PlayIcon size={18} />
+              {dict.studio.resumeEvent}
+            </Button>
+          </form>
+        )}
+
         {/* Unconditional, unlike the two buttons above it — draft, pending,
             rejected, or archived, this is still where a photographer reaches
             settings from, now that the top-of-page link to it is gone. */}
@@ -299,67 +337,204 @@ export default async function StudioEventPage({
       {searches.length > 0 && (
         <section className="reveal mt-12">
           <h2 className="text-h2">{dict.studio.searchesTitle}</h2>
-          <ul className="mt-4 divide-y divide-edge rounded-card ring-1 ring-edge">
-            {searches.map((s) => (
-              <li
-                key={s.id}
-                className="p-4 transition-colors duration-200 hover:bg-cloud"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-label font-medium text-ink">
-                    {s.userName ?? s.userEmail ?? dict.studio.searchesAnonymous}
-                  </p>
-                  <p className="tnum text-caption text-slate">
-                    {formatDate(s.createdAt, locale, {
-                      day: "numeric",
-                      month: "short",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </p>
-                </div>
-                <p className="mt-1 text-label text-slate">
-                  {s.matchCount > 0
-                    ? t(dict.studio.searchesMatchCount, {
-                        count: formatNumber(s.matchCount, locale),
-                      })
-                    : dict.studio.searchesNoMatch}
-                </p>
-                {s.faceIds.length > 0 && (
-                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                    {s.faceIds.length > 1 && (
-                      <Link
-                        href={searchHref(s.id)}
-                        aria-current={s.id === search ? "page" : undefined}
-                        className={cn(
-                          "inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-pill px-4 text-label font-medium transition-colors duration-200",
-                          s.id === search
-                            ? "bg-green-600 text-paper"
-                            : "bg-green-50 text-green-700 hover:bg-green-100",
-                        )}
-                      >
-                        <PhotoIcon size={16} />
-                        {dict.studio.searchesViewAll}
-                      </Link>
-                    )}
-                    {s.faceIds.map((faceId) => {
-                      const active = faceId === face;
-                      return (
-                        <Link
-                          key={faceId}
-                          href={faceHref(faceId)}
-                          aria-current={active ? "page" : undefined}
-                          title={faceId}
-                          className={faceChipClass(active)}
-                        >
-                          {faceId.slice(0, 8)}
-                        </Link>
-                      );
-                    })}
+          {/* Five rows tall, not paginated — older ones are one scroll away
+              rather than behind a "show more" click, since this list is
+              read for a pattern (who's showing up) more than clicked
+              through row by row the way the photo grid is. */}
+          <ul className="mt-4 max-h-96 divide-y divide-edge overflow-y-auto rounded-card bg-paper ring-1 ring-edge">
+            {searches.map((s) => {
+              const name = s.userName ?? s.userEmail;
+              const initial = name?.trim().charAt(0).toUpperCase();
+              const hasMatch = s.matchCount > 0;
+              const clickable = s.faceIds.length > 0;
+              const active = s.id === search;
+
+              // A real photo wins when there is one; a letter still reads as
+              // "someone specific" without one, and the icon is reserved for
+              // the one case that genuinely isn't — swapping them per row
+              // would make neither mean anything.
+              const avatarContent = s.userImage ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={s.userImage} alt="" className="h-full w-full object-cover" />
+              ) : initial ? (
+                <span className="font-display text-label font-semibold" aria-hidden>
+                  {initial}
+                </span>
+              ) : (
+                <UsersIcon size={18} />
+              );
+
+              return (
+                <li
+                  key={s.id}
+                  className={cn(
+                    "flex items-center gap-4 p-4 transition-colors duration-200",
+                    active && "bg-green-50",
+                  )}
+                >
+                  {/* Only the avatar leads to the profile — the name and
+                      timestamp beside it are just more detail about this
+                      row, not a second copy of the same link. */}
+                  {s.userId ? (
+                    <Link
+                      href={`/profile/${s.userId}`}
+                      aria-label={t(dict.studio.viewProfile, {
+                        name: name ?? dict.studio.searchesAnonymous,
+                      })}
+                      className={cn(
+                        "grid size-11 shrink-0 place-items-center overflow-hidden rounded-pill bg-green-50 text-green-700 transition-colors duration-200 hover:bg-green-100",
+                        s.userRole && avatarRingClass(s.userRole),
+                      )}
+                    >
+                      {avatarContent}
+                    </Link>
+                  ) : (
+                    <span className="grid size-11 shrink-0 place-items-center rounded-pill bg-green-50 text-green-700">
+                      {avatarContent}
+                    </span>
+                  )}
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+                      <p className="truncate text-label font-medium text-ink">
+                        {name ?? dict.studio.searchesAnonymous}
+                      </p>
+                      <p className="tnum shrink-0 text-caption text-slate">
+                        {formatDate(s.createdAt, locale, {
+                          day: "numeric",
+                          month: "short",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </p>
+                    </div>
+                    <p
+                      className={cn(
+                        "mt-0.5 text-label",
+                        hasMatch ? "text-green-700" : "text-slate",
+                      )}
+                    >
+                      {hasMatch
+                        ? t(dict.studio.searchesMatchCount, {
+                            count: formatNumber(s.matchCount, locale),
+                          })
+                        : dict.studio.searchesNoMatch}
+                    </p>
                   </div>
-                )}
-              </li>
-            ))}
+
+                  {clickable && (
+                    <Link
+                      href={searchHref(s.id)}
+                      aria-current={active ? "page" : undefined}
+                      aria-label={dict.studio.searchesViewAll}
+                      title={dict.studio.searchesViewAll}
+                      className={cn(
+                        "mr-2 grid size-11 shrink-0 place-items-center rounded-pill transition-colors duration-200",
+                        active
+                          ? "bg-green-600 text-paper"
+                          : "text-slate hover:bg-cloud hover:text-green-700",
+                      )}
+                    >
+                      <ChevronRightIcon size={18} />
+                    </Link>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+
+      {downloaders.length > 0 && (
+        <section className="reveal mt-12">
+          <h2 className="text-h2">{dict.studio.downloadersTitle}</h2>
+          {/* Same reasoning as the searches list above: five rows visible,
+              the rest a scroll away rather than paginated. */}
+          <ul className="mt-4 max-h-96 divide-y divide-edge overflow-y-auto rounded-card bg-paper ring-1 ring-edge">
+            {downloaders.map((d) => {
+              const name = d.userName ?? d.userEmail;
+              const initial = name?.trim().charAt(0).toUpperCase();
+              const active = (d.userId ?? "anonymous") === downloader;
+
+              const avatarContent = d.userImage ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={d.userImage} alt="" className="h-full w-full object-cover" />
+              ) : initial ? (
+                <span className="font-display text-label font-semibold" aria-hidden>
+                  {initial}
+                </span>
+              ) : (
+                <UsersIcon size={18} />
+              );
+
+              return (
+                <li
+                  key={d.userId ?? "anonymous"}
+                  className={cn(
+                    "flex items-center gap-4 p-4 transition-colors duration-200",
+                    active && "bg-green-50",
+                  )}
+                >
+                  {/* Only the avatar leads to the profile — see the same
+                      note on the searches list above. The chevron is its
+                      own separate target, for what they downloaded. */}
+                  {d.userId ? (
+                    <Link
+                      href={`/profile/${d.userId}`}
+                      aria-label={t(dict.studio.viewProfile, {
+                        name: name ?? dict.studio.searchesAnonymous,
+                      })}
+                      className={cn(
+                        "grid size-11 shrink-0 place-items-center overflow-hidden rounded-pill bg-green-50 text-green-700 transition-colors duration-200 hover:bg-green-100",
+                        d.userRole && avatarRingClass(d.userRole),
+                      )}
+                    >
+                      {avatarContent}
+                    </Link>
+                  ) : (
+                    <span className="grid size-11 shrink-0 place-items-center rounded-pill bg-green-50 text-green-700">
+                      {avatarContent}
+                    </span>
+                  )}
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+                      <p className="truncate text-label font-medium text-ink">
+                        {name ?? dict.studio.searchesAnonymous}
+                      </p>
+                      <p className="tnum shrink-0 text-caption text-slate">
+                        {formatDate(d.lastDownloadAt, locale, {
+                          day: "numeric",
+                          month: "short",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </p>
+                    </div>
+                    <p className="mt-0.5 text-label text-green-700">
+                      {t(dict.studio.downloadersCount, {
+                        count: formatNumber(d.downloadCount, locale),
+                      })}
+                    </p>
+                  </div>
+
+                  <Link
+                    href={downloaderHref(d.userId)}
+                    aria-current={active ? "page" : undefined}
+                    aria-label={dict.studio.downloadersViewAll}
+                    title={dict.studio.downloadersViewAll}
+                    className={cn(
+                      "mr-2 grid size-11 shrink-0 place-items-center rounded-pill transition-colors duration-200",
+                      active
+                        ? "bg-green-600 text-paper"
+                        : "text-slate hover:bg-cloud hover:text-green-700",
+                    )}
+                  >
+                    <ChevronRightIcon size={18} />
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         </section>
       )}
@@ -374,17 +549,24 @@ export default async function StudioEventPage({
               closeLabel={dict.common.close}
             />
           </div>
-          {(face || search) && (
+          {(face || search || downloader) && (
             <p className="flex flex-wrap items-center gap-2 text-label text-slate">
               <span className={face ? "font-mono" : undefined}>
                 {face
                   ? t(dict.studio.facesFilterActive, { id: face.slice(0, 8) })
-                  : t(dict.studio.searchesFilterActive, {
-                      name:
-                        activeSearch?.userName ??
-                        activeSearch?.userEmail ??
-                        dict.studio.searchesAnonymous,
-                    })}
+                  : search
+                    ? t(dict.studio.searchesFilterActive, {
+                        name:
+                          activeSearch?.userName ??
+                          activeSearch?.userEmail ??
+                          dict.studio.searchesAnonymous,
+                      })
+                    : t(dict.studio.downloadersFilterActive, {
+                        name:
+                          activeDownloader?.userName ??
+                          activeDownloader?.userEmail ??
+                          dict.studio.searchesAnonymous,
+                      })}
               </span>
               <Link
                 href={`/studio/events/${event.id}#photos`}
@@ -402,7 +584,7 @@ export default async function StudioEventPage({
             <p className="relative text-body text-slate">
               {dict.studio.photosNone}
             </p>
-            {(face || search) && (
+            {(face || search || downloader) && (
               <Link
                 href={`/studio/events/${event.id}#photos`}
                 className="relative mt-3 inline-block text-label font-medium text-green-700 underline underline-offset-4"
@@ -491,31 +673,52 @@ export default async function StudioEventPage({
                 next: dict.common.next,
                 download: dict.results.downloadOne,
               }}
+              // A grid cell appended after the last photo rather than a
+              // button sitting below the whole grid — "more of the same set"
+              // reads more naturally as one more card in that set than as a
+              // separate control underneath it.
+              //
+              // Always rendered, the link inside it conditional — not the
+              // other way around. The click that exhausts the last photos
+              // lands on a page where the link's own condition is now false,
+              // and a `#load-more` in the URL with no matching id anywhere
+              // on the page is exactly what was scrolling straight to the
+              // top: the browser found nothing to scroll to and fell back to
+              // the default. An anchor with nothing inside it some of the
+              // time is still an anchor every time.
+              trailingItem={
+                <div id="load-more" className="scroll-mt-20">
+                  {/* `>=` rather than `===`: a filtered result can come back
+                      shorter than `show` even when there is nothing left to
+                      raise `show` for — this is the same "did we actually
+                      hit the cap" check that decides whether there might be
+                      more, not a promise there is. */}
+                  {photos.length >= show && (
+                    <Link
+                      href={loadMoreHref}
+                      className="group flex aspect-square min-h-0 flex-col items-center justify-center gap-1 overflow-hidden rounded-media bg-cloud p-1 text-center ring-1 ring-edge transition-colors duration-200 hover:bg-green-50 hover:ring-green-300"
+                    >
+                      <ChevronDownIcon
+                        size={16}
+                        className="shrink-0 text-slate transition-colors duration-200 group-hover:text-green-700"
+                      />
+                      {remaining !== null && remaining > 0 && (
+                        <span className="tnum whitespace-nowrap font-display text-body font-bold leading-none text-ink transition-colors duration-200 group-hover:text-green-700">
+                          {t(dict.studio.photosRemaining, {
+                            count: formatNumber(remaining, locale),
+                          })}
+                        </span>
+                      )}
+                      <span className="px-1 text-caption leading-tight font-medium text-slate transition-colors duration-200 group-hover:text-green-700">
+                        {dict.studio.photosLoadMore}
+                      </span>
+                    </Link>
+                  )}
+                </div>
+              }
             />
           </DeletePhotosForm>
         )}
-
-        {/* Always rendered, the button inside it conditional — not the
-            other way around. The click that exhausts the last photos lands
-            on a page where the button's own condition is now false, and a
-            `#load-more` in the URL with no matching id anywhere on the page
-            is exactly what was scrolling straight to the top: the browser
-            found nothing to scroll to and fell back to the default. An
-            anchor with nothing inside it some of the time is still an
-            anchor every time. */}
-        <div id="load-more" className="mt-5 flex scroll-mt-20 justify-center">
-          {/* `>=` rather than `===`: a filtered result can come back shorter
-              than `show` even when there is nothing left to raise `show`
-              for — this is the same "did we actually hit the cap" check
-              that decides whether there might be more, not a promise there
-              is. */}
-          {photos.length >= show && (
-            <ButtonLink href={loadMoreHref} variant="secondary" size="md">
-              <ChevronDownIcon size={18} />
-              {dict.studio.photosLoadMore}
-            </ButtonLink>
-          )}
-        </div>
       </section>
     </section>
   );
