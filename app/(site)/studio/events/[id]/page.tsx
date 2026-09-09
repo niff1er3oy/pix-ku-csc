@@ -13,13 +13,17 @@ import {
   PhotoIcon,
   PrintIcon,
   SettingsIcon,
+  TrashIcon,
 } from "@/components/ui/icon";
 import { publishEvent } from "@/lib/actions/studio";
 import { requireApprovedPhotographer } from "@/lib/dal";
 import { getDictionary, getLocale, t } from "@/lib/i18n";
 import { eventQrSvg, eventUrl } from "@/lib/qr";
 import { CopyLinkButton } from "@/components/studio/copy-link-button";
-import { DeletePhotosForm } from "@/components/studio/delete-photos-form";
+import {
+  DELETE_PHOTOS_FORM_ID,
+  DeletePhotosForm,
+} from "@/components/studio/delete-photos-form";
 import { EventHealthCard } from "@/components/studio/event-health-card";
 import { PhotoUploader } from "@/components/studio/photo-uploader";
 import { RetryIndexButton } from "@/components/studio/retry-index-button";
@@ -435,6 +439,24 @@ export default async function StudioEventPage({
                     </span>
                   ) : undefined,
                 meta: photoStatusLabel(photo),
+                // Submits into `DeletePhotosForm`'s form by id rather than
+                // by DOM position — the lightbox this renders inside of is
+                // portalled to `document.body`, well outside that form's own
+                // subtree, and `form="…"` is exactly what that attribute is
+                // for.
+                deleteAction: (
+                  <Button
+                    type="submit"
+                    form={DELETE_PHOTOS_FORM_ID}
+                    name="photoIds"
+                    value={photo.id}
+                    variant="danger"
+                    size="sm"
+                  >
+                    <TrashIcon size={16} />
+                    {dict.studio.photosDeleteOne}
+                  </Button>
+                ),
                 select: (
                   <div className="flex flex-col items-start gap-1">
                     <input

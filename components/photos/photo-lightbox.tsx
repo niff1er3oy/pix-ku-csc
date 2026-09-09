@@ -2,6 +2,7 @@
 
 import { useEffect, ViewTransition, type ReactNode } from "react";
 
+import { buttonClass } from "@/components/ui/button";
 import { ChevronLeftIcon, ChevronRightIcon, CloseIcon, DownloadIcon } from "@/components/ui/icon";
 
 export type LightboxPhoto = {
@@ -17,6 +18,11 @@ export type LightboxPhoto = {
    *  uses this for a photo's face count and indexing status; other galleries
    *  have nothing of their own to say here and just omit it. */
   meta?: ReactNode;
+  /** A delete control for this one photo, shown beside the download link —
+   *  the studio grid's own delete button, submitting into its form via the
+   *  `form="…"` attribute since this renders through a portal outside that
+   *  form's DOM. Other galleries show someone else's photos and omit it. */
+  deleteAction?: ReactNode;
 };
 
 export type LightboxLabels = {
@@ -145,14 +151,19 @@ export function PhotoLightbox({
             <span className="text-caption text-paper/70">{photo.meta}</span>
           )}
           {photo.downloadHref && (
+            // `buttonClass` rather than a hand-rolled pill — this now sits
+            // beside `photo.deleteAction`, itself a real `<Button>`, and the
+            // two only read as a matched pair (both `size="sm"`, both real
+            // pill buttons) if this one is built from the same styles.
             <a
               href={photo.downloadHref}
-              className="inline-flex min-h-11 items-center gap-1.5 rounded-pill bg-paper px-4 text-label font-medium text-ink transition-colors duration-200 hover:bg-cloud"
+              className={buttonClass({ variant: "primary", size: "sm" })}
             >
               <DownloadIcon size={16} />
               {labels.download}
             </a>
           )}
+          {photo.deleteAction}
         </div>
       </div>
     </div>

@@ -21,6 +21,9 @@ export type PhotoGalleryItem = {
   meta?: ReactNode;
   /** Omit to hide the download button for this photo in the lightbox. */
   downloadHref?: string;
+  /** A delete control for this one photo in the lightbox — see
+   *  `LightboxPhoto.deleteAction`. */
+  deleteAction?: ReactNode;
   viewTransitionName?: string;
   /** A selection checkbox, typically — see `PhotoThumb`'s `select` prop. */
   select?: ReactNode;
@@ -94,6 +97,7 @@ export function PhotoGallery({
               downloadHref: item.downloadHref,
               viewTransitionName: item.viewTransitionName,
               meta: item.meta,
+              deleteAction: item.deleteAction,
             }))}
             index={openIndex}
             onClose={() => setOpenIndex(null)}

@@ -8,6 +8,12 @@ import { DownloadIcon, TrashIcon } from "@/components/ui/icon";
 import { deletePhotos } from "@/lib/actions/studio";
 import { t } from "@/lib/i18n/dictionaries";
 
+/** Only ever one of these per page today, so a fixed id is safe — exported
+ *  so the lightbox's own per-photo delete button, rendered through a portal
+ *  well outside this form's own DOM subtree, can still submit into it via
+ *  the standard `form="…"` attribute. */
+export const DELETE_PHOTOS_FORM_ID = "delete-photos-form";
+
 /**
  * Wraps the photo grid so its checkboxes — plain `<input name="photoIds">`,
  * rendered server-side inside `PhotoGallery`'s `select` slot — can post one
@@ -96,9 +102,17 @@ export function DeletePhotosForm({
       | null;
     if (submitter?.name === "photoId") return;
 
-    const checked = event.currentTarget.querySelectorAll<HTMLInputElement>(
-      'input[name="photoIds"]:checked',
-    ).length;
+    // The lightbox's own delete button submits its one photo id directly as
+    // the submitter's own name/value, not through a checked checkbox — it is
+    // never "nothing selected", so that check is skipped for it specifically,
+    // but it still confirms like every other delete does.
+    const isSinglePhotoDelete = submitter?.name === "photoIds";
+
+    const checked = isSinglePhotoDelete
+      ? 1
+      : event.currentTarget.querySelectorAll<HTMLInputElement>(
+          'input[name="photoIds"]:checked',
+        ).length;
 
     if (checked === 0) {
       event.preventDefault();
@@ -112,7 +126,12 @@ export function DeletePhotosForm({
   }
 
   return (
-    <form ref={formRef} action={deletePhotos} onSubmit={onSubmit}>
+    <form
+      ref={formRef}
+      id={DELETE_PHOTOS_FORM_ID}
+      action={deletePhotos}
+      onSubmit={onSubmit}
+    >
       <input type="hidden" name="eventId" value={eventId} />
 
       {children}
