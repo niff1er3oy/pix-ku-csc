@@ -122,7 +122,8 @@ export const th = {
   event: {
     photosCount: "รูปทั้งหมด",
     findMe: "ค้นหารูปของฉัน",
-    browseAll: "ไถดูทั้งงาน",
+    browseAll: "รูปทั้งหมด",
+    selectOne: "เลือกรูปนี้",
     by: "ถ่ายโดย",
     notFound: "ไม่พบงานนี้",
     notFoundBody: "ลิงก์อาจหมดอายุ พิมพ์ผิด หรือช่างภาพยังไม่เปิดให้ค้นหา",
@@ -141,7 +142,6 @@ export const th = {
 
   search: {
     title: "ค้นหารูปของคุณ",
-    lede: "ระบบจะเทียบใบหน้าของคุณกับรูปในงานนี้เท่านั้น",
 
     savedFaceTitle: "ใช้หน้าที่บันทึกไว้",
     savedFaceBody: "ค้นได้เลย ไม่ต้องถ่ายใหม่",
@@ -150,7 +150,7 @@ export const th = {
     uploadTitle: "ถ่ายหรืออัปโหลดเซลฟี่",
     uploadBody: "ใช้ครั้งเดียวสำหรับการค้นนี้ ไม่บันทึกเก็บไว้",
     uploadCta: "เลือกรูป",
-    uploadRetake: "เลือกรูปใหม่",
+    uploadCancel: "ยกเลิก",
     uploadCamera: "ถ่ายด้วยกล้อง",
 
     signInPrompt: "อยากไม่ต้องถ่ายซ้ำทุกงาน?",
@@ -195,6 +195,15 @@ export const th = {
     downloading: "กำลังเตรียมไฟล์",
     searchAgain: "ค้นใหม่",
     watermarkNote: "รูปจากงานนี้ติดลายน้ำของช่างภาพ",
+    selectAll: "เลือกทั้งหมด",
+    deselectAll: "ยกเลิกทั้งหมด",
+    downloadSelected: "ดาวน์โหลดที่เลือก",
+    saveSelected: "บันทึกที่เลือก",
+    unsaveSelected: "ยกเลิกรูปที่เลือก",
+    saveAll: "บันทึกทั้งหมด",
+    unsaveAll: "ยกเลิกการบันทึกทั้งหมด",
+    save: "บันทึกรูปนี้",
+    saved: "บันทึกแล้ว",
   },
 
   profile: {
@@ -210,6 +219,11 @@ export const th = {
       "ลบรูปหน้าที่บันทึกไว้? หลังลบแล้วต้องอัปโหลดเซลฟี่ใหม่ทุกครั้งที่ค้นหา",
     savedFaceDeleted: "ลบรูปหน้าแล้ว",
     savedFaceStored: "บันทึกเมื่อ {date}",
+
+    savedPhotosTitle: "รูปที่บันทึกไว้",
+    savedPhotosNoneBody:
+      "ตอนค้นหารูปตัวเองในงาน กดบันทึกรูปที่ใช่ไว้ แล้วกลับมาดูที่นี่ได้โดยไม่ต้องค้นหาใหม่",
+    savedPhotosRemove: "เอาออกจากที่บันทึกไว้",
 
     historyTitle: "ประวัติการค้นหา",
     historyEmpty: "ยังไม่มีประวัติการค้นหา",
@@ -380,13 +394,16 @@ export const th = {
     photosNone: "ยังไม่มีรูป",
     photosSelect: "เลือกรูป {name}",
     photosSelectAll: "เลือกทั้งหมด",
+    photosDeselectAll: "ยกเลิกทั้งหมด",
     photosDeleteSelected: "ลบรูปที่เลือก",
+    photosDeleteAll: "ลบรูปทั้งหมด",
     photosDeleteOne: "ลบรูป",
     photosDeleteConfirm: "ลบ {count} รูปที่เลือก? กู้คืนไม่ได้",
+    photosDeleteConfirmAll: "ลบรูปทั้งหมด {count} รูปในงานนี้? กู้คืนไม่ได้",
     photosDownloadSelected: "ดาวน์โหลดรูปที่เลือก",
+    photosDownloadAll: "ดาวน์โหลดรูปทั้งหมด",
     photosLoadMore: "แสดงรูปเพิ่ม",
     photosRemaining: "+{count}",
-    photosSelectNone: "เลือกอย่างน้อย 1 รูปก่อน",
     photosRetryIndex: "ลองระบุใบหน้าใหม่ รูปนี้ล้มเหลวก่อนหน้านี้",
     photoStatusPending: "รอประมวลผล",
     photoStatusIndexing: "กำลังประมวลผล",
@@ -737,7 +754,8 @@ export const en: Dictionary = {
   event: {
     photosCount: "Photos",
     findMe: "Find my photos",
-    browseAll: "Browse the whole event",
+    browseAll: "All photos",
+    selectOne: "Select this photo",
     by: "Shot by",
     notFound: "Event not found",
     notFoundBody:
@@ -759,7 +777,6 @@ export const en: Dictionary = {
 
   search: {
     title: "Find your photos",
-    lede: "We'll match your face against this event only.",
 
     savedFaceTitle: "Use your saved face",
     savedFaceBody: "Search straight away, no new photo needed",
@@ -768,7 +785,7 @@ export const en: Dictionary = {
     uploadTitle: "Take or upload a selfie",
     uploadBody: "Used for this search only, never stored",
     uploadCta: "Choose a photo",
-    uploadRetake: "Choose another",
+    uploadCancel: "Cancel",
     uploadCamera: "Use camera",
 
     signInPrompt: "Tired of reshooting at every event?",
@@ -814,6 +831,15 @@ export const en: Dictionary = {
     downloading: "Preparing your files",
     searchAgain: "Search again",
     watermarkNote: "Photos from this event carry the photographer's watermark.",
+    selectAll: "Select all",
+    deselectAll: "Deselect all",
+    downloadSelected: "Download selected",
+    saveSelected: "Save selected",
+    unsaveSelected: "Unsave selected",
+    saveAll: "Save all",
+    unsaveAll: "Unsave all",
+    save: "Save this photo",
+    saved: "Saved",
   },
 
   profile: {
@@ -829,6 +855,11 @@ export const en: Dictionary = {
       "Delete your saved face? You'll need to upload a selfie every time you search.",
     savedFaceDeleted: "Your saved face is deleted.",
     savedFaceStored: "Saved {date}",
+
+    savedPhotosTitle: "Saved photos",
+    savedPhotosNoneBody:
+      "When you find yourself in an event's photos, save the ones you want — they'll be here without searching again.",
+    savedPhotosRemove: "Remove from saved",
 
     historyTitle: "Search history",
     historyEmpty: "No searches yet",
@@ -998,13 +1029,16 @@ export const en: Dictionary = {
     photosNone: "No photos yet",
     photosSelect: "Select photo {name}",
     photosSelectAll: "Select all",
+    photosDeselectAll: "Deselect all",
     photosDeleteSelected: "Delete selected",
+    photosDeleteAll: "Delete all",
     photosDeleteOne: "Delete",
     photosDeleteConfirm: "Delete {count} selected photos? This cannot be undone.",
+    photosDeleteConfirmAll: "Delete all {count} photos in this event? This cannot be undone.",
     photosDownloadSelected: "Download selected",
+    photosDownloadAll: "Download all",
     photosLoadMore: "Show more photos",
     photosRemaining: "+{count}",
-    photosSelectNone: "Select at least one photo first",
     photosRetryIndex: "Retry face indexing — this photo failed earlier",
     photoStatusPending: "Waiting to process",
     photoStatusIndexing: "Processing",

@@ -512,6 +512,36 @@ export const downloads = pgTable(
   (t) => [index("download_photo_idx").on(t.photoId)],
 );
 
+/**
+ * A visitor's own bookmark list — "these are mine, show them again without
+ * re-running the search." `userId` is `NOT NULL` unlike `downloads.userId`:
+ * a save that outlives the current visit only means anything for a signed-in
+ * account, so there is no anonymous case to leave room for here.
+ *
+ * The unique pair on `(userId, photoId)` is not just a dedup guard — it is
+ * what lets saving be a plain idempotent insert (`onConflictDoNothing`)
+ * rather than a "check, then insert" race between two tabs.
+ */
+export const savedPhotos = pgTable(
+  "saved_photo",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    photoId: uuid("photo_id")
+      .notNull()
+      .references(() => photos.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("saved_photo_user_photo_idx").on(t.userId, t.photoId),
+    index("saved_photo_user_idx").on(t.userId),
+  ],
+);
+
 // ---------------------------------------------------------------------------
 // PDPA consent log
 // ---------------------------------------------------------------------------

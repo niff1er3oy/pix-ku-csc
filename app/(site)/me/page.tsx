@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 
 import { SavedFaceSection } from "@/components/profile/saved-face-section";
+import { SavedPhotosSection } from "@/components/profile/saved-photos-section";
 import { requireUser } from "@/lib/dal";
 import { getDictionary, getLocale } from "@/lib/i18n";
 import { getMyFace } from "@/lib/queries/profile";
+import { getMySavedPhotos } from "@/lib/queries/saved-photos";
 
 export async function generateMetadata(): Promise<Metadata> {
   const dict = await getDictionary();
@@ -12,14 +14,17 @@ export async function generateMetadata(): Promise<Metadata> {
 
 /**
  * `/me`, the destination `SiteHeader`'s avatar chip already links to.
- * Only the saved-face section is here so far — history and consent
+ * Saved face and saved photos are here so far — history and consent
  * withdrawal have dictionary strings ready (see `profile.*` in
  * `dictionaries.ts`) but no page yet.
  */
 export default async function ProfilePage() {
   const user = await requireUser();
   const [dict, locale] = await Promise.all([getDictionary(), getLocale()]);
-  const face = await getMyFace(user.id);
+  const [face, savedPhotos] = await Promise.all([
+    getMyFace(user.id),
+    getMySavedPhotos(user.id),
+  ]);
 
   return (
     <section className="mx-auto w-full max-w-2xl px-5 py-16 sm:px-8 sm:py-24">
@@ -27,6 +32,7 @@ export default async function ProfilePage() {
 
       <div className="mt-8 space-y-6">
         <SavedFaceSection dict={dict} locale={locale} face={face} />
+        <SavedPhotosSection dict={dict} photos={savedPhotos} />
       </div>
     </section>
   );

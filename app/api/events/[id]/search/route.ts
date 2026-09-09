@@ -26,6 +26,7 @@ import {
   buildDetectionCopy,
   MAX_SELFIE_BYTES,
 } from "@/lib/images";
+import { getSavedPhotoIds } from "@/lib/queries/saved-photos";
 import { hashIp, readStorageFile } from "@/lib/storage";
 
 const ANON_COOKIE = "fkd_anon";
@@ -38,6 +39,8 @@ export type SearchMatch = {
   previewPath: string;
   originalPath: string;
   similarity: number;
+  /** Always false for a signed-out visitor — saving requires an account. */
+  isSaved: boolean;
 };
 
 export type SearchResponse =
@@ -127,7 +130,15 @@ export async function POST(
       FACE_MATCH_THRESHOLD,
     );
 
-    const { matches, faceMatches } = await resolvePhotos(eventId, rawMatches);
+    const { matches: resolved, faceMatches } = await resolvePhotos(eventId, rawMatches);
+
+    const savedIds = user
+      ? await getSavedPhotoIds(user.id, resolved.map((m) => m.photoId))
+      : new Set<string>();
+    const matches: SearchMatch[] = resolved.map((m) => ({
+      ...m,
+      isSaved: savedIds.has(m.photoId),
+    }));
 
     // One transaction: a `searches` row whose `matchCount` disagrees with
     // how many `search_matches` rows actually exist for it is worse than
@@ -176,11 +187,15 @@ export async function POST(
 
 type FaceMatch = { faceId: string; similarity: number };
 
+/** The part of a match `resolvePhotos` can actually know — whether it is
+ *  saved depends on who is asking, which this function has no notion of. */
+type ResolvedMatch = Omit<SearchMatch, "isSaved">;
+
 /** Joins Rekognition face ids back to the photos they came from. */
 async function resolvePhotos(
   eventId: string,
   raw: FaceMatch[],
-): Promise<{ matches: SearchMatch[]; faceMatches: FaceMatch[] }> {
+): Promise<{ matches: ResolvedMatch[]; faceMatches: FaceMatch[] }> {
   if (raw.length === 0) return { matches: [], faceMatches: [] };
 
   const best = new Map<string, number>();
@@ -210,7 +225,7 @@ async function resolvePhotos(
   // it is what `search_match` records, and a visitor's own results collapsing
   // to "best per photo" is a display choice, not a reason to under-record
   // which faces this search actually reached.
-  const byPhoto = new Map<string, SearchMatch>();
+  const byPhoto = new Map<string, ResolvedMatch>();
   const faceMatches: FaceMatch[] = [];
   for (const row of rows) {
     const similarity = best.get(row.faceId) ?? 0;

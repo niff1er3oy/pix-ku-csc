@@ -23,6 +23,10 @@ export type LightboxPhoto = {
    *  `form="…"` attribute since this renders through a portal outside that
    *  form's DOM. Other galleries show someone else's photos and omit it. */
   deleteAction?: ReactNode;
+  /** A save/unsave toggle for this one photo, shown beside the download
+   *  link — face search results use this; other galleries have nothing to
+   *  save here and omit it. */
+  saveAction?: ReactNode;
 };
 
 export type LightboxLabels = {
@@ -147,9 +151,6 @@ export function PhotoLightbox({
           <span className="tnum text-caption text-paper/70">
             {index + 1} / {photos.length}
           </span>
-          {photo.meta && (
-            <span className="text-caption text-paper/70">{photo.meta}</span>
-          )}
           {photo.downloadHref && (
             // `buttonClass` rather than a hand-rolled pill — this now sits
             // beside `photo.deleteAction`, itself a real `<Button>`, and the
@@ -163,6 +164,7 @@ export function PhotoLightbox({
               {labels.download}
             </a>
           )}
+          {photo.saveAction}
           {photo.deleteAction}
         </div>
       </div>

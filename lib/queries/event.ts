@@ -41,6 +41,16 @@ export type EventPhoto = {
  * Offset pagination, deliberately. An event holds 1,000-5,000 photos, so the
  * gallery can never render in one pass — and plain page links keep browsing
  * working without JavaScript, which matters on venue wifi.
+ *
+ * `photos.id` is a third, always-unique sort key — not decoration. Without
+ * it, two photos that tie on both `capturedAt` (often null; EXIF is not
+ * guaranteed) and `createdAt` (identical to the millisecond for a batch
+ * upload) have no defined order between them, and Postgres is free to place
+ * a tied row on either side of a page boundary on different executions of
+ * this same query. The gallery's own `viewTransitionName` is built from
+ * `photo.id`, so a row landing on both page 1 and page 2 that way surfaces
+ * as two `<ViewTransition>` components sharing one name — not a rendering
+ * bug, a pagination stability bug wearing a React error.
  */
 export async function getEventPhotos(
   eventId: string,
@@ -63,7 +73,7 @@ export async function getEventPhotos(
       })
       .from(photos)
       .where(eq(photos.eventId, eventId))
-      .orderBy(asc(photos.capturedAt), asc(photos.createdAt))
+      .orderBy(asc(photos.capturedAt), asc(photos.createdAt), asc(photos.id))
       .limit(pageSize)
       .offset((page - 1) * pageSize),
   ]);

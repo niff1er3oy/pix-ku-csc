@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState, useTransition, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 import { PhotoLightbox, type LightboxLabels } from "@/components/photos/photo-lightbox";
@@ -24,9 +24,16 @@ export type PhotoGalleryItem = {
   /** A delete control for this one photo in the lightbox — see
    *  `LightboxPhoto.deleteAction`. */
   deleteAction?: ReactNode;
+  /** A save/unsave toggle for this one photo in the lightbox — see
+   *  `LightboxPhoto.saveAction`. */
+  saveAction?: ReactNode;
   viewTransitionName?: string;
   /** A selection checkbox, typically — see `PhotoThumb`'s `select` prop. */
   select?: ReactNode;
+  /** See `PhotoThumb`'s `onLongPress` prop. */
+  onLongPress?: () => void;
+  /** A quick per-photo download link — see `PhotoThumb`'s `download` prop. */
+  download?: ReactNode;
 };
 
 /**
@@ -56,6 +63,15 @@ export function PhotoGallery({
   trailingItem?: ReactNode;
 }) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
+  // Plain `setState` never activates a `<ViewTransition>` pairing at all —
+  // React only tries to match an exiting name against an entering one
+  // inside an actual Transition. Outside of one, the grid's copy and the
+  // lightbox's copy are just two ordinary elements that happen to share a
+  // `name`, which is exactly what trips the "two components with the same
+  // name" error the instant the lightbox opens. `startTransition` is what
+  // turns this into the shared-element morph it was always meant to be.
+  const [, startTransition] = useTransition();
+  const open = (index: number | null) => startTransition(() => setOpenIndex(index));
 
   return (
     <>
@@ -72,12 +88,15 @@ export function PhotoGallery({
               badge={item.badge}
               footer={item.footer}
               select={item.select}
+              download={item.download}
+              onLongPress={item.onLongPress}
               // The lightbox mounts its own `ViewTransition` with this same
-              // name for whichever photo is open — React refuses two
-              // components sharing a name in one commit, so the grid's copy
-              // steps aside for exactly that one photo while it is open.
+              // name for whichever photo is open — the grid's copy steps
+              // aside for exactly that one photo while it is open, and
+              // `open` above is what lets React pair the two up instead of
+              // seeing a collision.
               viewTransitionName={i === openIndex ? undefined : item.viewTransitionName}
-              onClick={() => setOpenIndex(i)}
+              onClick={() => open(i)}
             />
           </li>
         ))}
@@ -105,10 +124,11 @@ export function PhotoGallery({
               viewTransitionName: item.viewTransitionName,
               meta: item.meta,
               deleteAction: item.deleteAction,
+              saveAction: item.saveAction,
             }))}
             index={openIndex}
-            onClose={() => setOpenIndex(null)}
-            onNavigate={setOpenIndex}
+            onClose={() => open(null)}
+            onNavigate={open}
             labels={labels}
           />,
           document.body,
