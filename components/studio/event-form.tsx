@@ -52,6 +52,12 @@ export function EventForm({ labels }: { labels: Dictionary["studio"] }) {
 
   const prior = state?.values ?? {};
   const [isPrivate, setPrivate] = useState(prior.isPrivate === "on");
+  const [pinValue, setPinValue] = useState("");
+
+  // Mirrors the server check in `createEvent`: a private event needs a PIN.
+  // Shown live rather than only after a rejected submit — the round trip
+  // was otherwise the first place a photographer found out.
+  const needsPin = isPrivate && pinValue.length < 6;
 
   return (
     <form action={action} className="mt-10 space-y-6">
@@ -121,7 +127,13 @@ export function EventForm({ labels }: { labels: Dictionary["studio"] }) {
           </span>
         </label>
 
-        <PinField labels={labels} enabled={isPrivate} />
+        {needsPin && (
+          <p className="mt-4 rounded-field bg-lime-100 px-4 py-3 text-label text-green-900">
+            {labels.formErrorPinRequired}
+          </p>
+        )}
+
+        <PinField labels={labels} enabled={isPrivate} onChange={setPinValue} />
       </div>
 
       <Submit label={labels.formCreate} />

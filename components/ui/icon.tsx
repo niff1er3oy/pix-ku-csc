@@ -232,3 +232,20 @@ export const RefreshIcon = (p: Props) => (
     <path d="M4 20v-4.5h4.5" />
   </Icon>
 );
+
+/* --- Playback ------------------------------------------------------------- */
+
+export const PauseIcon = (p: Props) => (
+  <Icon {...p}>
+    <path d="M8 5v14" />
+    <path d="M16 5v14" />
+  </Icon>
+);
+
+/** Outlined, not filled, like every other icon here — a solid triangle would
+ *  be the only filled glyph in the set. */
+export const PlayIcon = (p: Props) => (
+  <Icon {...p}>
+    <path d="M7 4.5v15l13-7.5-13-7.5Z" />
+  </Icon>
+);

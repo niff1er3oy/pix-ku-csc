@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { Button, ButtonLink } from "@/components/ui/button";
-import { ChevronLeftIcon } from "@/components/ui/icon";
+import { ChevronLeftIcon, PauseIcon, PlayIcon } from "@/components/ui/icon";
 import { DeleteEvent } from "@/components/studio/delete-event";
+import { EventInfoForm } from "@/components/studio/event-info-form";
 import { EventSettingsForm } from "@/components/studio/event-settings-form";
 import { pauseEvent, resumeEvent } from "@/lib/actions/studio";
 import { requireApprovedPhotographer } from "@/lib/dal";
@@ -45,12 +46,25 @@ export default async function StudioEventSettingsPage({
 
   return (
     <section className="mx-auto w-full max-w-3xl px-5 py-16 sm:px-8 sm:py-24">
-      <ButtonLink href={`/studio/events/${event.id}`} variant="ghost" size="sm">
-        <ChevronLeftIcon size={18} />
-        {event.nameTh}
-      </ButtonLink>
+      <div className="flex flex-wrap items-center gap-3">
+        {/* Sized and weighted to read as one unit with the `text-h1` beside
+            it — the standard `size="lg"` pill assumes text needs `px-8` of
+            breathing room either side, which reads as an odd sliver of a
+            pill around one bare icon, so this overrides the box to a plain
+            square instead. */}
+        <ButtonLink
+          href={`/studio/events/${event.id}`}
+          variant="ghost"
+          size="lg"
+          className="size-14 px-0"
+          aria-label={event.nameTh}
+          title={event.nameTh}
+        >
+          <ChevronLeftIcon size={32} strokeWidth={2.5} />
+        </ButtonLink>
 
-      <h1 className="mt-4 text-h1 font-bold">{dict.studio.settingsTitle}</h1>
+        <h1 className="text-h1 font-bold">{dict.studio.settingsTitle}</h1>
+      </div>
 
       <div className="mt-8 space-y-6">
         {canPause && (
@@ -71,6 +85,11 @@ export default async function StudioEventSettingsPage({
                 variant={event.status === "approved" ? "danger" : "secondary"}
                 size="md"
               >
+                {event.status === "approved" ? (
+                  <PauseIcon size={18} />
+                ) : (
+                  <PlayIcon size={18} />
+                )}
                 {event.status === "approved"
                   ? dict.studio.pauseEvent
                   : dict.studio.resumeEvent}
@@ -78,6 +97,8 @@ export default async function StudioEventSettingsPage({
             </form>
           </section>
         )}
+
+        <EventInfoForm event={event} labels={dict.studio} />
 
         <EventSettingsForm event={event} labels={dict.studio} />
       </div>
@@ -88,6 +109,7 @@ export default async function StudioEventSettingsPage({
         photoCount={event.photoCount}
         isLive={event.status === "approved"}
         labels={dict.studio}
+        closeLabel={dict.common.close}
       />
     </section>
   );

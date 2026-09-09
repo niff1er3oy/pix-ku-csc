@@ -246,23 +246,19 @@ export async function createEvent(
   redirect(`/studio/events/${created.id}`);
 }
 
-const WatermarkInput = z.object({
-  watermarkEnabled: z.union([z.literal("on"), z.null(), z.undefined()]),
-  watermarkText: z.string().trim().max(120).nullish(),
-  watermarkPosition: z.enum([
-    "bottom_right",
-    "bottom_left",
-    "top_right",
-    "top_left",
-    "center",
-    "tiled",
-  ]),
-  watermarkOpacity: z.coerce.number().int().min(5).max(100),
-  watermarkScale: z.coerce.number().int().min(4).max(60),
-  removeLogo: z.union([z.literal("on"), z.null(), z.undefined()]),
+const EventInfoInput = z.object({
+  nameTh: z.string().trim().min(2).max(160),
+  nameEn: z.string().trim().max(160).nullish(),
+  descriptionTh: z.string().trim().max(2000).nullish(),
+  isPrivate: z.union([z.literal("on"), z.null(), z.undefined()]),
+  /**
+   * Six digits, or absent on a public event where the field is not rendered
+   * at all — hence `.nullish()`. Hashed before it is stored.
+   */
+  entryPin: z.string().nullish(),
 });
 
-export type EventSettingsState =
+export type EventInfoState =
   | { ok: true }
   | {
       ok: false;
@@ -271,89 +267,72 @@ export type EventSettingsState =
         | "unavailable"
         | "pin_required"
         | "cover_too_large"
-        | "cover_bad_format"
-        | "logo_too_large"
-        | "logo_bad_format"
-        | "watermark_empty";
+        | "cover_bad_format";
+      /** Echoed back so a rejected form does not lose what was typed. */
       values?: Record<string, string>;
     }
   | undefined;
 
 /**
- * Edits everything about an existing event from one form and one save:
- * basic info, cover, privacy, the download toggle, and the watermark. These
- * used to be two actions behind two submit buttons on the same page — a
- * photographer does not think of "rename the event" and "adjust the
- * watermark" as two separate saves, and a second button on the same screen
- * mostly just meant it went unnoticed.
+ * Edits the fields a photographer thinks of as "who this event is" — name,
+ * description, cover, and who can even see it — separately from
+ * `updateEvent`'s download and watermark concerns. Split into its own
+ * action (and its own form, see `EventInfoForm`) rather than folded back
+ * into one button: unlike the download/watermark group, which really is one
+ * decision about a *published* event's downloads, renaming an event,
+ * swapping its cover, or flipping it private happens on its own, at a
+ * different time, for a different reason, and gating it behind unrelated
+ * fields just meant a stray watermark tweak could fail validation on a
+ * field the photographer never touched.
  *
- * The PIN behaves differently from creation: leaving it blank means "keep
+ * The PIN behaves the same way it always has: leaving it blank means "keep
  * the one already set," not "no PIN" — see the note on `entryPinHash`, a
  * hash cannot be shown back to confirm, so requiring a retype on every save
- * would force a new PIN every time somebody fixed a typo in the description.
- *
- * Every field is validated before anything touches storage. That matters
- * most for the watermark: rejecting an empty-watermark save *after*
- * deleting the old logo, or after writing a half-uploaded new one, would
- * leave the row pointing at a file that no longer matches it.
+ * would force a new PIN every time somebody fixed a typo in the name.
  */
-export async function updateEvent(
-  _prev: EventSettingsState,
+export async function updateEventInfo(
+  _prev: EventInfoState,
   formData: FormData,
-): Promise<EventSettingsState> {
+): Promise<EventInfoState> {
   const { photographer } = await requireApprovedPhotographer();
 
   const idResult = z.string().uuid().safeParse(formData.get("id"));
   if (!idResult.success) return { ok: false, error: "invalid" };
 
+  // Ownership is part of the lookup, not a check on the result.
+  const [event] = await db
+    .select({
+      id: events.id,
+      coverPath: events.coverPath,
+      isPrivate: events.isPrivate,
+      entryPinHash: events.entryPinHash,
+    })
+    .from(events)
+    .where(and(eq(events.id, idResult.data), eq(events.ownerId, photographer.id)))
+    .limit(1);
+  if (!event) return { ok: false, error: "invalid" };
+
   const raw = {
     nameTh: formData.get("nameTh"),
     nameEn: formData.get("nameEn"),
     descriptionTh: formData.get("descriptionTh"),
-    location: formData.get("location"),
-    eventDate: formData.get("eventDate"),
     isPrivate: formData.get("isPrivate"),
     entryPin: formData.get("entryPin"),
   };
 
-  // See the note on the same line in `createEvent`: the PIN never goes back
-  // into the page.
+  // The PIN is deliberately absent from the echo — see the note on the same
+  // line in `createEvent`: a secret that lands back in the page source is no
+  // longer a secret.
   const echo = Object.fromEntries(
     Object.entries(raw)
       .filter(([key]) => key !== "entryPin")
       .map(([key, value]) => [key, String(value ?? "")]),
   );
 
-  const parsed = EventInput.safeParse(raw);
+  const parsed = EventInfoInput.safeParse(raw);
   if (!parsed.success) return { ok: false, error: "invalid", values: echo };
-
   const data = parsed.data;
   const wantsPrivate = data.isPrivate === "on";
-
-  const watermarkParsed = WatermarkInput.safeParse({
-    watermarkEnabled: formData.get("watermarkEnabled"),
-    watermarkText: formData.get("watermarkText"),
-    watermarkPosition: formData.get("watermarkPosition"),
-    watermarkOpacity: formData.get("watermarkOpacity"),
-    watermarkScale: formData.get("watermarkScale"),
-    removeLogo: formData.get("removeLogo"),
-  });
-  if (!watermarkParsed.success) return { ok: false, error: "invalid", values: echo };
-  const watermarkData = watermarkParsed.data;
-
-  // Ownership is part of the lookup, not a check on the result.
-  const [event] = await db
-    .select({
-      id: events.id,
-      isPrivate: events.isPrivate,
-      entryPinHash: events.entryPinHash,
-      coverPath: events.coverPath,
-      watermarkLogoPath: events.watermarkLogoPath,
-    })
-    .from(events)
-    .where(and(eq(events.id, idResult.data), eq(events.ownerId, photographer.id)))
-    .limit(1);
-  if (!event) return { ok: false, error: "invalid", values: echo };
 
   let entryPinHash = event.entryPinHash;
   if (!wantsPrivate) {
@@ -383,15 +362,124 @@ export async function updateEvent(
     throw error;
   }
 
+  let coverPath = event.coverPath;
+  if (cover) {
+    coverPath = storagePaths.eventCover(event.id);
+    try {
+      await writeStorageFile(coverPath, cover);
+    } catch (error) {
+      console.warn("[pix-ku-csc] cover write failed:", error);
+      return { ok: false, error: "unavailable", values: echo };
+    }
+  }
+
+  try {
+    await db
+      .update(events)
+      .set({
+        nameTh: data.nameTh,
+        nameEn: data.nameEn || null,
+        descriptionTh: data.descriptionTh || null,
+        coverPath,
+        isPrivate: wantsPrivate,
+        entryPinHash,
+        updatedAt: new Date(),
+      })
+      .where(eq(events.id, event.id));
+  } catch (error) {
+    console.warn("[pix-ku-csc] event update failed:", error);
+    return { ok: false, error: "unavailable", values: echo };
+  }
+
+  revalidatePath("/studio");
+  revalidatePath(`/studio/events/${event.id}`);
+  revalidatePath(`/studio/events/${event.id}/settings`);
+  revalidatePath("/events");
+  return { ok: true };
+}
+
+const WatermarkInput = z.object({
+  watermarkEnabled: z.union([z.literal("on"), z.null(), z.undefined()]),
+  watermarkText: z.string().trim().max(120).nullish(),
+  watermarkPosition: z.enum([
+    "bottom_right",
+    "bottom_left",
+    "top_right",
+    "top_left",
+    "center",
+    "tiled",
+  ]),
+  watermarkOpacity: z.coerce.number().int().min(5).max(100),
+  watermarkScale: z.coerce.number().int().min(4).max(60),
+  removeLogo: z.union([z.literal("on"), z.null(), z.undefined()]),
+});
+
+export type EventSettingsState =
+  | { ok: true }
+  | {
+      ok: false;
+      error:
+        | "invalid"
+        | "unavailable"
+        | "logo_too_large"
+        | "logo_bad_format"
+        | "watermark_empty";
+    }
+  | undefined;
+
+/**
+ * Edits everything about an existing event that is not "who this event is":
+ * the download toggle and the watermark, from one form and one save. These
+ * read as one decision a photographer makes in one sitting — unlike the
+ * name/description/cover/privacy in `updateEventInfo`, which get changed on
+ * their own, at a different time, for a different reason.
+ *
+ * No `values` to echo back on failure: every field here is a controlled
+ * input already showing exactly what was typed (see the note on the
+ * component), so there is nothing a rejected submit could lose.
+ *
+ * Every field is validated before anything touches storage. That matters
+ * most for the watermark: rejecting an empty-watermark save *after*
+ * deleting the old logo, or after writing a half-uploaded new one, would
+ * leave the row pointing at a file that no longer matches it.
+ */
+export async function updateEvent(
+  _prev: EventSettingsState,
+  formData: FormData,
+): Promise<EventSettingsState> {
+  const { photographer } = await requireApprovedPhotographer();
+
+  const idResult = z.string().uuid().safeParse(formData.get("id"));
+  if (!idResult.success) return { ok: false, error: "invalid" };
+
+  // Ownership is part of the lookup, not a check on the result.
+  const [event] = await db
+    .select({ id: events.id, watermarkLogoPath: events.watermarkLogoPath })
+    .from(events)
+    .where(and(eq(events.id, idResult.data), eq(events.ownerId, photographer.id)))
+    .limit(1);
+  if (!event) return { ok: false, error: "invalid" };
+
+  const watermarkParsed = WatermarkInput.safeParse({
+    watermarkEnabled: formData.get("watermarkEnabled"),
+    watermarkText: formData.get("watermarkText"),
+    watermarkPosition: formData.get("watermarkPosition"),
+    watermarkOpacity: formData.get("watermarkOpacity"),
+    watermarkScale: formData.get("watermarkScale"),
+    removeLogo: formData.get("removeLogo"),
+  });
+  if (!watermarkParsed.success) return { ok: false, error: "invalid" };
+  const watermarkData = watermarkParsed.data;
+
   const logoFile = formData.get("watermarkLogo") as File | null;
   const hasNewLogo = Boolean(logoFile && logoFile.size > 0);
 
   if (hasNewLogo) {
     if (logoFile!.size > MAX_WATERMARK_LOGO_BYTES) {
-      return { ok: false, error: "logo_too_large", values: echo };
+      return { ok: false, error: "logo_too_large" };
     }
     if (logoFile!.type !== "image/png") {
-      return { ok: false, error: "logo_bad_format", values: echo };
+      return { ok: false, error: "logo_bad_format" };
     }
   }
 
@@ -414,7 +502,7 @@ export async function updateEvent(
     !watermarkData.watermarkText?.trim() &&
     !nextLogoPath
   ) {
-    return { ok: false, error: "watermark_empty", values: echo };
+    return { ok: false, error: "watermark_empty" };
   }
 
   let logo: Buffer | undefined;
@@ -422,23 +510,12 @@ export async function updateEvent(
     try {
       logo = await buildWatermarkLogo(Buffer.from(await logoFile!.arrayBuffer()));
     } catch {
-      return { ok: false, error: "logo_bad_format", values: echo };
+      return { ok: false, error: "logo_bad_format" };
     }
   }
 
   // Every rejection has already returned by this point — everything below
   // only writes.
-  let coverPath = event.coverPath;
-  if (cover) {
-    coverPath = storagePaths.eventCover(event.id);
-    try {
-      await writeStorageFile(coverPath, cover);
-    } catch (error) {
-      console.warn("[pix-ku-csc] cover write failed:", error);
-      return { ok: false, error: "unavailable", values: echo };
-    }
-  }
-
   if (watermarkData.removeLogo === "on") {
     if (event.watermarkLogoPath) await deleteStoragePath(event.watermarkLogoPath);
   } else if (logo) {
@@ -449,16 +526,8 @@ export async function updateEvent(
     await db
       .update(events)
       .set({
-        nameTh: data.nameTh,
-        nameEn: data.nameEn || null,
-        descriptionTh: data.descriptionTh || null,
-        location: data.location || null,
-        eventDate: data.eventDate,
-        isPrivate: wantsPrivate,
-        entryPinHash,
-        coverPath,
-        // A plain checkbox, not part of `EventInput` — it has no interplay
-        // with the other fields the way privacy and the PIN do.
+        // A plain checkbox, not part of `WatermarkInput` — it has no
+        // interplay with the other fields the way the watermark's own do.
         allowOriginalDownload: formData.get("allowOriginalDownload") === "on",
         watermarkEnabled: watermarkData.watermarkEnabled === "on",
         watermarkText: watermarkData.watermarkText || null,
@@ -471,7 +540,7 @@ export async function updateEvent(
       .where(eq(events.id, event.id));
   } catch (error) {
     console.warn("[pix-ku-csc] event update failed:", error);
-    return { ok: false, error: "unavailable", values: echo };
+    return { ok: false, error: "unavailable" };
   }
 
   revalidatePath("/studio");

@@ -66,7 +66,7 @@ export function CoverField({
       </label>
 
       <div className="mt-1.5 flex flex-wrap items-start gap-4">
-        <div className="grid h-24 w-32 shrink-0 place-items-center overflow-hidden rounded-field bg-cloud ring-1 ring-inset ring-edge">
+        <div className="grid size-24 shrink-0 place-items-center overflow-hidden rounded-field bg-cloud ring-1 ring-inset ring-edge">
           {shown ? (
             /* eslint-disable-next-line @next/next/no-img-element */
             <img src={shown} alt="" className="h-full w-full object-cover" />
