@@ -81,6 +81,7 @@ export default async function AdminPage({
         photos: 0,
         faces: 0,
         searches: 0,
+        downloads: 0,
       },
       searchesPerDay: [],
       indexing: { total: 0, indexed: 0, working: 0, noFace: 0, failed: 0 },

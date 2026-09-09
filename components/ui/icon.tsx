@@ -158,6 +158,13 @@ export const ClockIcon = (p: Props) => (
   </Icon>
 );
 
+export const BellIcon = (p: Props) => (
+  <Icon {...p}>
+    <path d="M6 10a6 6 0 0 1 12 0c0 3.6 1 5.4 1.8 6.4a.9.9 0 0 1-.7 1.5H4.9a.9.9 0 0 1-.7-1.5C5 15.4 6 13.6 6 10Z" />
+    <path d="M9.5 20a2.5 2.5 0 0 0 5 0" />
+  </Icon>
+);
+
 /* --- Navigation ---------------------------------------------------------- */
 
 export const ChevronDownIcon = (p: Props) => (

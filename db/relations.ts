@@ -5,6 +5,7 @@ import {
   consents,
   downloads,
   events,
+  notifications,
   photoFaces,
   photographers,
   photos,
@@ -25,6 +26,7 @@ export const usersRelations = relations(users, ({ many, one }) => ({
   faces: many(userFaces),
   consents: many(consents),
   searches: many(searches),
+  notifications: many(notifications),
 }));
 
 export const accountsRelations = relations(accounts, ({ one }) => ({
@@ -100,4 +102,8 @@ export const downloadsRelations = relations(downloads, ({ one }) => ({
 
 export const consentsRelations = relations(consents, ({ one }) => ({
   user: one(users, { fields: [consents.userId], references: [users.id] }),
+}));
+
+export const notificationsRelations = relations(notifications, ({ one }) => ({
+  user: one(users, { fields: [notifications.userId], references: [users.id] }),
 }));

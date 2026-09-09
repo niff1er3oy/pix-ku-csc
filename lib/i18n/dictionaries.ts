@@ -480,6 +480,7 @@ export const th = {
     statPhotos: "รูปในระบบ",
     statFaces: "ใบหน้าที่ index แล้ว",
     statSearches: "การค้นหาทั้งหมด",
+    statDownloads: "การดาวน์โหลดทั้งหมด",
 
     searchesTitle: "การค้นหาราย 30 วัน",
     searchesUnit: "ครั้ง",
@@ -498,6 +499,25 @@ export const th = {
     indexWorking: "กำลังประมวลผล",
     indexNoFace: "ไม่พบใบหน้า",
     indexFailed: "ล้มเหลว",
+  },
+
+  notifications: {
+    title: "การแจ้งเตือน",
+    empty: "ยังไม่มีการแจ้งเตือน",
+    markAllRead: "อ่านทั้งหมดแล้ว",
+    unreadCount: "มี {count} รายการยังไม่ได้อ่าน",
+    types: {
+      photographer_application_received: "{name} ส่งใบสมัครช่างภาพเข้ามา รอคุณตรวจสอบ",
+      photographer_approved: "ใบสมัครช่างภาพของคุณได้รับอนุมัติแล้ว สร้างงานแรกได้เลย",
+      photographer_rejected: "ใบสมัครช่างภาพของคุณไม่ผ่าน",
+      photographer_granted: "ผู้ดูแลตั้งให้คุณเป็นช่างภาพแล้ว สร้างงานแรกได้เลย",
+      photographer_revoked: "สิทธิ์ช่างภาพของคุณถูกถอดโดยผู้ดูแล",
+      event_approved: "งาน “{eventName}” เปิดให้ค้นหาแล้ว",
+      event_rejected: "งาน “{eventName}” ถูกปิดโดยผู้ดูแล",
+      photo_index_failed:
+        "รูปในงาน “{eventName}” ประมวลผลใบหน้าไม่สำเร็จ {count} รูป กดเข้าไปลองใหม่ได้",
+      photo_downloaded: "มีการดาวน์โหลดรูปจากงาน “{eventName}” แล้ว {count} ครั้ง",
+    },
   },
 
   auth: {
@@ -1076,6 +1096,7 @@ export const en: Dictionary = {
     statPhotos: "Photos",
     statFaces: "Faces indexed",
     statSearches: "Searches",
+    statDownloads: "Downloads",
 
     searchesTitle: "Searches, last 30 days",
     searchesUnit: "total",
@@ -1094,6 +1115,28 @@ export const en: Dictionary = {
     indexWorking: "In progress",
     indexNoFace: "No face found",
     indexFailed: "Failed",
+  },
+
+  notifications: {
+    title: "Notifications",
+    empty: "No notifications yet",
+    markAllRead: "Mark all as read",
+    unreadCount: "{count} unread",
+    types: {
+      photographer_application_received:
+        "{name} applied to become a photographer — waiting on your review",
+      photographer_approved:
+        "Your photographer application was approved. Create your first event.",
+      photographer_rejected: "Your photographer application was not approved",
+      photographer_granted:
+        "An admin made you a photographer. Create your first event.",
+      photographer_revoked: "Your photographer access was revoked by an admin",
+      event_approved: "“{eventName}” is now live and searchable",
+      event_rejected: "“{eventName}” was taken down by an admin",
+      photo_index_failed:
+        "{count} photos in “{eventName}” failed face indexing. Tap to retry.",
+      photo_downloaded: "{count} downloads so far from “{eventName}”",
+    },
   },
 
   auth: {

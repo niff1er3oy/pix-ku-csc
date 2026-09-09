@@ -100,7 +100,7 @@ export async function getMyEvents(
         ${events.coverPath},
         (
           select ${photos.thumbPath} from ${photos}
-          where ${photos.eventId} = ${events.id}
+          where photo.event_id = event.id
           order by ${photos.createdAt} asc
           limit 1
         )
@@ -145,6 +145,16 @@ export async function getMyEvent(
       // aggregate. Cast to `::int` because Postgres `sum()` over an integer
       // column returns `bigint`, which the driver hands back as a string —
       // the cast is what keeps `faceCount` an actual number on this side.
+      //
+      // The correlation is written as the literal `photo.event_id = event.id`
+      // rather than `${photos.eventId} = ${events.id}` — interpolating a
+      // `Column` into a `sql` template renders its bare name, not
+      // table-qualified, so the interpolated form silently compiled to
+      // `where event_id = id`, which Postgres resolved entirely inside the
+      // subquery's own `photo` table (it has its own `id`) and never touched
+      // the outer row. Every count below came back 0 regardless of the real
+      // count. Literal text is what `getDirectory`'s `eventCount` already
+      // does for the same reason.
       faceCount: sql<number>`coalesce((
         select sum(${photos.faceCount})::int from ${photos}
         where ${photos.eventId} = ${qEventId}

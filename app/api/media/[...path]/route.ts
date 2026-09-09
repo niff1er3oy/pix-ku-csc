@@ -2,9 +2,10 @@ import { eq } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 
 import { db } from "@/db";
-import { downloads, events, photos, type Event } from "@/db/schema";
+import { downloads, events, photographers, photos, type Event } from "@/db/schema";
 import { getPhotographer, getSessionUser } from "@/lib/dal";
 import { applyWatermark } from "@/lib/images";
+import { notifyPhotoDownloaded } from "@/lib/notifications";
 import { readStorageFile } from "@/lib/storage";
 
 /**
@@ -62,6 +63,13 @@ export async function GET(
         watermarked: Boolean(decision.watermark),
       })
       .catch(() => {});
+
+    if (decision.logDownload.notify) {
+      const { ownerUserId, eventId, eventName } = decision.logDownload.notify;
+      void notifyPhotoDownloaded({ userId: ownerUserId, eventId, eventName }).catch(
+        () => {},
+      );
+    }
   }
 
   const headers = new Headers({
@@ -84,6 +92,14 @@ export async function GET(
   return new Response(new Uint8Array(bytes), { headers });
 }
 
+type LogDownload = {
+  photoId: string;
+  userId: string | null;
+  /** Absent when the downloader is the event's own owner — nobody needs
+   *  telling that they just downloaded their own photo. */
+  notify?: { ownerUserId: string; eventId: string; eventName: string };
+};
+
 type Decision =
   | { ok: false; status: 401 | 403 | 404 }
   | {
@@ -91,7 +107,7 @@ type Decision =
       private: boolean;
       filename?: string;
       watermark?: Parameters<typeof applyWatermark>[1];
-      logDownload?: { photoId: string; userId: string | null };
+      logDownload?: LogDownload;
     };
 
 async function authorize(
@@ -183,6 +199,21 @@ async function authorize(
 
   if (!photo || photo.eventId !== event.id) return { ok: false, status: 404 };
 
+  let logDownload: LogDownload | undefined;
+  if (request.nextUrl.searchParams.get("download") === "1") {
+    logDownload = { photoId: photo.id, userId: user?.id ?? null };
+
+    const [owner] = await db
+      .select({ userId: photographers.userId })
+      .from(photographers)
+      .where(eq(photographers.id, event.ownerId))
+      .limit(1);
+
+    if (owner && owner.userId !== (user?.id ?? null)) {
+      logDownload.notify = { ownerUserId: owner.userId, eventId: event.id, eventName: event.nameTh };
+    }
+  }
+
   return {
     ok: true,
     private: true,
@@ -193,10 +224,7 @@ async function authorize(
     // one out of this endpoint is to turn the watermark off first, the same
     // door everyone else uses.
     watermark: await resolveWatermark(event, false),
-    logDownload:
-      request.nextUrl.searchParams.get("download") === "1"
-        ? { photoId: photo.id, userId: user?.id ?? null }
-        : undefined,
+    logDownload,
   };
 }
 
