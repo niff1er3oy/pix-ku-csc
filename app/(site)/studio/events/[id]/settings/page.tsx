@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { ChevronLeftIcon } from "@/components/ui/icon";
 import { DeleteEvent } from "@/components/studio/delete-event";
 import { EventSettingsForm } from "@/components/studio/event-settings-form";
@@ -46,13 +45,10 @@ export default async function StudioEventSettingsPage({
 
   return (
     <section className="mx-auto w-full max-w-3xl px-5 py-16 sm:px-8 sm:py-24">
-      <Link
-        href={`/studio/events/${event.id}`}
-        className="inline-flex min-h-11 items-center gap-1 text-label font-medium text-green-700 hover:underline"
-      >
+      <ButtonLink href={`/studio/events/${event.id}`} variant="ghost" size="sm">
         <ChevronLeftIcon size={18} />
         {event.nameTh}
-      </Link>
+      </ButtonLink>
 
       <h1 className="mt-4 text-h1 font-bold">{dict.studio.settingsTitle}</h1>
 

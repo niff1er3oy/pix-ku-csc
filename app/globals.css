@@ -782,7 +782,9 @@
 
   /* Anything whose resting state is "arrived" must be pinned there. */
   .enter,
-  .reveal {
+  .reveal,
+  .modal-backdrop,
+  .modal-content {
     opacity: 1;
     transform: none;
   }
@@ -879,6 +881,33 @@
   ::view-transition-new(*) {
     animation: none !important;
   }
+}
+
+/* ===========================================================================
+   Modals — the photo lightbox, the upload popup, anything else full-screen
+   ========================================================================= */
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Every modal on this site mounts fresh when it opens rather than being
+   toggled with a class — a lightbox per thumbnail click, an upload popup per
+   button press — so `both` on plain mount is enough; there is no close
+   animation to reverse, closing just unmounts it. The backdrop dims the page
+   first; the content settles in a beat behind on the same `rise-in` `.enter`
+   already uses elsewhere, so opening any of these reads as one more instance
+   of the arrival motion the rest of the app already has, not a separate
+   vocabulary per component. */
+.modal-backdrop {
+  animation: fade-in 250ms var(--ease-out) both;
+}
+
+.modal-content {
+  animation: rise-in 300ms var(--ease-out) both;
+  animation-delay: 60ms;
 }
 
 /* ===========================================================================

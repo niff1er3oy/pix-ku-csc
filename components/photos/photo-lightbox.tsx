@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, ViewTransition } from "react";
+import { useEffect, ViewTransition, type ReactNode } from "react";
 
 import { ChevronLeftIcon, ChevronRightIcon, CloseIcon, DownloadIcon } from "@/components/ui/icon";
 
@@ -13,6 +13,10 @@ export type LightboxPhoto = {
   /** Omit to hide the download button for this photo. */
   downloadHref?: string;
   viewTransitionName?: string;
+  /** Extra detail shown next to the "n / total" counter — the studio grid
+   *  uses this for a photo's face count and indexing status; other galleries
+   *  have nothing of their own to say here and just omit it. */
+  meta?: ReactNode;
 };
 
 export type LightboxLabels = {
@@ -81,7 +85,7 @@ export function PhotoLightbox({
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-ink/90 p-4 sm:p-8"
+      className="modal-backdrop fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-ink/90 p-4 sm:p-8"
       onClick={onClose}
     >
       <button
@@ -124,7 +128,7 @@ export function PhotoLightbox({
       {/* Stops the backdrop's onClose from firing when the click lands on the
           photo itself or the toolbar under it. */}
       <div
-        className="flex max-w-full flex-col items-center gap-4"
+        className="modal-content flex max-w-full flex-col items-center gap-4"
         onClick={(event) => event.stopPropagation()}
       >
         {photo.viewTransitionName ? (
@@ -133,10 +137,13 @@ export function PhotoLightbox({
           image
         )}
 
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
           <span className="tnum text-caption text-paper/70">
             {index + 1} / {photos.length}
           </span>
+          {photo.meta && (
+            <span className="text-caption text-paper/70">{photo.meta}</span>
+          )}
           {photo.downloadHref && (
             <a
               href={photo.downloadHref}

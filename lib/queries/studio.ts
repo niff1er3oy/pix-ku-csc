@@ -1,15 +1,27 @@
 import "server-only";
 
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, getTableName, inArray, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { events, photoFaces, photos, searches, searchMatches, users } from "@/db/schema";
+import {
+  downloads,
+  events,
+  photoFaces,
+  photos,
+  searches,
+  searchMatches,
+  users,
+} from "@/db/schema";
 
 export type StudioEvent = {
   id: string;
   nameTh: string;
   location: string | null;
   eventDate: string;
+  /** When the event row itself was created — distinct from `eventDate`,
+   *  which is the day the event happened and is set by the photographer, not
+   *  by the system. */
+  createdAt: Date;
   status: "draft" | "pending" | "approved" | "rejected" | "archived";
   rejectionReason: string | null;
   isPrivate: boolean;
@@ -24,6 +36,19 @@ export type StudioEvent = {
    *  photographer "Rekognition is still working through these" apart from
    *  "these are done, this is really how many faces there are." */
   processedCount: number;
+  /** Of `processedCount`, the ones that ended in `failed` rather than
+   *  `indexed`/`no_face` — broken out so the studio page can flag "something
+   *  needs a retry" without a photographer scrolling the whole grid looking
+   *  for "!" badges. */
+  failedCount: number;
+  /** How many times any photo in this event has been downloaded — every
+   *  `download` row is a real request for a full-resolution file, joined
+   *  through `photo` since `download` itself has no `event_id` of its own. */
+  downloadCount: number;
+  /** Every search run against this event, not just the ones
+   *  `getMyEventSearches` lists — that query caps at 100, so this is its own
+   *  count rather than a length read off that already-limited array. */
+  searchCount: number;
   coverPath: string | null;
 };
 
@@ -35,7 +60,13 @@ export type StudioEvent = {
  *  never a stand-in they never chose. */
 export type StudioEventListItem = Omit<
   StudioEvent,
-  "coverPath" | "faceCount" | "processedCount"
+  | "coverPath"
+  | "faceCount"
+  | "processedCount"
+  | "failedCount"
+  | "createdAt"
+  | "downloadCount"
+  | "searchCount"
 > & {
   coverThumbPath: string | null;
 };
@@ -85,12 +116,24 @@ export async function getMyEvent(
   photographerId: string,
   id: string,
 ): Promise<StudioEvent | null> {
+  // `${events.id}` inside a `sql` fragment renders as a bare `"id"`, not
+  // `"event"."id"` — Drizzle does not know this fragment lands inside a
+  // subquery correlated against a *different* table. That is harmless when
+  // the inner table has no column of its own called `id`, but `photo` does
+  // (its own primary key), so Postgres resolved the bare `"id"` to the
+  // subquery's *own* `photo.id` instead of reaching out to `event.id`. Every
+  // row then compared its own id against its `event_id` — never equal — so
+  // both subqueries silently matched nothing and `coalesce(..., 0)` always
+  // won. `qEventId` forces the qualification Postgres actually needs.
+  const qEventId = sql.raw(`"${getTableName(events)}"."id"`);
+
   const rows = await db
     .select({
       id: events.id,
       nameTh: events.nameTh,
       location: events.location,
       eventDate: events.eventDate,
+      createdAt: events.createdAt,
       status: events.status,
       rejectionReason: events.rejectionReason,
       isPrivate: events.isPrivate,
@@ -104,14 +147,37 @@ export async function getMyEvent(
       // the cast is what keeps `faceCount` an actual number on this side.
       faceCount: sql<number>`coalesce((
         select sum(${photos.faceCount})::int from ${photos}
-        where ${photos.eventId} = ${events.id}
+        where ${photos.eventId} = ${qEventId}
       ), 0)`,
       // `count(*)` on Postgres already comes back as `bigint`/string too, so
       // this gets the same `::int` treatment as `faceCount` above.
       processedCount: sql<number>`coalesce((
         select count(*)::int from ${photos}
-        where ${photos.eventId} = ${events.id}
+        where ${photos.eventId} = ${qEventId}
         and ${photos.indexStatus} in ('indexed', 'no_face', 'failed')
+      ), 0)`,
+      failedCount: sql<number>`coalesce((
+        select count(*)::int from ${photos}
+        where ${photos.eventId} = ${qEventId}
+        and ${photos.indexStatus} = 'failed'
+      ), 0)`,
+      // `download` has no `event_id` of its own — filtered by photo id
+      // through a plain `in`, not a join, for the same reason `qEventId`
+      // exists at all: a join would put `download` and `photo` in the same
+      // scope, and both have their own `id` column, so an unqualified `id`
+      // in the join condition would be ambiguous (or worse, silently wrong)
+      // the same way the bare `${events.id}` above used to be.
+      downloadCount: sql<number>`coalesce((
+        select count(*)::int from ${downloads}
+        where ${downloads.photoId} in (
+          select id from ${photos} where ${photos.eventId} = ${qEventId}
+        )
+      ), 0)`,
+      // `search.event_id` references `event` directly, so this needs no
+      // join and no `in` — just the same `qEventId` correlation as above.
+      searchCount: sql<number>`coalesce((
+        select count(*)::int from ${searches}
+        where ${searches.eventId} = ${qEventId}
       ), 0)`,
       coverPath: events.coverPath,
     })
@@ -211,7 +277,11 @@ export type StudioPhoto = {
  *
  * Capped rather than unbounded: an event can hold thousands, and a studio page
  * that renders every one of them ships a megabyte of markup to say something
- * the count already said. Paging belongs here when the grid grows a pager.
+ * the count already said. The studio page raises `limit` in steps of 20 via
+ * its own "show more" link (a `?show=` search param, refetching this same
+ * query at a higher limit) rather than tracking an offset — simpler than
+ * real cursor pagination, and correct enough for a list that only grows by
+ * upload, never by insertion in the middle.
  *
  * `faceId` narrows this to whichever photo that exact Rekognition face came
  * from. Since `photo_face.face_id` is unique — indexing never recognizes a
@@ -229,7 +299,7 @@ export async function getMyEventPhotos(
   eventId: string,
   options: { limit?: number; faceId?: string; searchId?: string } = {},
 ): Promise<StudioPhoto[]> {
-  const { limit = 60, faceId, searchId } = options;
+  const { limit = 20, faceId, searchId } = options;
 
   return db
     .select({

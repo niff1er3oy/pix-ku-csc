@@ -130,6 +130,15 @@ export const CloseIcon = (p: Props) => (
   </Icon>
 );
 
+/** Two overlapping frames — outline-only, so the "hidden" corner of the back
+ *  one just shows through rather than needing a fill to occlude it. */
+export const CopyIcon = (p: Props) => (
+  <Icon {...p}>
+    <rect x="4" y="4" width="12" height="12" rx="2" />
+    <rect x="8" y="8" width="12" height="12" rx="2" />
+  </Icon>
+);
+
 /**
  * Failure. Always shipped beside a word — DESIGN.md and the dataviz rules both
  * refuse status signalled by shape or colour alone.
@@ -187,10 +196,30 @@ export const TrashIcon = (p: Props) => (
   </Icon>
 );
 
+/** A page feeding in at the top, the printer body, a page coming out at
+ *  the bottom. */
+export const PrintIcon = (p: Props) => (
+  <Icon {...p}>
+    <path d="M7 8V4h10v4" />
+    <rect x="4" y="8" width="16" height="8" rx="2" />
+    <rect x="7" y="14" width="10" height="6" rx="1" />
+  </Icon>
+);
+
 export const DownloadIcon = (p: Props) => (
   <Icon {...p}>
     <path d="M12 4v10" />
     <path d="m8 10.5 4 4 4-4" />
+    <path d="M5 17.5v1.5a1.5 1.5 0 0 0 1.5 1.5h11a1.5 1.5 0 0 0 1.5-1.5v-1.5" />
+  </Icon>
+);
+
+/** Same tray as `DownloadIcon`, arrow flipped — a file leaving rather than
+ *  arriving. */
+export const UploadIcon = (p: Props) => (
+  <Icon {...p}>
+    <path d="M12 14V4" />
+    <path d="m8 7.5 4-4 4 4" />
     <path d="M5 17.5v1.5a1.5 1.5 0 0 0 1.5 1.5h11a1.5 1.5 0 0 0 1.5-1.5v-1.5" />
   </Icon>
 );

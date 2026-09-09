@@ -4,6 +4,7 @@ import { useRef, type ChangeEvent, type FormEvent, type ReactNode } from "react"
 import { useFormStatus } from "react-dom";
 
 import { Button } from "@/components/ui/button";
+import { DownloadIcon, TrashIcon } from "@/components/ui/icon";
 import { deletePhotos } from "@/lib/actions/studio";
 import { t } from "@/lib/i18n/dictionaries";
 
@@ -22,6 +23,7 @@ import { t } from "@/lib/i18n/dictionaries";
 export function DeletePhotosForm({
   eventId,
   submitLabel,
+  downloadLabel,
   selectAllLabel,
   confirmMessage,
   selectNoneMessage,
@@ -29,6 +31,7 @@ export function DeletePhotosForm({
 }: {
   eventId: string;
   submitLabel: string;
+  downloadLabel: string;
   selectAllLabel: string;
   /** `{count}` in the template is replaced with how many boxes are checked. */
   confirmMessage: string;
@@ -44,6 +47,43 @@ export function DeletePhotosForm({
       .forEach((box) => {
         box.checked = checked;
       });
+  }
+
+  /**
+   * No zip, no new route — each checked box already carries the same
+   * per-photo `/api/media/...?download=1` link its own thumbnail uses, via
+   * `data-download-href`. Firing them off with a delay between each is a
+   * real limitation next to a single zip download, but it reuses a route
+   * that is already correctly authorized and watermark-aware rather than
+   * standing up a second way to read a photo off disk. The stagger exists
+   * because Chrome silently blocks a burst of automatic downloads fired in
+   * the same tick — spaced out, each one lands as an ordinary user-triggered
+   * download instead.
+   */
+  function downloadSelected() {
+    const hrefs = Array.from(
+      formRef.current?.querySelectorAll<HTMLInputElement>(
+        'input[name="photoIds"]:checked',
+      ) ?? [],
+    )
+      .map((box) => box.dataset.downloadHref)
+      .filter((href): href is string => Boolean(href));
+
+    if (hrefs.length === 0) {
+      window.alert(selectNoneMessage);
+      return;
+    }
+
+    hrefs.forEach((href, index) => {
+      window.setTimeout(() => {
+        const link = document.createElement("a");
+        link.href = href;
+        link.download = "";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      }, index * 400);
+    });
   }
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
@@ -75,17 +115,29 @@ export function DeletePhotosForm({
     <form ref={formRef} action={deletePhotos} onSubmit={onSubmit}>
       <input type="hidden" name="eventId" value={eventId} />
 
-      <label className="flex min-h-11 w-fit items-center gap-2 text-label font-medium text-ink">
-        <input
-          type="checkbox"
-          onChange={toggleAll}
-          className="size-5 rounded-[6px] accent-green-600"
-        />
-        {selectAllLabel}
-      </label>
-
       {children}
-      <Submit label={submitLabel} />
+
+      {/* "Select all" beside the button it feeds, rather than above a grid
+          that can run to hundreds of photos — the two only make sense as a
+          pair right before the moment of submitting, not one at the top of
+          the page and the other at the bottom of it. */}
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <label className="flex min-h-11 w-fit items-center gap-2 text-label font-medium text-ink">
+          <input
+            type="checkbox"
+            onChange={toggleAll}
+            className="size-5 rounded-[6px] accent-green-600"
+          />
+          {selectAllLabel}
+        </label>
+
+        <Button type="button" size="sm" onClick={downloadSelected}>
+          <DownloadIcon size={16} />
+          {downloadLabel}
+        </Button>
+
+        <Submit label={submitLabel} />
+      </div>
     </form>
   );
 }
@@ -93,13 +145,8 @@ export function DeletePhotosForm({
 function Submit({ label }: { label: string }) {
   const { pending } = useFormStatus();
   return (
-    <Button
-      type="submit"
-      variant="danger"
-      size="sm"
-      className="mt-4"
-      pending={pending}
-    >
+    <Button type="submit" variant="danger" size="sm" pending={pending}>
+      <TrashIcon size={16} />
       {label}
     </Button>
   );
