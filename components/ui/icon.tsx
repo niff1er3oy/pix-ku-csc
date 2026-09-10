@@ -256,3 +256,14 @@ export const PlayIcon = (p: Props) => (
     <path d="M7 4.5v15l13-7.5-13-7.5Z" />
   </Icon>
 );
+
+/* --- Collections ----------------------------------------------------------- */
+
+/** A ribbon, notched at the bottom — "saved" is a toggle on this same
+ *  outline elsewhere (a filled variant would be the only fill in the set),
+ *  so the saved/unsaved states differ by the button's own color instead. */
+export const BookmarkIcon = (p: Props) => (
+  <Icon {...p}>
+    <path d="M6 4.5h12a1 1 0 0 1 1 1V20l-7-4.5L5 20V5.5a1 1 0 0 1 1-1Z" />
+  </Icon>
+);

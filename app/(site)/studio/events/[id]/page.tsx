@@ -13,7 +13,6 @@ import {
   PlayIcon,
   PrintIcon,
   SettingsIcon,
-  TrashIcon,
   UsersIcon,
 } from "@/components/ui/icon";
 import { publishEvent, resumeEvent } from "@/lib/actions/studio";
@@ -21,14 +20,9 @@ import { requireApprovedPhotographer } from "@/lib/dal";
 import { getDictionary, getLocale, t } from "@/lib/i18n";
 import { eventQrSvg, eventUrl } from "@/lib/qr";
 import { CopyLinkButton } from "@/components/studio/copy-link-button";
-import {
-  DELETE_PHOTOS_FORM_ID,
-  DeletePhotosForm,
-} from "@/components/studio/delete-photos-form";
+import { DeletePhotosForm } from "@/components/studio/delete-photos-form";
 import { EventHealthCard } from "@/components/studio/event-health-card";
 import { PhotoUploader } from "@/components/studio/photo-uploader";
-import { RetryIndexButton } from "@/components/studio/retry-index-button";
-import { PhotoGallery } from "@/components/photos/photo-gallery";
 import { StatusChip } from "@/components/studio/status-chip";
 import {
   getMyEvent,
@@ -108,9 +102,6 @@ export default async function StudioEventPage({
   ]);
   const [qr, url] = [await eventQrSvg(event.accessCode), eventUrl(event.accessCode)];
   const activeSearch = search ? searches.find((s) => s.id === search) : undefined;
-  const activeDownloader = downloader
-    ? downloaders.find((d) => (d.userId ?? "anonymous") === downloader)
-    : undefined;
 
   // What the lightbox shows next to "n / total" for one photo — the same
   // indexing state the grid's "!" badge and retry button react to, spelled
@@ -549,24 +540,17 @@ export default async function StudioEventPage({
               closeLabel={dict.common.close}
             />
           </div>
-          {(face || search || downloader) && (
+          {(face || search) && (
             <p className="flex flex-wrap items-center gap-2 text-label text-slate">
               <span className={face ? "font-mono" : undefined}>
                 {face
                   ? t(dict.studio.facesFilterActive, { id: face.slice(0, 8) })
-                  : search
-                    ? t(dict.studio.searchesFilterActive, {
-                        name:
-                          activeSearch?.userName ??
-                          activeSearch?.userEmail ??
-                          dict.studio.searchesAnonymous,
-                      })
-                    : t(dict.studio.downloadersFilterActive, {
-                        name:
-                          activeDownloader?.userName ??
-                          activeDownloader?.userEmail ??
-                          dict.studio.searchesAnonymous,
-                      })}
+                  : t(dict.studio.searchesFilterActive, {
+                      name:
+                        activeSearch?.userName ??
+                        activeSearch?.userEmail ??
+                        dict.studio.searchesAnonymous,
+                    })}
               </span>
               <Link
                 href={`/studio/events/${event.id}#photos`}
@@ -596,128 +580,60 @@ export default async function StudioEventPage({
         ) : (
           <DeletePhotosForm
             eventId={event.id}
-            submitLabel={dict.studio.photosDeleteSelected}
-            downloadLabel={dict.studio.photosDownloadSelected}
-            selectAllLabel={dict.studio.photosSelectAll}
-            confirmMessage={dict.studio.photosDeleteConfirm}
-            selectNoneMessage={dict.studio.photosSelectNone}
-          >
-            <PhotoGallery
-              className="mt-5"
-              gridClassName="grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6"
-              aspect="square"
-              items={photos.map((photo) => ({
-                id: photo.id,
-                thumbSrc: `/api/media/${photo.thumbPath}`,
-                previewSrc: `/api/media/${photo.previewPath}`,
-                alt: photo.originalFilename,
-                // The owner can always pull their own original — see the
-                // `isManager` bypass in `/api/media`'s authorize().
-                downloadHref: `/api/media/${photo.originalPath}?download=1`,
-                badge:
-                  photo.indexStatus === "failed" ? (
-                    <span className="rounded-pill bg-danger px-1.5 py-0.5 text-caption font-semibold text-paper">
-                      !
-                    </span>
-                  ) : undefined,
-                meta: photoStatusLabel(photo),
-                // Submits into `DeletePhotosForm`'s form by id rather than
-                // by DOM position — the lightbox this renders inside of is
-                // portalled to `document.body`, well outside that form's own
-                // subtree, and `form="…"` is exactly what that attribute is
-                // for.
-                deleteAction: (
-                  <Button
-                    type="submit"
-                    form={DELETE_PHOTOS_FORM_ID}
-                    name="photoIds"
-                    value={photo.id}
-                    variant="danger"
-                    size="sm"
+            dict={dict}
+            photos={photos.map((photo) => ({
+              id: photo.id,
+              thumbSrc: `/api/media/${photo.thumbPath}`,
+              previewSrc: `/api/media/${photo.previewPath}`,
+              alt: photo.originalFilename,
+              originalPath: photo.originalPath,
+              statusLabel: photoStatusLabel(photo),
+              indexFailed: photo.indexStatus === "failed",
+            }))}
+            // A grid cell appended after the last photo rather than a
+            // button sitting below the whole grid — "more of the same set"
+            // reads more naturally as one more card in that set than as a
+            // separate control underneath it.
+            //
+            // Always rendered, the link inside it conditional — not the
+            // other way around. The click that exhausts the last photos
+            // lands on a page where the link's own condition is now false,
+            // and a `#load-more` in the URL with no matching id anywhere
+            // on the page is exactly what was scrolling straight to the
+            // top: the browser found nothing to scroll to and fell back to
+            // the default. An anchor with nothing inside it some of the
+            // time is still an anchor every time.
+            trailingItem={
+              <div id="load-more" className="scroll-mt-20">
+                {/* `>=` rather than `===`: a filtered result can come back
+                    shorter than `show` even when there is nothing left to
+                    raise `show` for — this is the same "did we actually
+                    hit the cap" check that decides whether there might be
+                    more, not a promise there is. */}
+                {photos.length >= show && (
+                  <Link
+                    href={loadMoreHref}
+                    className="group flex aspect-square min-h-0 flex-col items-center justify-center gap-1 overflow-hidden rounded-media bg-cloud p-1 text-center ring-1 ring-edge transition-colors duration-200 hover:bg-green-50 hover:ring-green-300"
                   >
-                    <TrashIcon size={16} />
-                    {dict.studio.photosDeleteOne}
-                  </Button>
-                ),
-                select: (
-                  <div className="flex flex-col items-start gap-1">
-                    <input
-                      type="checkbox"
-                      name="photoIds"
-                      value={photo.id}
-                      // Read back by `DeletePhotosForm`'s download button —
-                      // piggybacking on the checkbox that is already there
-                      // for delete means bulk download needs no selection
-                      // state of its own and no new endpoint: it is the same
-                      // per-photo authorized route each thumbnail's own
-                      // download link already uses, just triggered several
-                      // times over.
-                      data-download-href={`/api/media/${photo.originalPath}?download=1`}
-                      aria-label={t(dict.studio.photosSelect, {
-                        name: photo.originalFilename,
-                      })}
-                      className="size-5 rounded border-2 border-paper bg-paper/80 accent-[var(--color-green-600)] shadow-[var(--shadow-card)]"
+                    <ChevronDownIcon
+                      size={16}
+                      className="shrink-0 text-slate transition-colors duration-200 group-hover:text-green-700"
                     />
-                    {photo.indexStatus === "failed" && (
-                      <RetryIndexButton
-                        photoId={photo.id}
-                        label={dict.studio.photosRetryIndex}
-                      />
-                    )}
-                  </div>
-                ),
-              }))}
-              labels={{
-                close: dict.common.close,
-                previous: dict.common.back,
-                next: dict.common.next,
-                download: dict.results.downloadOne,
-              }}
-              // A grid cell appended after the last photo rather than a
-              // button sitting below the whole grid — "more of the same set"
-              // reads more naturally as one more card in that set than as a
-              // separate control underneath it.
-              //
-              // Always rendered, the link inside it conditional — not the
-              // other way around. The click that exhausts the last photos
-              // lands on a page where the link's own condition is now false,
-              // and a `#load-more` in the URL with no matching id anywhere
-              // on the page is exactly what was scrolling straight to the
-              // top: the browser found nothing to scroll to and fell back to
-              // the default. An anchor with nothing inside it some of the
-              // time is still an anchor every time.
-              trailingItem={
-                <div id="load-more" className="scroll-mt-20">
-                  {/* `>=` rather than `===`: a filtered result can come back
-                      shorter than `show` even when there is nothing left to
-                      raise `show` for — this is the same "did we actually
-                      hit the cap" check that decides whether there might be
-                      more, not a promise there is. */}
-                  {photos.length >= show && (
-                    <Link
-                      href={loadMoreHref}
-                      className="group flex aspect-square min-h-0 flex-col items-center justify-center gap-1 overflow-hidden rounded-media bg-cloud p-1 text-center ring-1 ring-edge transition-colors duration-200 hover:bg-green-50 hover:ring-green-300"
-                    >
-                      <ChevronDownIcon
-                        size={16}
-                        className="shrink-0 text-slate transition-colors duration-200 group-hover:text-green-700"
-                      />
-                      {remaining !== null && remaining > 0 && (
-                        <span className="tnum whitespace-nowrap font-display text-body font-bold leading-none text-ink transition-colors duration-200 group-hover:text-green-700">
-                          {t(dict.studio.photosRemaining, {
-                            count: formatNumber(remaining, locale),
-                          })}
-                        </span>
-                      )}
-                      <span className="px-1 text-caption leading-tight font-medium text-slate transition-colors duration-200 group-hover:text-green-700">
-                        {dict.studio.photosLoadMore}
+                    {remaining !== null && remaining > 0 && (
+                      <span className="tnum whitespace-nowrap font-display text-body font-bold leading-none text-ink transition-colors duration-200 group-hover:text-green-700">
+                        {t(dict.studio.photosRemaining, {
+                          count: formatNumber(remaining, locale),
+                        })}
                       </span>
-                    </Link>
-                  )}
-                </div>
-              }
-            />
-          </DeletePhotosForm>
+                    )}
+                    <span className="px-1 text-caption leading-tight font-medium text-slate transition-colors duration-200 group-hover:text-green-700">
+                      {dict.studio.photosLoadMore}
+                    </span>
+                  </Link>
+                )}
+              </div>
+            }
+          />
         )}
       </section>
     </section>

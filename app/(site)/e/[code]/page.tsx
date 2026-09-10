@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { PhotoGallery } from "@/components/photos/photo-gallery";
+import { EventGallery } from "@/components/photos/event-gallery";
+import { SavedPhotosSection } from "@/components/profile/saved-photos-section";
 import { FaceSearchPanel } from "@/components/search/face-search-panel";
 import { GridBackground } from "@/components/ui/grid-background";
 import { getPhotographer, getSessionUser } from "@/lib/dal";
@@ -12,6 +13,8 @@ import {
   getEventPhotos,
   getPendingIndexCount,
 } from "@/lib/queries/event";
+import { getMyFace } from "@/lib/queries/profile";
+import { getMySavedPhotosForEvent } from "@/lib/queries/saved-photos";
 import { formatDate, formatNumber } from "@/lib/utils";
 
 const PAGE_SIZE = 60;
@@ -60,7 +63,11 @@ export default async function EventPage({
   if (!event) notFound();
 
   const user = await getSessionUser();
-  const photographer = user ? await getPhotographer(user.id) : null;
+  const [photographer, savedFace, savedPhotos] = await Promise.all([
+    user ? getPhotographer(user.id) : null,
+    user ? getMyFace(user.id) : null,
+    user ? getMySavedPhotosForEvent(user.id, event.id) : [],
+  ]);
   const isManager =
     user?.role === "admin" || photographer?.id === event.ownerId;
 
@@ -91,7 +98,18 @@ export default async function EventPage({
             </p>
           )}
 
-          <h1 className="text-h1 font-bold">{name}</h1>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <h1 className="text-h1 font-bold">{name}</h1>
+            <FaceSearchPanel
+              eventId={event.id}
+              eventSlug={event.accessCode}
+              dict={dict}
+              signedIn={Boolean(user)}
+              savedFaceImagePath={savedFace?.imagePath ?? null}
+              watermarked={event.watermarkEnabled}
+              allowDownload={event.allowOriginalDownload}
+            />
+          </div>
 
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <span className="rounded-pill bg-paper px-3 py-1 text-caption font-medium text-green-700">
@@ -126,15 +144,20 @@ export default async function EventPage({
         </div>
       </header>
 
-      {/* --- Face search, inline ------------------------------------------ */}
-      <FaceSearchPanel
-        eventId={event.id}
-        eventSlug={event.accessCode}
-        dict={dict}
-        signedIn={Boolean(user)}
-        watermarked={event.watermarkEnabled}
-        allowDownload={event.allowOriginalDownload}
-      />
+      {/* --- Saved photos, from a search of this same event — skipped
+          entirely rather than shown empty, unlike `/me`: this is a bonus
+          shortcut on an already busy page, not the page's whole reason to
+          exist. --------------------------------------------------------- */}
+      {savedPhotos.length > 0 && (
+        <section className="mx-auto w-full max-w-6xl px-5 pt-14 sm:px-8 sm:pt-20">
+          <SavedPhotosSection
+            dict={dict}
+            photos={savedPhotos}
+            locale={locale}
+            showEventName={false}
+          />
+        </section>
+      )}
 
       {/* --- Gallery ------------------------------------------------------ */}
       <section className="mx-auto w-full max-w-6xl px-5 py-14 sm:px-8 sm:py-20">
@@ -154,25 +177,30 @@ export default async function EventPage({
           </div>
         ) : (
           <>
-            <PhotoGallery
-              className="mt-8"
-              items={photos.map((photo) => ({
+            {/* No `viewTransitionName` on these thumbs — this used to pass
+                `photo-${photo.id}` so a grid thumb could morph into the
+                lightbox, but opening the lightbox is a same-page state
+                toggle, not a navigation, and even wrapped in
+                `startTransition` it reliably hit React's "two
+                <ViewTransition> with the same name mounted at once" error
+                the instant the lightbox opened — a hard console error on
+                every click, for an animation that was not reliably working
+                anyway. `PhotoThumb`/`PhotoLightbox` still support the prop;
+                it is safe to try again here once that pairing is confirmed
+                stable in this Next.js version. */}
+            <EventGallery
+              photos={photos.map((photo) => ({
                 id: photo.id,
                 thumbSrc: `/api/media/${photo.thumbPath}`,
                 previewSrc: `/api/media/${photo.previewPath}`,
                 width: photo.width,
                 height: photo.height,
-                viewTransitionName: `photo-${photo.id}`,
-                downloadHref: event.allowOriginalDownload
-                  ? `/api/media/${photo.originalPath}?download=1`
-                  : undefined,
+                originalPath: photo.originalPath,
+                faceCount: photo.faceCount,
               }))}
-              labels={{
-                close: dict.common.close,
-                previous: dict.common.back,
-                next: dict.common.next,
-                download: dict.results.downloadOne,
-              }}
+              allowDownload={event.allowOriginalDownload}
+              dict={dict}
+              locale={locale}
             />
 
             {pageCount > 1 && (

@@ -106,6 +106,13 @@
       "when": 1787520056793,
       "tag": "0014_lyrical_sumo",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1788990517931,
+      "tag": "0015_heavy_orphan",
+      "breakpoints": true
     }
   ]
 }
