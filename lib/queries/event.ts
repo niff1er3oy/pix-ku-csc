@@ -35,6 +35,7 @@ export type EventPhoto = {
   originalPath: string;
   width: number;
   height: number;
+  faceCount: number;
 };
 
 /**
@@ -70,6 +71,7 @@ export async function getEventPhotos(
         originalPath: photos.originalPath,
         width: photos.width,
         height: photos.height,
+        faceCount: photos.faceCount,
       })
       .from(photos)
       .where(eq(photos.eventId, eventId))

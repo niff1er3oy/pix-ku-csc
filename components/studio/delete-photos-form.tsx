@@ -1,13 +1,16 @@
 "use client";
 
-import { useState, type FormEvent, type ReactNode } from "react";
+import { type FormEvent, type ReactNode } from "react";
 import { flushSync, useFormStatus } from "react-dom";
 
 import { PhotoGallery } from "@/components/photos/photo-gallery";
+import { SelectAllToggle } from "@/components/photos/select-all-toggle";
+import { SelectCheckbox } from "@/components/photos/select-checkbox";
 import { RetryIndexButton } from "@/components/studio/retry-index-button";
 import { Button } from "@/components/ui/button";
 import { DownloadIcon, TrashIcon } from "@/components/ui/icon";
 import { deletePhotos } from "@/lib/actions/studio";
+import { usePhotoSelection } from "@/lib/hooks/use-photo-selection";
 import { t, type Dictionary } from "@/lib/i18n/dictionaries";
 
 /** Only ever one of these per page today, so a fixed id is safe — exported
@@ -51,22 +54,8 @@ export function DeletePhotosForm({
   dict: Dictionary;
   trailingItem?: ReactNode;
 }) {
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-
-  function toggleSelect(id: string) {
-    setSelectedIds((current) => {
-      const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
-  const allSelected = photos.length > 0 && selectedIds.size === photos.length;
-
-  function toggleSelectAll() {
-    setSelectedIds(allSelected ? new Set() : new Set(photos.map((p) => p.id)));
-  }
+  const { selectedIds, setSelectedIds, toggleSelect, allSelected, toggleSelectAll } =
+    usePhotoSelection(photos.map((p) => p.id));
 
   /**
    * No zip, no new route — each target already carries the same per-photo
@@ -148,15 +137,12 @@ export function DeletePhotosForm({
       {/* "Select all" beside the buttons it feeds, right before the moment
           of acting on whatever ends up checked. */}
       <div className="mt-4 flex flex-wrap items-center gap-3">
-        <label className="flex min-h-11 w-fit items-center gap-2 text-label font-medium text-ink">
-          <input
-            type="checkbox"
-            checked={allSelected}
-            onChange={toggleSelectAll}
-            className="size-5 rounded-[6px] accent-green-600"
-          />
-          {allSelected ? dict.studio.photosDeselectAll : dict.studio.photosSelectAll}
-        </label>
+        <SelectAllToggle
+          checked={allSelected}
+          onChange={toggleSelectAll}
+          selectLabel={dict.studio.photosSelectAll}
+          deselectLabel={dict.studio.photosDeselectAll}
+        />
 
         <Button type="button" size="sm" onClick={downloadSelected}>
           <DownloadIcon size={16} />
@@ -186,6 +172,7 @@ export function DeletePhotosForm({
           // The owner can always pull their own original — see the
           // `isManager` bypass in `/api/media`'s authorize().
           downloadHref: `/api/media/${photo.originalPath}?download=1`,
+          className: "bg-green-50",
           badge: photo.indexFailed ? (
             <span className="rounded-pill bg-danger px-1.5 py-0.5 text-caption font-semibold text-paper">
               !
@@ -246,14 +233,12 @@ export function DeletePhotosForm({
           // which is what starts a selection from nothing.
           select: selectedIds.size > 0 && (
             <div className="flex flex-col items-start gap-1">
-              <input
-                type="checkbox"
+              <SelectCheckbox
                 name="photoIds"
                 value={photo.id}
                 checked={selectedIds.has(photo.id)}
                 onChange={() => toggleSelect(photo.id)}
-                aria-label={t(dict.studio.photosSelect, { name: photo.alt })}
-                className="size-5 rounded border-2 border-paper bg-paper/80 accent-[var(--color-green-600)] shadow-[var(--shadow-card)]"
+                ariaLabel={t(dict.studio.photosSelect, { name: photo.alt })}
               />
               {photo.indexFailed && (
                 <RetryIndexButton

@@ -34,6 +34,10 @@ export type PhotoGalleryItem = {
   onLongPress?: () => void;
   /** A quick per-photo download link — see `PhotoThumb`'s `download` prop. */
   download?: ReactNode;
+  /** Forwarded to `PhotoThumb`'s own `className` — an override for the
+   *  card's background, typically, since everything else about a thumbnail
+   *  is meant to look the same across every grid. */
+  className?: string;
 };
 
 /**
@@ -90,6 +94,7 @@ export function PhotoGallery({
               select={item.select}
               download={item.download}
               onLongPress={item.onLongPress}
+              className={item.className}
               // The lightbox mounts its own `ViewTransition` with this same
               // name for whichever photo is open — the grid's copy steps
               // aside for exactly that one photo while it is open, and

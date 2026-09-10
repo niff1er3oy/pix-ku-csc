@@ -2,29 +2,49 @@
 
 import { useState } from "react";
 
+import { DownloadAllButton } from "@/components/photos/download-all-button";
 import { PhotoGallery } from "@/components/photos/photo-gallery";
-import { TrashIcon } from "@/components/ui/icon";
+import { SelectAllToggle } from "@/components/photos/select-all-toggle";
+import { SelectCheckbox } from "@/components/photos/select-checkbox";
+import { BookmarkIcon, DownloadIcon } from "@/components/ui/icon";
+import { usePhotoSelection } from "@/lib/hooks/use-photo-selection";
 import { unsavePhotos } from "@/lib/actions/saved-photos";
-import type { Dictionary } from "@/lib/i18n/dictionaries";
+import { t, type Dictionary } from "@/lib/i18n/dictionaries";
 import type { SavedPhoto } from "@/lib/queries/saved-photos";
+import { cn, formatNumber } from "@/lib/utils";
 
 /**
- * Everything a visitor has saved from face searches across every event —
- * see the server action in `savePhotos`/`unsavePhotos` for why saving needs
- * an account at all. No download link here: an event can turn downloads off
- * after a photo was saved, and `/api/media` is what actually enforces that,
- * not this list — showing a link that might 403 on a per-event setting this
- * component has no way to know isn't worth it when the event's own page is
- * right there for it.
+ * What a visitor has saved from face searches — every event, on `/me`, or
+ * narrowed to just one via `getMySavedPhotosForEvent` on that event's own
+ * page (`showEventName={false}` there, since every photo is already that
+ * one event's).
+ *
+ * Selection and bulk download mirror the same pattern as `FaceSearchPanel`
+ * and `EventGallery` — hidden checkboxes until a photo is held for ~1s,
+ * "select all" flipping to "deselect all", the bulk button falling back to
+ * "download all" when nothing's checked — but only for photos whose saving
+ * event still allows it. Each photo's own event can turn downloads off after
+ * it was saved, and `/api/media` is the actual enforcement either way; this
+ * is just what keeps every link on screen from ever being a 403 waiting to
+ * happen, on a list that can span every event a visitor has ever searched.
  */
 export function SavedPhotosSection({
   photos,
   dict,
+  locale,
+  showEventName = true,
 }: {
   photos: SavedPhoto[];
   dict: Dictionary;
+  locale: "th" | "en";
+  /** Off on an event's own page, where every photo is already that one
+   *  event's — the name would just repeat what the page already says. */
+  showEventName?: boolean;
 }) {
   const [items, setItems] = useState(photos);
+  const downloadable = items.filter((p) => p.allowOriginalDownload);
+  const { selectedIds, toggleSelect, allSelected, toggleSelectAll } =
+    usePhotoSelection(downloadable.map((p) => p.photoId));
 
   // Optimistic, and reverts by re-inserting the one photo removed rather
   // than resetting to the original list — resetting would also undo any
@@ -38,6 +58,13 @@ export function SavedPhotosSection({
     }
   }
 
+  // A selection, if there is one, otherwise every downloadable photo —
+  // never the ones whose event has downloads turned off, selected or not.
+  const downloadTargets =
+    selectedIds.size > 0
+      ? downloadable.filter((p) => selectedIds.has(p.photoId))
+      : downloadable;
+
   return (
     <div className="rounded-card bg-cloud p-5 sm:p-6">
       <h2 className="text-h3 font-semibold text-ink">{dict.profile.savedPhotosTitle}</h2>
@@ -45,36 +72,106 @@ export function SavedPhotosSection({
       {items.length === 0 ? (
         <p className="mt-1 text-label text-slate">{dict.profile.savedPhotosNoneBody}</p>
       ) : (
-        <PhotoGallery
-          className="mt-5"
-          variant="card"
-          items={items.map((photo) => ({
-            id: photo.photoId,
-            thumbSrc: `/api/media/${photo.thumbPath}`,
-            previewSrc: `/api/media/${photo.previewPath}`,
-            footer: (
-              <div className="flex items-center justify-between gap-2 p-3">
-                <span className="min-w-0 truncate text-caption text-slate">
-                  {photo.eventNameTh}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => remove(photo)}
-                  className="inline-flex shrink-0 items-center gap-1 text-caption font-semibold text-danger underline underline-offset-4"
+        <>
+          {downloadable.length > 0 && (
+            <div className="mt-5 flex flex-wrap items-center gap-3">
+              <SelectAllToggle
+                checked={allSelected}
+                onChange={toggleSelectAll}
+                selectLabel={dict.results.selectAll}
+                deselectLabel={dict.results.deselectAll}
+              />
+
+              <DownloadAllButton
+                hrefs={downloadTargets.map(
+                  (photo) => `/api/media/${photo.originalPath}?download=1`,
+                )}
+                label={
+                  selectedIds.size > 0
+                    ? dict.results.downloadSelected
+                    : t(dict.results.downloadAll, {
+                        count: formatNumber(downloadable.length, locale),
+                      })
+                }
+              />
+            </div>
+          )}
+
+          <PhotoGallery
+            className="mt-5"
+            variant="card"
+            items={items.map((photo) => ({
+              id: photo.photoId,
+              thumbSrc: `/api/media/${photo.thumbPath}`,
+              previewSrc: `/api/media/${photo.previewPath}`,
+              className: "bg-green-50",
+              downloadHref: photo.allowOriginalDownload
+                ? `/api/media/${photo.originalPath}?download=1`
+                : undefined,
+              // Hidden until something is picked, and only ever offered for
+              // a photo whose event still allows downloads — see
+              // `onLongPress` below, which is what starts a selection from
+              // nothing.
+              select: photo.allowOriginalDownload && selectedIds.size > 0 && (
+                <SelectCheckbox
+                  checked={selectedIds.has(photo.photoId)}
+                  onChange={() => toggleSelect(photo.photoId)}
+                  ariaLabel={dict.results.downloadOne}
+                />
+              ),
+              onLongPress: photo.allowOriginalDownload
+                ? () => toggleSelect(photo.photoId)
+                : undefined,
+              footer: (
+                <div
+                  className={cn(
+                    "flex items-center gap-2 p-3",
+                    showEventName ? "justify-between" : "justify-end",
+                  )}
                 >
-                  <TrashIcon size={14} />
-                  {dict.profile.savedPhotosRemove}
-                </button>
-              </div>
-            ),
-          }))}
-          labels={{
-            close: dict.common.close,
-            previous: dict.common.back,
-            next: dict.common.next,
-            download: dict.results.downloadOne,
-          }}
-        />
+                  {showEventName && (
+                    <span className="min-w-0 truncate text-caption text-slate">
+                      {photo.eventNameTh}
+                    </span>
+                  )}
+                  <div className="flex items-center gap-1">
+                    {photo.allowOriginalDownload && (
+                      <a
+                        href={`/api/media/${photo.originalPath}?download=1`}
+                        aria-label={dict.results.downloadOne}
+                        className="grid size-7 shrink-0 place-items-center rounded-pill text-slate transition-colors duration-200 hover:text-green-700"
+                      >
+                        <DownloadIcon size={18} />
+                      </a>
+                    )}
+                    {/* Every photo here is already saved by definition, so
+                        the icon always shows the same filled state the
+                        search results' own bookmark toggle uses for
+                        "saved" — clicking it removes, rather than a
+                        separate trash icon and label. */}
+                    <button
+                      type="button"
+                      onClick={() => remove(photo)}
+                      aria-label={dict.profile.savedPhotosRemove}
+                      className="grid size-7 shrink-0 place-items-center rounded-pill"
+                    >
+                      <BookmarkIcon
+                        size={18}
+                        className="fill-lime-500 text-lime-700 transition-colors duration-200 hover:fill-lime-600 hover:text-lime-800"
+                      />
+                    </button>
+                  </div>
+                </div>
+              ),
+            }))}
+            labels={{
+              close: dict.common.close,
+              previous: dict.common.back,
+              next: dict.common.next,
+              download: dict.results.downloadOne,
+            }}
+          />
+        </>
       )}
     </div>
   );

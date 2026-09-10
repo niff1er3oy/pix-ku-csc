@@ -102,9 +102,6 @@ export default async function StudioEventPage({
   ]);
   const [qr, url] = [await eventQrSvg(event.accessCode), eventUrl(event.accessCode)];
   const activeSearch = search ? searches.find((s) => s.id === search) : undefined;
-  const activeDownloader = downloader
-    ? downloaders.find((d) => (d.userId ?? "anonymous") === downloader)
-    : undefined;
 
   // What the lightbox shows next to "n / total" for one photo — the same
   // indexing state the grid's "!" badge and retry button react to, spelled
@@ -543,24 +540,17 @@ export default async function StudioEventPage({
               closeLabel={dict.common.close}
             />
           </div>
-          {(face || search || downloader) && (
+          {(face || search) && (
             <p className="flex flex-wrap items-center gap-2 text-label text-slate">
               <span className={face ? "font-mono" : undefined}>
                 {face
                   ? t(dict.studio.facesFilterActive, { id: face.slice(0, 8) })
-                  : search
-                    ? t(dict.studio.searchesFilterActive, {
-                        name:
-                          activeSearch?.userName ??
-                          activeSearch?.userEmail ??
-                          dict.studio.searchesAnonymous,
-                      })
-                    : t(dict.studio.downloadersFilterActive, {
-                        name:
-                          activeDownloader?.userName ??
-                          activeDownloader?.userEmail ??
-                          dict.studio.searchesAnonymous,
-                      })}
+                  : t(dict.studio.searchesFilterActive, {
+                      name:
+                        activeSearch?.userName ??
+                        activeSearch?.userEmail ??
+                        dict.studio.searchesAnonymous,
+                    })}
               </span>
               <Link
                 href={`/studio/events/${event.id}#photos`}

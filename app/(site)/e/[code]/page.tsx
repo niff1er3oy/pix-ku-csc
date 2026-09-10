@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { EventGallery } from "@/components/photos/event-gallery";
+import { SavedPhotosSection } from "@/components/profile/saved-photos-section";
 import { FaceSearchPanel } from "@/components/search/face-search-panel";
 import { GridBackground } from "@/components/ui/grid-background";
 import { getPhotographer, getSessionUser } from "@/lib/dal";
@@ -13,6 +14,7 @@ import {
   getPendingIndexCount,
 } from "@/lib/queries/event";
 import { getMyFace } from "@/lib/queries/profile";
+import { getMySavedPhotosForEvent } from "@/lib/queries/saved-photos";
 import { formatDate, formatNumber } from "@/lib/utils";
 
 const PAGE_SIZE = 60;
@@ -61,9 +63,10 @@ export default async function EventPage({
   if (!event) notFound();
 
   const user = await getSessionUser();
-  const [photographer, savedFace] = await Promise.all([
+  const [photographer, savedFace, savedPhotos] = await Promise.all([
     user ? getPhotographer(user.id) : null,
     user ? getMyFace(user.id) : null,
+    user ? getMySavedPhotosForEvent(user.id, event.id) : [],
   ]);
   const isManager =
     user?.role === "admin" || photographer?.id === event.ownerId;
@@ -141,6 +144,21 @@ export default async function EventPage({
         </div>
       </header>
 
+      {/* --- Saved photos, from a search of this same event — skipped
+          entirely rather than shown empty, unlike `/me`: this is a bonus
+          shortcut on an already busy page, not the page's whole reason to
+          exist. --------------------------------------------------------- */}
+      {savedPhotos.length > 0 && (
+        <section className="mx-auto w-full max-w-6xl px-5 pt-14 sm:px-8 sm:pt-20">
+          <SavedPhotosSection
+            dict={dict}
+            photos={savedPhotos}
+            locale={locale}
+            showEventName={false}
+          />
+        </section>
+      )}
+
       {/* --- Gallery ------------------------------------------------------ */}
       <section className="mx-auto w-full max-w-6xl px-5 py-14 sm:px-8 sm:py-20">
         <h2 className="text-h2">{dict.event.browseAll}</h2>
@@ -178,6 +196,7 @@ export default async function EventPage({
                 width: photo.width,
                 height: photo.height,
                 originalPath: photo.originalPath,
+                faceCount: photo.faceCount,
               }))}
               allowDownload={event.allowOriginalDownload}
               dict={dict}

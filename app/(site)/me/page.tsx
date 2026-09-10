@@ -32,7 +32,7 @@ export default async function ProfilePage() {
 
       <div className="mt-8 space-y-6">
         <SavedFaceSection dict={dict} locale={locale} face={face} />
-        <SavedPhotosSection dict={dict} photos={savedPhotos} />
+        <SavedPhotosSection dict={dict} photos={savedPhotos} locale={locale} />
       </div>
     </section>
   );

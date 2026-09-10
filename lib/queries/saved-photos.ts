@@ -37,6 +37,12 @@ export type SavedPhoto = {
   eventNameTh: string;
   eventAccessCode: string;
   savedAt: Date;
+  /** The saving event's own setting, as of now — not as of when the photo
+   *  was saved. A photographer can turn downloads off after the fact, and
+   *  `/api/media` is the actual enforcement either way; this is just what
+   *  lets the list show a working download link instead of a 403 waiting
+   *  to happen. */
+  allowOriginalDownload: boolean;
 };
 
 /**
@@ -55,11 +61,42 @@ export async function getMySavedPhotos(userId: string): Promise<SavedPhoto[]> {
       eventNameTh: events.nameTh,
       eventAccessCode: events.accessCode,
       savedAt: savedPhotos.createdAt,
+      allowOriginalDownload: events.allowOriginalDownload,
     })
     .from(savedPhotos)
     .innerJoin(photos, eq(savedPhotos.photoId, photos.id))
     .innerJoin(events, eq(photos.eventId, events.id))
     .where(eq(savedPhotos.userId, userId))
+    .orderBy(desc(savedPhotos.createdAt));
+
+  return rows;
+}
+
+/**
+ * The same list, narrowed to one event — for showing a visitor's saved
+ * photos right on that event's own page, without a trip to `/me` for
+ * something they searched for a minute ago.
+ */
+export async function getMySavedPhotosForEvent(
+  userId: string,
+  eventId: string,
+): Promise<SavedPhoto[]> {
+  const rows = await db
+    .select({
+      id: savedPhotos.id,
+      photoId: photos.id,
+      thumbPath: photos.thumbPath,
+      previewPath: photos.previewPath,
+      originalPath: photos.originalPath,
+      eventNameTh: events.nameTh,
+      eventAccessCode: events.accessCode,
+      savedAt: savedPhotos.createdAt,
+      allowOriginalDownload: events.allowOriginalDownload,
+    })
+    .from(savedPhotos)
+    .innerJoin(photos, eq(savedPhotos.photoId, photos.id))
+    .innerJoin(events, eq(photos.eventId, events.id))
+    .where(and(eq(savedPhotos.userId, userId), eq(photos.eventId, eventId)))
     .orderBy(desc(savedPhotos.createdAt));
 
   return rows;

@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
-
 import { DownloadAllButton } from "@/components/photos/download-all-button";
 import { PhotoGallery } from "@/components/photos/photo-gallery";
+import { SelectAllToggle } from "@/components/photos/select-all-toggle";
+import { SelectCheckbox } from "@/components/photos/select-checkbox";
 import { DownloadIcon } from "@/components/ui/icon";
+import { usePhotoSelection } from "@/lib/hooks/use-photo-selection";
 import { t, type Dictionary } from "@/lib/i18n/dictionaries";
 import { formatNumber } from "@/lib/utils";
 
@@ -15,6 +16,7 @@ export type EventGalleryPhoto = {
   width?: number;
   height?: number;
   originalPath: string;
+  faceCount: number;
 };
 
 /**
@@ -35,22 +37,8 @@ export function EventGallery({
   dict: Dictionary;
   locale: "th" | "en";
 }) {
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-
-  function toggleSelect(id: string) {
-    setSelectedIds((current) => {
-      const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
-  const allSelected = photos.length > 0 && selectedIds.size === photos.length;
-
-  function toggleSelectAll() {
-    setSelectedIds(allSelected ? new Set() : new Set(photos.map((p) => p.id)));
-  }
+  const { selectedIds, toggleSelect, allSelected, toggleSelectAll } =
+    usePhotoSelection(photos.map((p) => p.id));
 
   // A selection, if there is one, otherwise every photo — "download
   // selected" with nothing checked would otherwise sit dead beside a grid
@@ -62,15 +50,12 @@ export function EventGallery({
     <>
       {allowDownload && photos.length > 0 && (
         <div className="mt-8 flex flex-wrap items-center gap-3">
-          <label className="flex min-h-11 w-fit items-center gap-2 text-label font-medium text-ink">
-            <input
-              type="checkbox"
-              checked={allSelected}
-              onChange={toggleSelectAll}
-              className="size-5 rounded-[6px] accent-green-600"
-            />
-            {allSelected ? dict.results.deselectAll : dict.results.selectAll}
-          </label>
+          <SelectAllToggle
+            checked={allSelected}
+            onChange={toggleSelectAll}
+            selectLabel={dict.results.selectAll}
+            deselectLabel={dict.results.deselectAll}
+          />
 
           <DownloadAllButton
             hrefs={downloadTargets.map(
@@ -99,29 +84,38 @@ export function EventGallery({
           downloadHref: allowDownload
             ? `/api/media/${photo.originalPath}?download=1`
             : undefined,
+          // Overrides the card's default white background — the footer sits
+          // directly on this, so this is what actually makes it read as a
+          // light green bar rather than white.
+          className: "bg-green-50",
           // Hidden until something is picked — see `onLongPress` below,
           // which is what starts a selection from nothing.
           select: selectedIds.size > 0 && (
-            <input
-              type="checkbox"
+            <SelectCheckbox
               checked={selectedIds.has(photo.id)}
               onChange={() => toggleSelect(photo.id)}
-              aria-label={dict.event.selectOne}
-              className="size-5 rounded border-2 border-paper bg-paper/80 accent-[var(--color-green-600)] shadow-[var(--shadow-card)]"
+              ariaLabel={dict.event.selectOne}
             />
           ),
           onLongPress: () => toggleSelect(photo.id),
-          footer: allowDownload ? (
-            <div className="flex items-center justify-end p-3">
-              <a
-                href={`/api/media/${photo.originalPath}?download=1`}
-                aria-label={dict.results.downloadOne}
-                className="grid size-7 shrink-0 place-items-center rounded-pill text-slate transition-colors duration-200 hover:text-green-700"
-              >
-                <DownloadIcon size={18} />
-              </a>
+          footer: (
+            <div className="flex items-center justify-between gap-2 p-3">
+              <span className="min-w-0 truncate text-caption font-medium text-slate">
+                {t(dict.event.faceCount, {
+                  count: formatNumber(photo.faceCount, locale),
+                })}
+              </span>
+              {allowDownload && (
+                <a
+                  href={`/api/media/${photo.originalPath}?download=1`}
+                  aria-label={dict.results.downloadOne}
+                  className="grid size-7 shrink-0 place-items-center rounded-pill text-slate transition-colors duration-200 hover:text-green-700"
+                >
+                  <DownloadIcon size={18} />
+                </a>
+              )}
             </div>
-          ) : undefined,
+          ),
         }))}
         labels={{
           close: dict.common.close,

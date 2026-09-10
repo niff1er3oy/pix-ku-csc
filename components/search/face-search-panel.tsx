@@ -8,6 +8,8 @@ import { createPortal } from "react-dom";
 import type { SearchMatch, SearchResponse } from "@/app/api/events/[id]/search/route";
 import { DownloadAllButton } from "@/components/photos/download-all-button";
 import { PhotoGallery } from "@/components/photos/photo-gallery";
+import { SelectAllToggle } from "@/components/photos/select-all-toggle";
+import { SelectCheckbox } from "@/components/photos/select-checkbox";
 import { Button } from "@/components/ui/button";
 import {
   BookmarkIcon,
@@ -17,6 +19,7 @@ import {
   SearchIcon,
 } from "@/components/ui/icon";
 import { savePhotos, unsavePhotos } from "@/lib/actions/saved-photos";
+import { usePhotoSelection } from "@/lib/hooks/use-photo-selection";
 // Straight from the dictionary module, never from `@/lib/i18n` — that entry
 // point reads cookies via `next/headers` and cannot be bundled for the client.
 import { t, type Dictionary } from "@/lib/i18n/dictionaries";
@@ -60,11 +63,10 @@ export function FaceSearchPanel({
   const [preview, setPreview] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>("idle");
   const [matches, setMatches] = useState<SearchMatch[]>([]);
-  // Which results are checked — reset on every fresh search, same as the
-  // studio's own "select all" pattern, just driven by plain React state
-  // instead of DOM refs: results here are a search's worth of matches, not
-  // a gallery that can run to hundreds.
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // Which results are checked — reset on every fresh search via
+  // `setSelectedIds` below.
+  const { selectedIds, setSelectedIds, toggleSelect, allSelected, toggleSelectAll } =
+    usePhotoSelection(matches.map((m) => m.photoId));
   // Which matches are already saved to `/me` — seeded from the search
   // response (a visitor can have saved a photo from a previous search of
   // this same event) and kept in sync as the bookmark toggle and the bulk
@@ -217,21 +219,6 @@ export function FaceSearchPanel({
     setPreview(null);
     setFile(null);
     if (inputRef.current) inputRef.current.value = "";
-  }
-
-  function toggleSelect(photoId: string) {
-    setSelectedIds((current) => {
-      const next = new Set(current);
-      if (next.has(photoId)) next.delete(photoId);
-      else next.add(photoId);
-      return next;
-    });
-  }
-
-  const allSelected = matches.length > 0 && selectedIds.size === matches.length;
-
-  function toggleSelectAll() {
-    setSelectedIds(allSelected ? new Set() : new Set(matches.map((m) => m.photoId)));
   }
 
   // What the bulk save button acts on: a selection, if there is one,
@@ -568,15 +555,12 @@ export function FaceSearchPanel({
                             the two only make sense together, right before
                             acting on whatever ends up checked. */}
                         <div className="mt-5 flex flex-wrap items-center gap-3">
-                          <label className="flex min-h-11 w-fit items-center gap-2 text-label font-medium text-ink">
-                            <input
-                              type="checkbox"
-                              checked={allSelected}
-                              onChange={toggleSelectAll}
-                              className="size-5 rounded-[6px] accent-green-600"
-                            />
-                            {allSelected ? dict.results.deselectAll : dict.results.selectAll}
-                          </label>
+                          <SelectAllToggle
+                            checked={allSelected}
+                            onChange={toggleSelectAll}
+                            selectLabel={dict.results.selectAll}
+                            deselectLabel={dict.results.deselectAll}
+                          />
 
                           {allowDownload && (
                             <DownloadAllButton
@@ -635,6 +619,7 @@ export function FaceSearchPanel({
                               downloadHref: allowDownload
                                 ? `/api/media/${match.originalPath}?download=1`
                                 : undefined,
+                              className: "bg-green-50",
                               saveAction: signedIn && (
                                 // Same real-`<Button>` pairing `deleteAction` uses
                                 // beside the download link (`photo-lightbox.tsx`),
@@ -677,14 +662,12 @@ export function FaceSearchPanel({
                               // exists, every checkbox reappears for the
                               // ordinary tap-to-add-more flow.
                               select: selectedIds.size > 0 && (
-                                <input
-                                  type="checkbox"
+                                <SelectCheckbox
                                   checked={selectedIds.has(match.photoId)}
                                   onChange={() => toggleSelect(match.photoId)}
-                                  aria-label={t(dict.results.match, {
+                                  ariaLabel={t(dict.results.match, {
                                     percent: Math.round(match.similarity),
                                   })}
-                                  className="size-5 rounded border-2 border-paper bg-paper/80 accent-[var(--color-green-600)] shadow-[var(--shadow-card)]"
                                 />
                               ),
                               onLongPress: () => toggleSelect(match.photoId),
