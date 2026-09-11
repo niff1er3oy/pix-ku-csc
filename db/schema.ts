@@ -494,6 +494,29 @@ export const searchMatches = pgTable(
   ],
 );
 
+/**
+ * One row per PIN check against a private event, success or failure — the
+ * same shape `searches` above uses for its own rate limit, so
+ * `verifyEventPin` can count recent attempts the same way the face-search
+ * route counts recent searches. Six digits is a million possibilities; the
+ * PIN itself is cheap to check, so the row is what makes a check slow.
+ */
+export const eventPinAttempts = pgTable(
+  "event_pin_attempt",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    /** Salted hash, not the address itself — same as `searches.ipHash`. */
+    ipHash: text("ip_hash"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("event_pin_attempt_event_ip_idx").on(t.eventId, t.ipHash)],
+);
+
 export const downloads = pgTable(
   "download",
   {

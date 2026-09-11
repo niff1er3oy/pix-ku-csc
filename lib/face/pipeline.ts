@@ -1,6 +1,6 @@
 import "server-only";
 
-import { eq } from "drizzle-orm";
+import { and, eq, lt } from "drizzle-orm";
 
 import { db } from "@/db";
 import { events, photoFaces, photographers, photos } from "@/db/schema";
@@ -102,4 +102,43 @@ export async function indexPhotoFaces(
       );
     }
   }
+}
+
+/** How long a photo can plausibly still be mid-index before it is more
+ *  likely that whatever was running it never got to finish. */
+const STUCK_INDEXING_TIMEOUT_MS = 15 * 60_000;
+
+/**
+ * Flips any photo stuck at `indexing` back to `failed`, so the studio's
+ * existing retry button — built for the ordinary failure case — can pick it
+ * up too.
+ *
+ * `indexPhotoFaces`'s own catch block only ever runs if the process calling
+ * it survives long enough to reach it. A crash or restart between the status
+ * flipping to `indexing` and the Rekognition call returning leaves the row
+ * exactly there, forever, with no error recorded and no way back short of a
+ * hand-written UPDATE. There is no job queue behind indexing yet — see the
+ * note on `indexPhotoFaces` — so this runs opportunistically wherever an
+ * event's photos are read for its owner, rather than on a schedule.
+ *
+ * Scoped to `createdAt` rather than a dedicated "indexing started at" column:
+ * the upload route inserts the photo row and calls `indexPhotoFaces` in the
+ * same request, so a photo's own creation time already marks when its
+ * indexing began.
+ */
+export async function sweepStuckIndexing(eventId: string): Promise<void> {
+  const since = new Date(Date.now() - STUCK_INDEXING_TIMEOUT_MS);
+  await db
+    .update(photos)
+    .set({
+      indexStatus: "failed",
+      indexError: "Indexing did not finish in time.",
+    })
+    .where(
+      and(
+        eq(photos.eventId, eventId),
+        eq(photos.indexStatus, "indexing"),
+        lt(photos.createdAt, since),
+      ),
+    );
 }

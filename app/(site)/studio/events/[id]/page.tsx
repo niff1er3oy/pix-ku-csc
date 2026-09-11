@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/icon";
 import { publishEvent, resumeEvent } from "@/lib/actions/studio";
 import { requireApprovedPhotographer } from "@/lib/dal";
+import { sweepStuckIndexing } from "@/lib/face/pipeline";
 import { getDictionary, getLocale, t } from "@/lib/i18n";
 import { eventQrSvg, eventUrl } from "@/lib/qr";
 import { CopyLinkButton } from "@/components/studio/copy-link-button";
@@ -83,6 +84,12 @@ export default async function StudioEventPage({
 
   const event = await getMyEvent(photographer.id, id);
   if (!event) notFound();
+
+  // Catches whatever `indexPhotoFaces` itself couldn't — see the note on
+  // `sweepStuckIndexing`. Run before the photo query below so a stuck row
+  // this call just flipped shows up as "failed", retry button and all,
+  // instead of "indexing" forever on the very page that would reveal it.
+  await sweepStuckIndexing(id);
 
   // "anonymous" is a URL sentinel, not a real user id — `getMyEventPhotos`
   // reads `null` as "every download with no userId" (see the note there),

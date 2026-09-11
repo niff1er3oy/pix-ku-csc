@@ -135,6 +135,7 @@ export const th = {
     accessCodeLabel: "รหัสเข้างาน",
     accessCodeSubmit: "เข้าดูรูป",
     accessCodeWrong: "รหัสไม่ถูกต้อง ลองใหม่อีกครั้ง",
+    accessCodeRateLimited: "ลองผิดหลายครั้งเกินไป กรุณารอสักครู่แล้วลองใหม่",
     galleryEmpty: "ยังไม่มีรูปในงานนี้",
     galleryEmptyBody: "ช่างภาพยังไม่ได้อัปโหลด กลับมาดูใหม่หลังงานจบ",
     indexing: "กำลังประมวลผลใบหน้า",
@@ -249,6 +250,10 @@ export const th = {
     dangerBody:
       "ลบบัญชี รูปหน้า และประวัติการค้นหาทั้งหมดอย่างถาวร รูปที่ช่างภาพถ่ายในงานไม่ถูกลบ เพราะเป็นผลงานของช่างภาพ",
     dangerCta: "ลบบัญชีถาวร",
+    dangerConfirmLabel: "พิมพ์ {email} เพื่อยืนยัน",
+    dangerConfirm: "ยืนยันการลบบัญชี",
+    dangerMismatch: "อีเมลไม่ตรง ลองพิมพ์ใหม่อีกครั้ง",
+    dangerHasEvents: "ต้องลบงานทั้งหมดในสตูดิโอก่อน ถึงจะลบบัญชีนี้ได้",
   },
 
   photographer: {
@@ -772,6 +777,7 @@ export const en: Dictionary = {
     accessCodeLabel: "Access code",
     accessCodeSubmit: "View photos",
     accessCodeWrong: "That code doesn't match. Try again.",
+    accessCodeRateLimited: "Too many attempts. Wait a bit and try again.",
     galleryEmpty: "No photos yet",
     galleryEmptyBody:
       "The photographer hasn't uploaded yet. Check back after the event wraps.",
@@ -889,6 +895,10 @@ export const en: Dictionary = {
     dangerBody:
       "Permanently deletes your account, saved face, and search history. Photos taken by photographers stay up — those are their work.",
     dangerCta: "Delete my account",
+    dangerConfirmLabel: "Type {email} to confirm",
+    dangerConfirm: "Confirm account deletion",
+    dangerMismatch: "That email doesn't match. Try again.",
+    dangerHasEvents: "Delete every event in your studio first, then you can delete your account.",
   },
 
   photographer: {

@@ -3,8 +3,16 @@
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
+import { signOut } from "@/auth";
 import { db } from "@/db";
-import { consents, profileHiddenEvents, userFaces } from "@/db/schema";
+import {
+  consents,
+  events,
+  photographers,
+  profileHiddenEvents,
+  userFaces,
+  users,
+} from "@/db/schema";
 import { requireUser } from "@/lib/dal";
 import { assertSingleFace, FaceError } from "@/lib/face";
 import { ACCEPTED_MIME, buildDetectionCopy, MAX_SELFIE_BYTES } from "@/lib/images";
@@ -170,4 +178,64 @@ export async function showEventOnProfile(eventId: string): Promise<void> {
       ),
     );
   revalidatePath(`/profile/${user.id}`);
+}
+
+export type DeleteAccountState = { error: "mismatch" | "has_events" } | undefined;
+
+/**
+ * Permanently deletes the signed-in user's own account.
+ *
+ * Refused while the account owns any event, published or not. `users` cascades
+ * to `photographers` cascades to `events` — see the FK chain in
+ * `db/schema.ts` — so a bare delete here would silently take real
+ * photographs down with it, without the storage cleanup or Rekognition
+ * collection teardown `deleteEvent` runs before it lets a single event go.
+ * `dangerBody`'s own promise is narrower than that: it deletes *this*
+ * account's data, not a photographer's published work. A photographer has
+ * to clear their studio first, the ordinary way, so that cleanup actually runs.
+ *
+ * Retyping the account's own email is the same friction `deleteEvent` asks
+ * for with an access code — a confirm dialog is clicked through on reflex.
+ */
+export async function deleteAccount(
+  _prev: DeleteAccountState,
+  formData: FormData,
+): Promise<DeleteAccountState> {
+  const user = await requireUser();
+
+  const confirm = String(formData.get("confirm") ?? "")
+    .trim()
+    .toLowerCase();
+  if (!user.email || confirm !== user.email.toLowerCase()) {
+    return { error: "mismatch" };
+  }
+
+  const [photographer] = await db
+    .select({ id: photographers.id })
+    .from(photographers)
+    .where(eq(photographers.userId, user.id))
+    .limit(1);
+
+  if (photographer) {
+    const [anyEvent] = await db
+      .select({ id: events.id })
+      .from(events)
+      .where(eq(events.ownerId, photographer.id))
+      .limit(1);
+    if (anyEvent) return { error: "has_events" };
+  }
+
+  // The saved-face file lives in storage, not the database — the cascade
+  // below removes the `user_face` row but has no idea the file exists.
+  const [face] = await db
+    .select({ imagePath: userFaces.imagePath })
+    .from(userFaces)
+    .where(eq(userFaces.userId, user.id))
+    .limit(1);
+
+  await db.delete(users).where(eq(users.id, user.id));
+  if (face) await deleteStoragePath(face.imagePath);
+
+  // Ends the redirect itself — nothing runs after this.
+  await signOut({ redirectTo: "/" });
 }

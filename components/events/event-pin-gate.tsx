@@ -34,7 +34,12 @@ export function EventPinGate({
     undefined,
   );
 
-  const message = state?.error ? dict.event.accessCodeWrong : null;
+  const message =
+    state?.error === "rate_limited"
+      ? dict.event.accessCodeRateLimited
+      : state?.error
+        ? dict.event.accessCodeWrong
+        : null;
 
   return (
     <section className="mx-auto flex min-h-[60svh] w-full max-w-md flex-col items-center justify-center px-5 py-16 text-center sm:px-8">

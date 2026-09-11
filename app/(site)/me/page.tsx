@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { DeleteAccountSection } from "@/components/profile/delete-account-section";
 import { SavedFaceSection } from "@/components/profile/saved-face-section";
 import { requireUser } from "@/lib/dal";
 import { getDictionary, getLocale } from "@/lib/i18n";
@@ -13,12 +14,11 @@ export async function generateMetadata(): Promise<Metadata> {
 
 /**
  * `/me`, the destination `SiteHeader`'s avatar chip links to — settings for
- * the account itself (the saved face a search runs against; consent and
- * account deletion have dictionary strings ready but no section here yet),
- * not the account's public-facing display. That now lives on
- * `/profile/[id]` (this account's own id), which is also where the saved
- * photos themselves — and hiding one event's group from other viewers —
- * are managed, right alongside how everyone else sees them.
+ * the account itself (the saved face a search runs against, and deleting
+ * the account outright), not the account's public-facing display. That now
+ * lives on `/profile/[id]` (this account's own id), which is also where the
+ * saved photos themselves — and hiding one event's group from other
+ * viewers — are managed, right alongside how everyone else sees them.
  */
 export default async function ProfilePage() {
   const user = await requireUser();
@@ -38,6 +38,7 @@ export default async function ProfilePage() {
 
       <div className="mt-8 space-y-6">
         <SavedFaceSection dict={dict} locale={locale} face={face} />
+        <DeleteAccountSection dict={dict} email={user.email} />
       </div>
     </section>
   );
