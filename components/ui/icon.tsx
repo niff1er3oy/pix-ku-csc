@@ -116,6 +116,16 @@ export const SearchIcon = (p: Props) => (
   </Icon>
 );
 
+/** A private event's own padlock — deliberately the one glyph `ShieldIcon`
+ *  avoids borrowing, since this is the only place "locked" is the actual
+ *  meaning rather than a metaphor for authority. */
+export const LockIcon = (p: Props) => (
+  <Icon {...p}>
+    <rect x="5" y="11" width="14" height="9.5" rx="2.5" />
+    <path d="M8 11V7.5a4 4 0 0 1 8 0V11" />
+  </Icon>
+);
+
 /* --- Decisions and states ------------------------------------------------ */
 
 export const CheckIcon = (p: Props) => (

@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import { ButtonLink } from "@/components/ui/button";
 import { GridBackground } from "@/components/ui/grid-background";
-import { CalendarIcon, PhotoIcon, SettingsIcon } from "@/components/ui/icon";
+import { CalendarIcon, LockIcon, PhotoIcon, SettingsIcon } from "@/components/ui/icon";
 import { DeleteEvent } from "@/components/studio/delete-event";
 import { StatusChip } from "@/components/studio/status-chip";
 import { requireApprovedPhotographer } from "@/lib/dal";
@@ -81,8 +81,15 @@ export default async function StudioPage() {
                   </div>
 
                   <div className="min-w-0">
-                    <p className="font-display text-h3 text-ink transition-colors duration-200 group-hover:text-green-700">
-                      {event.nameTh}
+                    <p className="flex items-center gap-1.5 font-display text-h3 text-ink transition-colors duration-200 group-hover:text-green-700">
+                      {event.isPrivate && (
+                        <LockIcon
+                          size={16}
+                          className="shrink-0 text-slate"
+                          title={dict.studio.formPrivate}
+                        />
+                      )}
+                      <span className="truncate">{event.nameTh}</span>
                     </p>
                     <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-label text-slate">
                       <span className="inline-flex items-center gap-1.5">
