@@ -1,13 +1,6 @@
 import "server-only";
 
-import { randomBytes, randomInt, scrypt, timingSafeEqual } from "node:crypto";
-import { promisify } from "node:util";
-
-const scryptAsync = promisify(scrypt) as (
-  password: string,
-  salt: Buffer,
-  keylen: number,
-) => Promise<Buffer>;
+import { createHmac, timingSafeEqual, randomInt } from "node:crypto";
 
 /** Six digits. Short enough to read off a sign and say down a phone. */
 export const PIN_LENGTH = 6;
@@ -33,41 +26,66 @@ export function generatePin(): string {
 }
 
 /**
- * Hashes a PIN for storage.
+ * Checks a PIN against the one stored on the event.
  *
- * scrypt with a per-PIN salt, stored as `salt:hash` in hex. The owner chose to
- * keep the PIN unreadable after it is set, which means the stored value has to
- * survive somebody reading the database — a plain column would hand out entry
- * to every private event at once.
- *
- * scrypt is deliberately slow and memory-hard, which matters more here than
- * for a password: six digits is a million possibilities, so a fast hash would
- * fall to an offline sweep in seconds. It is in Node's standard library, so
- * this needs no dependency.
+ * Stored in the clear — the owner wants it shown back on the settings page,
+ * not just set once — so this is a plain comparison, not a hash check.
+ * `timingSafeEqual` rather than `===` still matters: a normal comparison
+ * returns as soon as two bytes differ, and the time it took is a measurable
+ * clue about how much of the guess was right.
  */
-export async function hashPin(pin: string): Promise<string> {
-  const salt = randomBytes(16);
-  const key = await scryptAsync(pin, salt, 64);
-  return `${salt.toString("hex")}:${key.toString("hex")}`;
+export function pinMatches(candidate: string, stored: string): boolean {
+  const a = Buffer.from(candidate);
+  const b = Buffer.from(stored);
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
 }
 
 /**
- * Checks a PIN against a stored hash.
+ * Remembering that a PIN was entered, without storing the PIN — or anything
+ * derived from it — in the cookie itself.
  *
- * `timingSafeEqual` rather than `===`: a normal comparison returns as soon as
- * two bytes differ, and the time it took is a measurable clue about how much
- * of the guess was right. Over a million candidates that turns a search into a
- * short one.
+ * The event's own id (not its access code, and not the PIN) is what gets
+ * signed: an HMAC over `AUTH_SECRET`, which this reuses rather than adding a
+ * second secret to configure. `event-pin:` domain-separates it from
+ * anything else that secret ever signs, so this token could never be
+ * replayed as one of those and vice versa. The event id alone — no
+ * expiry, no visitor id — is enough: the cookie answers exactly one
+ * question, "has *a* browser holding this cookie already typed this
+ * event's PIN," the same thing re-typing it on every page load would have
+ * proven.
  */
-export async function verifyPin(pin: string, stored: string): Promise<boolean> {
-  const [saltHex, keyHex] = stored.split(":");
-  if (!saltHex || !keyHex) return false;
+function pinToken(eventId: string): string {
+  const secret = process.env.AUTH_SECRET;
+  if (!secret) throw new Error("AUTH_SECRET is not set");
+  return createHmac("sha256", secret).update(`event-pin:${eventId}`).digest("hex");
+}
 
+/** The cookie name one event's verified-PIN token is stored under. */
+export function pinCookieName(eventId: string): string {
+  return `epv_${eventId}`;
+}
+
+/** The value to store in that cookie once a visitor's PIN checks out. */
+export function signPinCookie(eventId: string): string {
+  return pinToken(eventId);
+}
+
+/** Whether a cookie value already proves this event's PIN was entered. */
+export function isPinCookieValid(
+  eventId: string,
+  value: string | undefined,
+): boolean {
+  if (!value) return false;
+
+  const expected = Buffer.from(pinToken(eventId), "hex");
+  let candidate: Buffer;
   try {
-    const key = Buffer.from(keyHex, "hex");
-    const candidate = await scryptAsync(pin, Buffer.from(saltHex, "hex"), key.length);
-    return timingSafeEqual(key, candidate);
+    candidate = Buffer.from(value, "hex");
   } catch {
     return false;
   }
+  if (candidate.length !== expected.length) return false;
+
+  return timingSafeEqual(candidate, expected);
 }

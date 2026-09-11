@@ -1,9 +1,9 @@
 import "server-only";
 
-import { and, count, desc, eq, sql } from "drizzle-orm";
+import { and, count, desc, eq, ilike, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { events, photoFaces, photographers, photos } from "@/db/schema";
+import { events, photoFaces, photographers, photos, users } from "@/db/schema";
 
 export type EventCard = {
   id: string;
@@ -14,14 +14,26 @@ export type EventCard = {
   eventDate: string;
   photoCount: number;
   photographerName: string;
+  /** The photographer's own account — `/profile/[id]` links to this, not
+   *  `photographers.id`, since that route looks visitors up by `users.id`. */
+  photographerUserId: string;
+  photographerImage: string | null;
   coverThumbPath: string | null;
 };
 
 /**
  * Unlisted events are excluded everywhere a list is rendered — they are
  * reachable only by someone holding the link or the printed QR.
+ *
+ * `query`, when given, matches against either name column — a visitor
+ * searching rarely knows which language the photographer typed the event
+ * in, so both are checked rather than whichever `locale` happens to be
+ * active.
  */
-export async function getPublicEvents(limit = 12): Promise<EventCard[]> {
+export async function getPublicEvents(
+  limit = 12,
+  query?: string,
+): Promise<EventCard[]> {
   const rows = await db
     .select({
       id: events.id,
@@ -32,6 +44,8 @@ export async function getPublicEvents(limit = 12): Promise<EventCard[]> {
       eventDate: events.eventDate,
       photoCount: events.photoCount,
       photographerName: photographers.displayName,
+      photographerUserId: photographers.userId,
+      photographerImage: users.image,
       /**
        * The cover the photographer chose, falling back to the first photo
        * uploaded.
@@ -57,7 +71,16 @@ export async function getPublicEvents(limit = 12): Promise<EventCard[]> {
     })
     .from(events)
     .innerJoin(photographers, eq(events.ownerId, photographers.id))
-    .where(and(eq(events.status, "approved"), eq(events.isPrivate, false)))
+    .innerJoin(users, eq(photographers.userId, users.id))
+    .where(
+      and(
+        eq(events.status, "approved"),
+        eq(events.isPrivate, false),
+        query
+          ? or(ilike(events.nameTh, `%${query}%`), ilike(events.nameEn, `%${query}%`))
+          : undefined,
+      ),
+    )
     .orderBy(desc(events.eventDate))
     .limit(limit);
 

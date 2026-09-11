@@ -1,12 +1,16 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { EventPinGate } from "@/components/events/event-pin-gate";
 import { EventGallery } from "@/components/photos/event-gallery";
 import { SavedPhotosSection } from "@/components/profile/saved-photos-section";
 import { FaceSearchPanel } from "@/components/search/face-search-panel";
+import { Avatar } from "@/components/ui/avatar";
 import { GridBackground } from "@/components/ui/grid-background";
 import { getPhotographer, getSessionUser } from "@/lib/dal";
+import { isPinCookieValid, pinCookieName } from "@/lib/event-pin";
 import { getDictionary, getLocale, t } from "@/lib/i18n";
 import {
   getEventBySlug,
@@ -62,6 +66,8 @@ export default async function EventPage({
   const event = await getEventBySlug(code);
   if (!event) notFound();
 
+  const name = locale === "en" && event.nameEn ? event.nameEn : event.nameTh;
+
   const user = await getSessionUser();
   const [photographer, savedFace, savedPhotos] = await Promise.all([
     user ? getPhotographer(user.id) : null,
@@ -75,13 +81,26 @@ export default async function EventPage({
   // rather than a 403 so an unapproved slug cannot be probed for existence.
   if (event.status !== "approved" && !isManager) notFound();
 
+  // A private event's PIN is the second factor its access code alone was
+  // never meant to be — see the note on `entryPin` in `db/schema.ts`.
+  // Skipped for whoever manages the event, same as the approval gate above.
+  if (event.isPrivate && event.entryPin && !isManager) {
+    const store = await cookies();
+    const verified = isPinCookieValid(
+      event.id,
+      store.get(pinCookieName(event.id))?.value,
+    );
+    if (!verified) {
+      return <EventPinGate eventId={event.id} eventName={name} dict={dict} />;
+    }
+  }
+
   const page = Math.max(1, Number(pageParam) || 1);
   const [{ photos, total, pageCount }, pendingIndex] = await Promise.all([
     getEventPhotos(event.id, page, PAGE_SIZE),
     getPendingIndexCount(event.id),
   ]);
 
-  const name = locale === "en" && event.nameEn ? event.nameEn : event.nameTh;
   const description =
     locale === "en" && event.descriptionEn
       ? event.descriptionEn
@@ -125,8 +144,15 @@ export default async function EventPage({
             </span>
           </div>
 
-          <p className="mt-4 text-label text-slate">
-            {dict.event.by} {event.photographerName}
+          <p className="mt-4 flex flex-wrap items-center gap-2 text-label text-slate">
+            {dict.event.by}
+            <Link
+              href={`/profile/${event.photographerUserId}`}
+              className="flex items-center gap-2 font-medium text-ink transition-colors duration-200 hover:text-green-700"
+            >
+              <Avatar src={event.photographerImage} size={24} />
+              {event.photographerName}
+            </Link>
           </p>
 
           {description && (
@@ -145,17 +171,12 @@ export default async function EventPage({
       </header>
 
       {/* --- Saved photos, from a search of this same event — skipped
-          entirely rather than shown empty, unlike `/me`: this is a bonus
-          shortcut on an already busy page, not the page's whole reason to
-          exist. --------------------------------------------------------- */}
+          entirely rather than shown empty, unlike `/profile/[id]`: this is
+          a bonus shortcut on an already busy page, not the page's whole
+          reason to exist. ------------------------------------------------ */}
       {savedPhotos.length > 0 && (
         <section className="mx-auto w-full max-w-6xl px-5 pt-14 sm:px-8 sm:pt-20">
-          <SavedPhotosSection
-            dict={dict}
-            photos={savedPhotos}
-            locale={locale}
-            showEventName={false}
-          />
+          <SavedPhotosSection dict={dict} photos={savedPhotos} locale={locale} />
         </section>
       )}
 

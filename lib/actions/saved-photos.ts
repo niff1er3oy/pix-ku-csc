@@ -34,7 +34,7 @@ export async function savePhotos(photoIds: string[]): Promise<void> {
     .values(visible.map((row) => ({ userId: user.id, photoId: row.id })))
     .onConflictDoNothing();
 
-  revalidatePath("/me");
+  revalidatePath(`/profile/${user.id}`);
 }
 
 /**
@@ -53,5 +53,5 @@ export async function unsavePhotos(photoIds: string[]): Promise<void> {
       and(eq(savedPhotos.userId, user.id), inArray(savedPhotos.photoId, photoIds)),
     );
 
-  revalidatePath("/me");
+  revalidatePath(`/profile/${user.id}`);
 }

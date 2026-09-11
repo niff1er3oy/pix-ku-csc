@@ -53,13 +53,18 @@ export function DirectoryRow({
   return (
     <li className="grid gap-4 border-t border-edge py-5 sm:grid-cols-[1fr_auto] sm:items-start">
       <div className="flex min-w-0 gap-3">
-        <Avatar src={row.image} size={40} className="mt-0.5 shrink-0" />
+        <Link href={`/profile/${row.userId}`} className="shrink-0">
+          <Avatar src={row.image} size={40} className="mt-0.5" />
+        </Link>
 
         <div className="min-w-0">
           <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="truncate font-display font-semibold text-ink">
+            <Link
+              href={`/profile/${row.userId}`}
+              className="truncate font-display font-semibold text-ink underline-offset-4 hover:text-green-700 hover:underline"
+            >
               {row.displayName || row.name || row.email}
-            </span>
+            </Link>
             {isSelf && (
               <span className="rounded-pill bg-green-600 px-2 py-0.5 text-caption font-semibold text-paper">
                 {labels.you}

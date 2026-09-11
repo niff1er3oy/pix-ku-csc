@@ -3,9 +3,15 @@ import "server-only";
 import { and, asc, count, eq, ne, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { events, photographers, photos, type Event } from "@/db/schema";
+import { events, photographers, photos, users, type Event } from "@/db/schema";
 
-export type EventWithOwner = Event & { photographerName: string };
+export type EventWithOwner = Event & {
+  photographerName: string;
+  /** The photographer's own account — `/profile/[id]` links to this, not
+   *  `photographers.id`, since that route looks visitors up by `users.id`. */
+  photographerUserId: string;
+  photographerImage: string | null;
+};
 
 export async function getEventBySlug(
   code: string,
@@ -14,9 +20,12 @@ export async function getEventBySlug(
     .select({
       event: events,
       photographerName: photographers.displayName,
+      photographerUserId: photographers.userId,
+      photographerImage: users.image,
     })
     .from(events)
     .innerJoin(photographers, eq(events.ownerId, photographers.id))
+    .innerJoin(users, eq(photographers.userId, users.id))
     // Upper-cased on both sides: a code typed into the address bar or
     // read off a printed sign arrives in whatever case the keyboard felt
     // like. The alphabet has no lower-case members, so folding case cannot
@@ -25,7 +34,12 @@ export async function getEventBySlug(
     .limit(1);
 
   if (!row) return null;
-  return { ...row.event, photographerName: row.photographerName };
+  return {
+    ...row.event,
+    photographerName: row.photographerName,
+    photographerUserId: row.photographerUserId,
+    photographerImage: row.photographerImage,
+  };
 }
 
 export type EventPhoto = {

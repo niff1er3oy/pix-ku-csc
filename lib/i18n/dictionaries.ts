@@ -209,6 +209,13 @@ export const th = {
 
   profile: {
     title: "โปรไฟล์",
+    settingsTitle: "ตั้งค่าโปรไฟล์",
+    viewProfile: "ดูโปรไฟล์ของฉัน",
+    roleUser: "ผู้ใช้ทั่วไป",
+    rolePhotographer: "ช่างภาพ",
+    roleAdmin: "ผู้ดูแลระบบ",
+    memberSince: "เป็นสมาชิกตั้งแต่ {date}",
+
     savedFaceTitle: "รูปหน้าที่บันทึกไว้",
     savedFaceNone: "ยังไม่ได้บันทึกรูปหน้า",
     savedFaceNoneBody:
@@ -225,6 +232,9 @@ export const th = {
     savedPhotosNoneBody:
       "ตอนค้นหารูปตัวเองในงาน กดบันทึกรูปที่ใช่ไว้ แล้วกลับมาดูที่นี่ได้โดยไม่ต้องค้นหาใหม่",
     savedPhotosRemove: "เอาออกจากที่บันทึกไว้",
+    savedPhotosHideEvent: "ซ่อนงานนี้",
+    savedPhotosShowEvent: "แสดงงานนี้",
+    savedPhotosHiddenNote: "ซ่อนอยู่ ไม่แสดงในโปรไฟล์",
 
     historyTitle: "ประวัติการค้นหา",
     historyEmpty: "ยังไม่มีประวัติการค้นหา",
@@ -239,15 +249,6 @@ export const th = {
     dangerBody:
       "ลบบัญชี รูปหน้า และประวัติการค้นหาทั้งหมดอย่างถาวร รูปที่ช่างภาพถ่ายในงานไม่ถูกลบ เพราะเป็นผลงานของช่างภาพ",
     dangerCta: "ลบบัญชีถาวร",
-  },
-
-  /** A photographer's read-only view of one member — see the note on
-   *  `getMemberProfile`. Distinct from `profile` above, which is always the
-   *  signed-in user's own account. */
-  memberProfile: {
-    memberSince: "เป็นสมาชิกตั้งแต่ {date}",
-    searchesLabel: "ค้นหาในงานของคุณ",
-    downloadsLabel: "ดาวน์โหลดจากงานของคุณ",
   },
 
   photographer: {
@@ -290,12 +291,9 @@ export const th = {
     formPrivateHint:
       "ไม่ขึ้นในรายการงานสาธารณะ และต้องใส่รหัสเข้างานก่อนถึงจะดูรูปได้",
     formPin: "รหัสเข้างาน 6 หลัก",
-    formPinHint:
-      "ตัวเลขล้วน · ให้เฉพาะคนที่ควรเข้าดูได้ · ระบบเก็บแบบเข้ารหัส ดูย้อนหลังไม่ได้ ถ้าลืมต้องตั้งใหม่",
+    formPinHint: "ตัวเลขล้วน · ให้เฉพาะคนที่ควรเข้าดูได้",
     formPinSlot: "รหัสเข้างาน หลักที่ {n} จาก {total}",
     formPinRandom: "สุ่มให้",
-    formPinKeepHint:
-      "ตั้งรหัสไว้แล้ว (ซ่อนไว้ ดูย้อนหลังไม่ได้) — เว้นว่างด้านล่างเพื่อใช้รหัสเดิม หรือกรอก/สุ่มรหัสใหม่เพื่อเปลี่ยน",
     formErrorPinRequired: "งานส่วนตัวต้องตั้งรหัสเข้างาน 6 หลัก",
     formAllowDownload: "อนุญาตให้โหลดรูปต้นฉบับ",
     formAllowDownloadHint:
@@ -586,6 +584,12 @@ export const th = {
     title: "งานอีเวนต์",
     lede: "เลือกงานที่คุณไป แล้วค้นหารูปที่มีหน้าคุณ",
     count: "{count} งาน",
+    searchLabel: "ค้นหาชื่องาน",
+    searchPlaceholder: "พิมพ์ชื่องาน…",
+    searchSubmit: "ค้นหา",
+    searchEmpty: "ไม่พบงานที่ตรงกับ \"{query}\"",
+    searchEmptyBody: "ลองพิมพ์คำอื่น หรือดูงานทั้งหมด",
+    searchClear: "ล้างการค้นหา",
   },
 
   privacy: {
@@ -845,6 +849,13 @@ export const en: Dictionary = {
 
   profile: {
     title: "Profile",
+    settingsTitle: "Profile settings",
+    viewProfile: "View my profile",
+    roleUser: "User",
+    rolePhotographer: "Photographer",
+    roleAdmin: "Admin",
+    memberSince: "Member since {date}",
+
     savedFaceTitle: "Saved face",
     savedFaceNone: "No face saved yet",
     savedFaceNoneBody:
@@ -861,6 +872,9 @@ export const en: Dictionary = {
     savedPhotosNoneBody:
       "When you find yourself in an event's photos, save the ones you want — they'll be here without searching again.",
     savedPhotosRemove: "Remove from saved",
+    savedPhotosHideEvent: "Hide this event",
+    savedPhotosShowEvent: "Show this event",
+    savedPhotosHiddenNote: "Hidden — not shown on your profile",
 
     historyTitle: "Search history",
     historyEmpty: "No searches yet",
@@ -875,12 +889,6 @@ export const en: Dictionary = {
     dangerBody:
       "Permanently deletes your account, saved face, and search history. Photos taken by photographers stay up — those are their work.",
     dangerCta: "Delete my account",
-  },
-
-  memberProfile: {
-    memberSince: "Member since {date}",
-    searchesLabel: "Searches in your events",
-    downloadsLabel: "Downloads from your events",
   },
 
   photographer: {
@@ -924,12 +932,9 @@ export const en: Dictionary = {
     formPrivateHint:
       "Kept out of the public list, and a PIN is required before anyone can see the photos.",
     formPin: "6-digit entry PIN",
-    formPinHint:
-      "Digits only. Give it only to people who should get in. Stored hashed — it cannot be shown again, so set a new one if it is lost.",
+    formPinHint: "Digits only. Give it only to people who should get in.",
     formPinSlot: "Entry PIN, digit {n} of {total}",
     formPinRandom: "Generate",
-    formPinKeepHint:
-      "A PIN is already set (hidden — it cannot be shown again). Leave the fields below blank to keep it, or type or generate a new one to change it.",
     formErrorPinRequired: "A private event needs a 6-digit entry PIN.",
     formAllowDownload: "Allow original downloads",
     formAllowDownloadHint:
@@ -1223,6 +1228,12 @@ export const en: Dictionary = {
     title: "Events",
     lede: "Pick the event you went to, then find the photos you're in.",
     count: "{count} events",
+    searchLabel: "Search by event name",
+    searchPlaceholder: "Type an event name…",
+    searchSubmit: "Search",
+    searchEmpty: 'No events match "{query}"',
+    searchEmptyBody: "Try a different word, or browse every event.",
+    searchClear: "Clear search",
   },
 
   privacy: {

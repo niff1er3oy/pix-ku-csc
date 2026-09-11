@@ -11,35 +11,31 @@ import { usePhotoSelection } from "@/lib/hooks/use-photo-selection";
 import { unsavePhotos } from "@/lib/actions/saved-photos";
 import { t, type Dictionary } from "@/lib/i18n/dictionaries";
 import type { SavedPhoto } from "@/lib/queries/saved-photos";
-import { cn, formatNumber } from "@/lib/utils";
+import { formatNumber } from "@/lib/utils";
 
 /**
- * What a visitor has saved from face searches — every event, on `/me`, or
- * narrowed to just one via `getMySavedPhotosForEvent` on that event's own
- * page (`showEventName={false}` there, since every photo is already that
- * one event's).
+ * What a visitor has saved from this one event's own face search results —
+ * `getMySavedPhotosForEvent` narrows the list, so unlike
+ * `SavedPhotosByEvent` on `/profile/[id]` there is only ever one event's
+ * worth here, and nothing to group or name per photo.
  *
  * Selection and bulk download mirror the same pattern as `FaceSearchPanel`
  * and `EventGallery` — hidden checkboxes until a photo is held for ~1s,
  * "select all" flipping to "deselect all", the bulk button falling back to
  * "download all" when nothing's checked — but only for photos whose saving
- * event still allows it. Each photo's own event can turn downloads off after
- * it was saved, and `/api/media` is the actual enforcement either way; this
- * is just what keeps every link on screen from ever being a 403 waiting to
- * happen, on a list that can span every event a visitor has ever searched.
+ * event still allows it. The event can turn downloads off after a photo was
+ * saved, and `/api/media` is the actual enforcement either way; this is
+ * just what keeps every link on screen from ever being a 403 waiting to
+ * happen.
  */
 export function SavedPhotosSection({
   photos,
   dict,
   locale,
-  showEventName = true,
 }: {
   photos: SavedPhoto[];
   dict: Dictionary;
   locale: "th" | "en";
-  /** Off on an event's own page, where every photo is already that one
-   *  event's — the name would just repeat what the page already says. */
-  showEventName?: boolean;
 }) {
   const [items, setItems] = useState(photos);
   const downloadable = items.filter((p) => p.allowOriginalDownload);
@@ -123,17 +119,7 @@ export function SavedPhotosSection({
                 ? () => toggleSelect(photo.photoId)
                 : undefined,
               footer: (
-                <div
-                  className={cn(
-                    "flex items-center gap-2 p-3",
-                    showEventName ? "justify-between" : "justify-end",
-                  )}
-                >
-                  {showEventName && (
-                    <span className="min-w-0 truncate text-caption text-slate">
-                      {photo.eventNameTh}
-                    </span>
-                  )}
+                <div className="flex items-center justify-end gap-2 p-3">
                   <div className="flex items-center gap-1">
                     {photo.allowOriginalDownload && (
                       <a

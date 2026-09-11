@@ -346,7 +346,12 @@ export default async function StudioEventPage({
               // would make neither mean anything.
               const avatarContent = s.userImage ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={s.userImage} alt="" className="h-full w-full object-cover" />
+                <img
+                  src={s.userImage}
+                  alt=""
+                  referrerPolicy="no-referrer"
+                  className="h-full w-full object-cover"
+                />
               ) : initial ? (
                 <span className="font-display text-label font-semibold" aria-hidden>
                   {initial}
@@ -449,7 +454,12 @@ export default async function StudioEventPage({
 
               const avatarContent = d.userImage ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={d.userImage} alt="" className="h-full w-full object-cover" />
+                <img
+                  src={d.userImage}
+                  alt=""
+                  referrerPolicy="no-referrer"
+                  className="h-full w-full object-cover"
+                />
               ) : initial ? (
                 <span className="font-display text-label font-semibold" aria-hidden>
                   {initial}

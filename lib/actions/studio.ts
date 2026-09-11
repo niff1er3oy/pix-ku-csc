@@ -8,7 +8,7 @@ import * as z from "zod";
 import { db } from "@/db";
 import { events, photoFaces, photos } from "@/db/schema";
 import { requireApprovedPhotographer } from "@/lib/dal";
-import { hashPin, isPin } from "@/lib/event-pin";
+import { isPin } from "@/lib/event-pin";
 import {
   ACCEPTED_MIME,
   buildCoverImage,
@@ -106,7 +106,8 @@ const EventInput = z.object({
   isPrivate: z.union([z.literal("on"), z.null(), z.undefined()]),
   /**
    * Six digits, or absent on a public event where the field is not rendered
-   * at all — hence `.nullish()`. Hashed before it is stored.
+   * at all — hence `.nullish()`. Stored as typed — see the note on
+   * `entryPin` in `db/schema.ts`.
    */
   entryPin: z.string().nullish(),
 });
@@ -178,7 +179,7 @@ export async function createEvent(
     return { error: "pin_required", values: echo };
   }
 
-  const entryPinHash = wantsPrivate ? await hashPin(data.entryPin!) : null;
+  const entryPin = wantsPrivate ? data.entryPin! : null;
 
   // Decoded before anything is written, so a bad file cannot leave a
   // half-created event behind — see the note on `prepareCover`.
@@ -213,7 +214,7 @@ export async function createEvent(
         location: data.location || null,
         eventDate: data.eventDate,
         isPrivate: wantsPrivate,
-        entryPinHash,
+        entryPin,
         ownerId: photographer.id,
         status: "draft",
       })
@@ -253,7 +254,8 @@ const EventInfoInput = z.object({
   isPrivate: z.union([z.literal("on"), z.null(), z.undefined()]),
   /**
    * Six digits, or absent on a public event where the field is not rendered
-   * at all — hence `.nullish()`. Hashed before it is stored.
+   * at all — hence `.nullish()`. Stored as typed — see the note on
+   * `entryPin` in `db/schema.ts`.
    */
   entryPin: z.string().nullish(),
 });
@@ -286,8 +288,7 @@ export type EventInfoState =
  * field the photographer never touched.
  *
  * The PIN behaves the same way it always has: leaving it blank means "keep
- * the one already set," not "no PIN" — see the note on `entryPinHash`, a
- * hash cannot be shown back to confirm, so requiring a retype on every save
+ * the one already set," not "no PIN" — requiring a retype on every save
  * would force a new PIN every time somebody fixed a typo in the name.
  */
 export async function updateEventInfo(
@@ -305,7 +306,7 @@ export async function updateEventInfo(
       id: events.id,
       coverPath: events.coverPath,
       isPrivate: events.isPrivate,
-      entryPinHash: events.entryPinHash,
+      entryPin: events.entryPin,
     })
     .from(events)
     .where(and(eq(events.id, idResult.data), eq(events.ownerId, photographer.id)))
@@ -334,17 +335,26 @@ export async function updateEventInfo(
   const data = parsed.data;
   const wantsPrivate = data.isPrivate === "on";
 
-  let entryPinHash = event.entryPinHash;
+  let entryPin = event.entryPin;
   if (!wantsPrivate) {
-    entryPinHash = null;
-  } else if (data.entryPin && isPin(data.entryPin)) {
-    entryPinHash = await hashPin(data.entryPin);
+    entryPin = null;
+  } else if (data.entryPin) {
+    // Any non-empty PIN field is an attempt to set or change it — refused
+    // loudly if it is not six digits, rather than silently falling through
+    // to "keep the old one," which would report success while doing
+    // nothing a photographer who just typed a new PIN would expect.
+    if (!isPin(data.entryPin)) {
+      return { ok: false, error: "pin_required", values: echo };
+    }
+    entryPin = data.entryPin;
   } else if (!event.isPrivate) {
     // Turning a public event private with no PIN typed — refused rather
     // than quietly downgraded, same as on creation.
     return { ok: false, error: "pin_required", values: echo };
   }
-  // else: already private and no new PIN was typed — entryPinHash stays.
+  // else: already private and the PIN field was left blank — entryPin
+  // stays, the same "leaving it blank keeps the one already set" behaviour
+  // this has always had.
 
   // Decoded before anything is written — see the note on `prepareCover`.
   let cover: Buffer | null;
@@ -382,7 +392,7 @@ export async function updateEventInfo(
         descriptionTh: data.descriptionTh || null,
         coverPath,
         isPrivate: wantsPrivate,
-        entryPinHash,
+        entryPin,
         updatedAt: new Date(),
       })
       .where(eq(events.id, event.id));

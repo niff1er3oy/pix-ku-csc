@@ -1,10 +1,10 @@
 "use server";
 
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import { db } from "@/db";
-import { consents, userFaces } from "@/db/schema";
+import { consents, profileHiddenEvents, userFaces } from "@/db/schema";
 import { requireUser } from "@/lib/dal";
 import { assertSingleFace, FaceError } from "@/lib/face";
 import { ACCEPTED_MIME, buildDetectionCopy, MAX_SELFIE_BYTES } from "@/lib/images";
@@ -140,4 +140,34 @@ export async function deleteFace(): Promise<void> {
   await deleteStoragePath(existing.imagePath);
 
   revalidatePath("/me");
+}
+
+/**
+ * Hides one event's saved-photo group from `/profile/[id]` — an opt-out,
+ * not a delete: the photos stay saved, `unsavePhotos` is the only thing
+ * that actually removes one. Idempotent, the same way `savePhotos` is,
+ * since two tabs toggling the same event at once should never race into an
+ * error.
+ */
+export async function hideEventFromProfile(eventId: string): Promise<void> {
+  const user = await requireUser();
+  await db
+    .insert(profileHiddenEvents)
+    .values({ userId: user.id, eventId })
+    .onConflictDoNothing();
+  revalidatePath(`/profile/${user.id}`);
+}
+
+/** Undoes `hideEventFromProfile` — the event's group shows on `/profile/[id]` again. */
+export async function showEventOnProfile(eventId: string): Promise<void> {
+  const user = await requireUser();
+  await db
+    .delete(profileHiddenEvents)
+    .where(
+      and(
+        eq(profileHiddenEvents.userId, user.id),
+        eq(profileHiddenEvents.eventId, eventId),
+      ),
+    );
+  revalidatePath(`/profile/${user.id}`);
 }

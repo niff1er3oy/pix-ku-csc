@@ -113,6 +113,27 @@
       "when": 1788990517931,
       "tag": "0015_heavy_orphan",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1789059137634,
+      "tag": "0016_small_hiroim",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1789118568989,
+      "tag": "0017_productive_deathbird",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1789118591443,
+      "tag": "0018_classy_tomorrow_man",
+      "breakpoints": true
     }
   ]
 }

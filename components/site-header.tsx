@@ -98,7 +98,7 @@ export async function SiteHeader() {
 
           {user ? (
             <Link
-              href="/me"
+              href={`/profile/${user.id}`}
               className="ml-1 flex min-h-11 items-center gap-2 rounded-pill py-1 pl-1 pr-3 text-slate transition-colors duration-200 hover:bg-cloud hover:text-green-700"
             >
               <Avatar src={user.image} size={30} />

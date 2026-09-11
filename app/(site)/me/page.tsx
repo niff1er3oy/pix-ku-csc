@@ -1,38 +1,43 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { SavedFaceSection } from "@/components/profile/saved-face-section";
-import { SavedPhotosSection } from "@/components/profile/saved-photos-section";
 import { requireUser } from "@/lib/dal";
 import { getDictionary, getLocale } from "@/lib/i18n";
 import { getMyFace } from "@/lib/queries/profile";
-import { getMySavedPhotos } from "@/lib/queries/saved-photos";
 
 export async function generateMetadata(): Promise<Metadata> {
   const dict = await getDictionary();
-  return { title: dict.profile.title };
+  return { title: dict.profile.settingsTitle };
 }
 
 /**
- * `/me`, the destination `SiteHeader`'s avatar chip already links to.
- * Saved face and saved photos are here so far — history and consent
- * withdrawal have dictionary strings ready (see `profile.*` in
- * `dictionaries.ts`) but no page yet.
+ * `/me`, the destination `SiteHeader`'s avatar chip links to — settings for
+ * the account itself (the saved face a search runs against; consent and
+ * account deletion have dictionary strings ready but no section here yet),
+ * not the account's public-facing display. That now lives on
+ * `/profile/[id]` (this account's own id), which is also where the saved
+ * photos themselves — and hiding one event's group from other viewers —
+ * are managed, right alongside how everyone else sees them.
  */
 export default async function ProfilePage() {
   const user = await requireUser();
   const [dict, locale] = await Promise.all([getDictionary(), getLocale()]);
-  const [face, savedPhotos] = await Promise.all([
-    getMyFace(user.id),
-    getMySavedPhotos(user.id),
-  ]);
+  const face = await getMyFace(user.id);
 
   return (
     <section className="mx-auto w-full max-w-2xl px-5 py-16 sm:px-8 sm:py-24">
-      <h1 className="text-h1 font-bold">{dict.profile.title}</h1>
+      <h1 className="text-h1 font-bold">{dict.profile.settingsTitle}</h1>
+
+      <Link
+        href={`/profile/${user.id}`}
+        className="mt-3 inline-block text-label font-medium text-green-700 underline underline-offset-4"
+      >
+        {dict.profile.viewProfile}
+      </Link>
 
       <div className="mt-8 space-y-6">
         <SavedFaceSection dict={dict} locale={locale} face={face} />
-        <SavedPhotosSection dict={dict} photos={savedPhotos} locale={locale} />
       </div>
     </section>
   );

@@ -67,10 +67,10 @@ export function FaceSearchPanel({
   // `setSelectedIds` below.
   const { selectedIds, setSelectedIds, toggleSelect, allSelected, toggleSelectAll } =
     usePhotoSelection(matches.map((m) => m.photoId));
-  // Which matches are already saved to `/me` — seeded from the search
-  // response (a visitor can have saved a photo from a previous search of
-  // this same event) and kept in sync as the bookmark toggle and the bulk
-  // "save selected" button act on it.
+  // Which matches are already saved (shown on `/profile/[id]`) — seeded
+  // from the search response (a visitor can have saved a photo from a
+  // previous search of this same event) and kept in sync as the bookmark
+  // toggle and the bulk "save selected" button act on it.
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);

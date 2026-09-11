@@ -240,15 +240,13 @@ export const events = pgTable(
     isPrivate: boolean("is_private").notNull().default(false),
 
     /**
-     * scrypt hash of the six-digit entry PIN, as `salt:hash`. Null on a public
-     * event.
+     * The six-digit entry PIN, plain. Null on a public event.
      *
-     * Hashed rather than stored, at the owner's direction, so the PIN cannot be
-     * read back out of the database — not by an admin screen, not by whoever
-     * ends up with a backup. The photographer sees it once when it is set and
-     * generates a new one if they lose it. See lib/event-pin.ts.
+     * Stored in the clear rather than hashed, at the owner's direction, so
+     * the settings page can show it back to the photographer any time —
+     * not just once at the moment it is set. See lib/event-pin.ts.
      */
-    entryPinHash: text("entry_pin_hash"),
+    entryPin: text("entry_pin"),
     /**
      * The six-character code printed under the QR — never chosen by a
      * photographer or a visitor, and **the event's public address**: the page
@@ -539,6 +537,37 @@ export const savedPhotos = pgTable(
   (t) => [
     uniqueIndex("saved_photo_user_photo_idx").on(t.userId, t.photoId),
     index("saved_photo_user_idx").on(t.userId),
+  ],
+);
+
+/**
+ * An opt-out, not an opt-in: a saved photo's event shows on `/profile/[id]`
+ * by default, and a row here is what hides one event's group from that
+ * page — absence means visible. That way turning this feature on never
+ * makes anything a visitor already saved disappear until they actually
+ * hide it.
+ *
+ * A private event's photos are never shown regardless of this table — that
+ * rule lives in the query, not here, since it is not a preference either
+ * side can override.
+ */
+export const profileHiddenEvents = pgTable(
+  "profile_hidden_event",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("profile_hidden_event_user_event_idx").on(t.userId, t.eventId),
+    index("profile_hidden_event_user_idx").on(t.userId),
   ],
 );
 

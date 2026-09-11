@@ -67,7 +67,7 @@ export function EventInfoForm({
   // PIN, either a freshly typed one or the one already saved on the event.
   // Shown live rather than only after a rejected submit — the round trip
   // was otherwise the first place a photographer found out.
-  const needsPin = isPrivate && !event.hasPin && pinValue.length < 6;
+  const needsPin = isPrivate && !event.entryPin && pinValue.length < 6;
 
   return (
     <form action={action} className="rounded-card bg-cloud p-5 sm:p-6">
@@ -144,17 +144,18 @@ export function EventInfoForm({
             hint={labels.formPrivateHint}
           />
 
-          {isPrivate && event.hasPin && (
-            <p className="text-caption text-slate">{labels.formPinKeepHint}</p>
-          )}
-
           {needsPin && (
             <p className="rounded-field bg-lime-100 px-4 py-3 text-label text-green-900">
               {labels.formErrorPinRequired}
             </p>
           )}
 
-          <PinField labels={labels} enabled={isPrivate} onChange={setPinValue} />
+          <PinField
+            labels={labels}
+            enabled={isPrivate}
+            initialValue={event.entryPin ?? undefined}
+            onChange={setPinValue}
+          />
         </div>
 
         <Submit label={labels.formSave} />

@@ -213,8 +213,9 @@ export type StudioEventSettings = {
   eventDate: string;
   status: "draft" | "pending" | "approved" | "rejected" | "archived";
   isPrivate: boolean;
-  /** The hash itself is never read back — see the note on `updateEvent`. */
-  hasPin: boolean;
+  /** Stored in the clear, so the settings form can show it back — see the
+   *  note on `entryPin` in `db/schema.ts`. Null on a public event. */
+  entryPin: string | null;
   accessCode: string;
   photoCount: number;
   coverPath: string | null;
@@ -249,7 +250,7 @@ export async function getMyEventSettings(
       eventDate: events.eventDate,
       status: events.status,
       isPrivate: events.isPrivate,
-      entryPinHash: events.entryPinHash,
+      entryPin: events.entryPin,
       accessCode: events.accessCode,
       photoCount: events.photoCount,
       coverPath: events.coverPath,
@@ -265,11 +266,7 @@ export async function getMyEventSettings(
     .where(and(eq(events.id, id), eq(events.ownerId, photographerId)))
     .limit(1);
 
-  const row = rows[0];
-  if (!row) return null;
-
-  const { entryPinHash, ...rest } = row;
-  return { ...rest, hasPin: entryPinHash !== null };
+  return rows[0] ?? null;
 }
 
 export type StudioPhoto = {
@@ -487,67 +484,3 @@ export async function getMyEventDownloaders(
     .limit(limit);
 }
 
-export type StudioMemberProfile = {
-  id: string;
-  name: string | null;
-  email: string | null;
-  image: string | null;
-  role: "user" | "photographer" | "admin";
-  createdAt: Date;
-  /** Searches and downloads, counted only across events this photographer
-   *  owns — not the member's activity site-wide. */
-  searchCount: number;
-  downloadCount: number;
-};
-
-/**
- * One member, as a photographer is allowed to see them: name, contact, and
- * how much they have searched or downloaded — never their saved face, which
- * is that account's own and is not exposed here or anywhere outside `/me`.
- *
- * Scoped by more than the id. A photographer can look up a member only
- * because that member has already searched or downloaded from one of *this*
- * photographer's own events — checked before the profile is ever fetched, so
- * this cannot become a way to browse arbitrary user ids across the whole
- * site. Returns null on either a missing user or a real one this
- * photographer has no standing to view; the caller 404s on both the same way,
- * so a probing request cannot tell the two apart.
- */
-export async function getMemberProfile(
-  photographerId: string,
-  userId: string,
-): Promise<StudioMemberProfile | null> {
-  const [[searchRow], [downloadRow]] = await Promise.all([
-    db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(searches)
-      .innerJoin(events, eq(searches.eventId, events.id))
-      .where(and(eq(searches.userId, userId), eq(events.ownerId, photographerId))),
-    db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(downloads)
-      .innerJoin(photos, eq(downloads.photoId, photos.id))
-      .innerJoin(events, eq(photos.eventId, events.id))
-      .where(and(eq(downloads.userId, userId), eq(events.ownerId, photographerId))),
-  ]);
-
-  const searchCount = searchRow?.count ?? 0;
-  const downloadCount = downloadRow?.count ?? 0;
-  if (searchCount === 0 && downloadCount === 0) return null;
-
-  const [user] = await db
-    .select({
-      id: users.id,
-      name: users.name,
-      email: users.email,
-      image: users.image,
-      role: users.role,
-      createdAt: users.createdAt,
-    })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
-  if (!user) return null;
-
-  return { ...user, searchCount, downloadCount };
-}

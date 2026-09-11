@@ -9,6 +9,7 @@ import {
   photoFaces,
   photographers,
   photos,
+  profileHiddenEvents,
   savedPhotos,
   searches,
   searchMatches,
@@ -29,6 +30,7 @@ export const usersRelations = relations(users, ({ many, one }) => ({
   searches: many(searches),
   notifications: many(notifications),
   savedPhotos: many(savedPhotos),
+  profileHiddenEvents: many(profileHiddenEvents),
 }));
 
 export const accountsRelations = relations(accounts, ({ one }) => ({
@@ -58,6 +60,7 @@ export const eventsRelations = relations(events, ({ one, many }) => ({
   photos: many(photos),
   faces: many(photoFaces),
   searches: many(searches),
+  profileHiddenFor: many(profileHiddenEvents),
 }));
 
 export const photosRelations = relations(photos, ({ one, many }) => ({
@@ -110,6 +113,20 @@ export const savedPhotosRelations = relations(savedPhotos, ({ one }) => ({
   }),
   user: one(users, { fields: [savedPhotos.userId], references: [users.id] }),
 }));
+
+export const profileHiddenEventsRelations = relations(
+  profileHiddenEvents,
+  ({ one }) => ({
+    user: one(users, {
+      fields: [profileHiddenEvents.userId],
+      references: [users.id],
+    }),
+    event: one(events, {
+      fields: [profileHiddenEvents.eventId],
+      references: [events.id],
+    }),
+  }),
+);
 
 export const consentsRelations = relations(consents, ({ one }) => ({
   user: one(users, { fields: [consents.userId], references: [users.id] }),

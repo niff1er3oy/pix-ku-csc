@@ -8,7 +8,7 @@ import { NextResponse, type NextRequest } from "next/server";
  * including prefetches.
  */
 
-const PRIVATE_PREFIXES = ["/studio", "/admin", "/me"];
+const PRIVATE_PREFIXES = ["/studio", "/admin", "/me", "/profile"];
 
 export default function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
