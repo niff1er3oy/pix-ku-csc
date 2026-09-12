@@ -4,6 +4,8 @@ import { Directory } from "@/components/admin/directory";
 import { IndexingMeter, StatTiles } from "@/components/admin/metrics";
 import { SearchesChart } from "@/components/admin/searches-chart";
 import { ReviewRow } from "@/components/admin/review-row";
+import { ButtonLink } from "@/components/ui/button";
+import { UsersIcon } from "@/components/ui/icon";
 import {
   approveEvent,
   approvePhotographer,
@@ -92,14 +94,22 @@ export default async function AdminPage({
 
   return (
     <section className="mx-auto w-full max-w-5xl px-5 py-16 sm:px-8 sm:py-24">
-      <h1 className="text-h1 font-bold">{dict.admin.title}</h1>
-      <p className="tnum mt-3 text-body-lg text-slate">
-        {waiting > 0
-          ? t(dict.admin.reviewCount, {
-              count: formatNumber(waiting, locale),
-            })
-          : dict.admin.reviewClear}
-      </p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-h1 font-bold">{dict.admin.title}</h1>
+          <p className="tnum mt-3 text-body-lg text-slate">
+            {waiting > 0
+              ? t(dict.admin.reviewCount, {
+                  count: formatNumber(waiting, locale),
+                })
+              : dict.admin.reviewClear}
+          </p>
+        </div>
+        <ButtonLink href="/admin/affiliations" variant="secondary" size="md">
+          <UsersIcon size={18} />
+          {dict.admin.manageAffiliations}
+        </ButtonLink>
+      </div>
 
       <StatTiles totals={metrics.totals} labels={dict.admin} locale={locale} />
 
@@ -136,7 +146,7 @@ export default async function AdminPage({
                 key={row.id}
                 id={row.id}
                 title={row.displayName}
-                meta={[row.affiliation, row.contactEmail]}
+                meta={[row.contactEmail]}
                 body={row.bio}
                 submitted={formatDate(row.createdAt, locale)}
                 approve={approvePhotographer}

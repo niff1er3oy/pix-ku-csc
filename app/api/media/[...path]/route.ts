@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 
 import { db } from "@/db";
 import { downloads, events, photographers, photos, type Event } from "@/db/schema";
-import { getPhotographer, getSessionUser } from "@/lib/dal";
+import { canManageEvent, getPhotographer, getSessionUser } from "@/lib/dal";
 import { applyWatermark } from "@/lib/images";
 import { notifyPhotoDownloaded } from "@/lib/notifications";
 import { readStorageFile } from "@/lib/storage";
@@ -141,8 +141,7 @@ async function authorize(
 
   const user = await getSessionUser();
   const photographer = user ? await getPhotographer(user.id) : null;
-  const isManager =
-    user?.role === "admin" || photographer?.id === event.ownerId;
+  const isManager = !!user && canManageEvent(user, event, photographer);
 
   // Before approval only the owner and admins can see anything at all.
   if (event.status !== "approved" && !isManager) {

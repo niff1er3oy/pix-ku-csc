@@ -7,7 +7,7 @@ import { requireRole } from "@/lib/dal";
 import { getDictionary, getLocale, t } from "@/lib/i18n";
 import { getPhotographerEvents } from "@/lib/queries/admin";
 import { db } from "@/db";
-import { photographers } from "@/db/schema";
+import { affiliations, photographers } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { formatDate, formatNumber } from "@/lib/utils";
 
@@ -31,11 +31,12 @@ export default async function PhotographerEventsPage({
   const [photographer] = await db
     .select({
       displayName: photographers.displayName,
-      affiliation: photographers.affiliation,
+      affiliationName: affiliations.name,
       status: photographers.status,
       contactEmail: photographers.contactEmail,
     })
     .from(photographers)
+    .leftJoin(affiliations, eq(photographers.affiliationId, affiliations.id))
     .where(eq(photographers.id, id))
     .limit(1);
 
@@ -54,7 +55,7 @@ export default async function PhotographerEventsPage({
 
       <h1 className="mt-4 text-h1 font-bold">{photographer.displayName}</h1>
       <p className="mt-2 text-label text-slate">
-        {[photographer.affiliation, photographer.contactEmail]
+        {[photographer.affiliationName, photographer.contactEmail]
           .filter(Boolean)
           .join(" · ")}
       </p>

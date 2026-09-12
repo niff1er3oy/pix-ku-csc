@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import { ButtonLink } from "@/components/ui/button";
 import { GridBackground } from "@/components/ui/grid-background";
-import { CalendarIcon, LockIcon, PhotoIcon, SettingsIcon } from "@/components/ui/icon";
+import { CalendarIcon, LockIcon, PhotoIcon, SettingsIcon, UsersIcon } from "@/components/ui/icon";
 import { DeleteEvent } from "@/components/studio/delete-event";
 import { StatusChip } from "@/components/studio/status-chip";
 import { requireApprovedPhotographer } from "@/lib/dal";
@@ -34,9 +34,15 @@ export default async function StudioPage() {
     <section className="mx-auto w-full max-w-4xl px-5 py-16 sm:px-8 sm:py-24">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <h1 className="text-h1 font-bold">{dict.studio.title}</h1>
-        <ButtonLink href="/studio/events/new" size="md">
-          {dict.studio.newEvent}
-        </ButtonLink>
+        <div className="flex flex-wrap items-center gap-2">
+          <ButtonLink href="/studio/affiliation" variant="secondary" size="md">
+            <UsersIcon size={18} />
+            {dict.affiliationStudio.title}
+          </ButtonLink>
+          <ButtonLink href="/studio/events/new" size="md">
+            {dict.studio.newEvent}
+          </ButtonLink>
+        </div>
       </div>
 
       {events.length === 0 ? (

@@ -141,6 +141,31 @@ export const verificationTokens = pgTable(
 );
 
 // ---------------------------------------------------------------------------
+// Affiliations
+// ---------------------------------------------------------------------------
+
+/**
+ * A faculty, club, or team — no longer a free-typed string on a
+ * photographer's own row, but a real group an admin stands up, with its own
+ * shared studio every member has full run of.
+ *
+ * `joinCode` is what an admin hands whoever should join, and what a current
+ * member can still hand to someone new themselves (see
+ * `addAffiliationMember` in `lib/actions/affiliations.ts`) — plain, not
+ * hashed, for the same reason an event's own `entryPin` is: someone has to
+ * be able to read it back and pass it along.
+ */
+export const affiliations = pgTable("affiliation", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  joinCode: text("join_code").notNull().unique(),
+  createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+// ---------------------------------------------------------------------------
 // Photographers
 // ---------------------------------------------------------------------------
 
@@ -156,8 +181,14 @@ export const photographers = pgTable(
     bio: text("bio"),
     contactEmail: text("contact_email"),
     contactPhone: text("contact_phone"),
-    /** Faculty / club / company the photographer shoots for. */
-    affiliation: text("affiliation"),
+    /** The faculty, club, or team this photographer belongs to, if any — a
+     *  membership in `affiliations`, not free text. Null reads as
+     *  independent ("อิสระ") everywhere this shows. Joining, leaving, and
+     *  who else can add or remove a member all live in
+     *  `lib/actions/affiliations.ts`, not here. */
+    affiliationId: uuid("affiliation_id").references(() => affiliations.id, {
+      onDelete: "set null",
+    }),
     status: approvalStatus("status").notNull().default("pending"),
     reviewedBy: uuid("reviewed_by").references(() => users.id, {
       onDelete: "set null",
@@ -168,7 +199,10 @@ export const photographers = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (t) => [index("photographer_status_idx").on(t.status)],
+  (t) => [
+    index("photographer_status_idx").on(t.status),
+    index("photographer_affiliation_idx").on(t.affiliationId),
+  ],
 );
 
 // ---------------------------------------------------------------------------
@@ -201,6 +235,15 @@ export const events = pgTable(
     ownerId: uuid("owner_id")
       .notNull()
       .references(() => photographers.id, { onDelete: "cascade" }),
+
+    /** Set when this event was created from an affiliation's shared studio
+     *  rather than a photographer's own — `ownerId` still names exactly who
+     *  actually created and shot it, this just also opens it to every other
+     *  member of the same affiliation for co-management. Null for an event
+     *  created the ordinary, solo way. See `canManageEvent` in lib/dal.ts. */
+    affiliationId: uuid("affiliation_id").references(() => affiliations.id, {
+      onDelete: "set null",
+    }),
 
     status: eventStatus("status").notNull().default("draft"),
     reviewedBy: uuid("reviewed_by").references(() => users.id, {
@@ -303,6 +346,7 @@ export const events = pgTable(
   (t) => [
     index("event_status_idx").on(t.status),
     index("event_owner_idx").on(t.ownerId),
+    index("event_affiliation_idx").on(t.affiliationId),
     index("event_date_idx").on(t.eventDate),
     // Unique, and also the index the finder's lookup runs on — every visit
     // that starts from a printed code hits exactly this.

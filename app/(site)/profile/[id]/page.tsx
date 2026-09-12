@@ -175,7 +175,7 @@ export default async function ProfilePage({
       {isPhotographer && (
         <p className="mt-2 flex items-center gap-1.5 text-label text-slate">
           <span className="font-medium text-ink">{dict.photographer.affiliation}:</span>
-          {photographerInfo?.affiliation ? (
+          {photographerInfo?.affiliationName ? (
             // Links out to the directory of every affiliation rather than a
             // filtered view of just this one — `/affiliations` has no
             // per-group route yet, only the one list.
@@ -183,7 +183,7 @@ export default async function ProfilePage({
               href="/affiliations"
               className="underline-offset-4 hover:text-green-700 hover:underline"
             >
-              {photographerInfo.affiliation}
+              {photographerInfo.affiliationName}
             </Link>
           ) : (
             dict.photographer.affiliationIndependent

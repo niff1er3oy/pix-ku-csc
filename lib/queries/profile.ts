@@ -4,6 +4,7 @@ import { and, count, countDistinct, eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
+  affiliations,
   downloads,
   events,
   photographers,
@@ -60,7 +61,7 @@ export async function getPublicProfile(userId: string): Promise<PublicProfile | 
 export type PublicPhotographerInfo = {
   displayName: string;
   bio: string | null;
-  affiliation: string | null;
+  affiliationName: string | null;
 };
 
 /**
@@ -84,9 +85,10 @@ export async function getPhotographerProfileInfo(
     .select({
       displayName: photographers.displayName,
       bio: photographers.bio,
-      affiliation: photographers.affiliation,
+      affiliationName: affiliations.name,
     })
     .from(photographers)
+    .leftJoin(affiliations, eq(photographers.affiliationId, affiliations.id))
     .where(eq(photographers.userId, userId))
     .limit(1);
   return row ?? null;

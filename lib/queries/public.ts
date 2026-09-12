@@ -1,9 +1,9 @@
 import "server-only";
 
-import { and, count, desc, eq, ilike, isNotNull, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { events, photoFaces, photographers, photos, users } from "@/db/schema";
+import { affiliations, events, photoFaces, photographers, photos, users } from "@/db/schema";
 
 export type EventCard = {
   id: string;
@@ -232,6 +232,7 @@ export async function getSiteStats(): Promise<SiteStats> {
 }
 
 export type AffiliationGroup = {
+  id: string;
   name: string;
   photographers: {
     userId: string;
@@ -241,41 +242,48 @@ export type AffiliationGroup = {
 };
 
 /**
- * Every affiliation an approved photographer has actually typed, grouped —
- * "อิสระ" (independent) never appears here, because it is not a real
- * affiliation anyone entered; it is only ever the fallback `/profile/[id]`
- * shows in its place. Public with no session required, the same as
- * `/events`: this is a directory of who shoots for whom, not anyone's own
- * data.
+ * Every affiliation that exists — "อิสระ" (independent) never appears here,
+ * because it is not a row in `affiliations` at all; it is only ever the
+ * fallback `/profile/[id]` displays in its place for a photographer with no
+ * `affiliationId`. Public with no session required, the same as `/events`:
+ * this is a directory of who shoots for whom, not anyone's own data.
+ *
+ * An affiliation with no approved members yet still shows, with an empty
+ * list — an admin can create one before anyone has joined it, and it not
+ * appearing here until someone does would make the join code an admin just
+ * handed out look like it went nowhere.
  */
 export async function getAffiliations(): Promise<AffiliationGroup[]> {
   const rows = await db
     .select({
-      affiliation: photographers.affiliation,
+      id: affiliations.id,
+      name: affiliations.name,
       userId: photographers.userId,
       displayName: photographers.displayName,
       image: users.image,
     })
-    .from(photographers)
-    .innerJoin(users, eq(photographers.userId, users.id))
-    .where(and(eq(photographers.status, "approved"), isNotNull(photographers.affiliation)))
-    .orderBy(photographers.affiliation, photographers.displayName);
+    .from(affiliations)
+    .leftJoin(
+      photographers,
+      and(eq(photographers.affiliationId, affiliations.id), eq(photographers.status, "approved")),
+    )
+    .leftJoin(users, eq(photographers.userId, users.id))
+    .orderBy(asc(affiliations.name), asc(photographers.displayName));
 
   const groups = new Map<string, AffiliationGroup>();
   for (const row of rows) {
-    // Narrowed by the `isNotNull` filter above; the column type alone
-    // cannot express that here.
-    const name = row.affiliation as string;
-    let group = groups.get(name);
+    let group = groups.get(row.id);
     if (!group) {
-      group = { name, photographers: [] };
-      groups.set(name, group);
+      group = { id: row.id, name: row.name, photographers: [] };
+      groups.set(row.id, group);
     }
-    group.photographers.push({
-      userId: row.userId,
-      displayName: row.displayName,
-      image: row.image,
-    });
+    if (row.userId) {
+      group.photographers.push({
+        userId: row.userId,
+        displayName: row.displayName!,
+        image: row.image,
+      });
+    }
   }
 
   return [...groups.values()].sort((a, b) => a.name.localeCompare(b.name, "th"));

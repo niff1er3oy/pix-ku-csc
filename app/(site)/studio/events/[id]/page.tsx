@@ -40,16 +40,17 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { photographer } = await requireApprovedPhotographer();
   const { id } = await params;
-  const event = await getMyEvent(photographer.id, id);
+  const event = await getMyEvent(photographer, id);
   return { title: event?.nameTh ?? "" };
 }
 
 /**
- * One event, from its owner's side.
+ * One event, from a manager's side — its owner, or (see `ownedOrSharedEvents`
+ * in `lib/dal.ts`) any other member of the affiliation it was created under.
  *
- * `getMyEvent` filters on `ownerId` inside the query, so an id belonging to
- * somebody else returns nothing and this 404s rather than showing a stranger
- * their access code — the one value that opens an unlisted gallery.
+ * `getMyEvent` filters on that same condition inside the query, so an id
+ * nobody here may manage returns nothing and this 404s rather than showing a
+ * stranger their access code — the one value that opens an unlisted gallery.
  */
 export default async function StudioEventPage({
   params,
@@ -82,7 +83,7 @@ export default async function StudioEventPage({
       : 20;
   const [locale, dict] = await Promise.all([getLocale(), getDictionary()]);
 
-  const event = await getMyEvent(photographer.id, id);
+  const event = await getMyEvent(photographer, id);
   if (!event) notFound();
 
   // Catches whatever `indexPhotoFaces` itself couldn't — see the note on
@@ -98,14 +99,14 @@ export default async function StudioEventPage({
     downloader === undefined ? undefined : downloader === "anonymous" ? null : downloader;
 
   const [photos, searches, downloaders] = await Promise.all([
-    getMyEventPhotos(photographer.id, id, {
+    getMyEventPhotos(photographer, id, {
       faceId: face,
       searchId: search,
       downloaderId,
       limit: show,
     }),
-    getMyEventSearches(photographer.id, id),
-    getMyEventDownloaders(photographer.id, id),
+    getMyEventSearches(photographer, id),
+    getMyEventDownloaders(photographer, id),
   ]);
   const [qr, url] = [await eventQrSvg(event.accessCode), eventUrl(event.accessCode)];
   const activeSearch = search ? searches.find((s) => s.id === search) : undefined;

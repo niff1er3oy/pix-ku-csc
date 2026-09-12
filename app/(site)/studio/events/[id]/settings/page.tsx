@@ -18,7 +18,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { photographer } = await requireApprovedPhotographer();
   const { id } = await params;
-  const event = await getMyEventSettings(photographer.id, id);
+  const event = await getMyEventSettings(photographer, id);
   return { title: event ? `${event.nameTh} · Settings` : "" };
 }
 
@@ -39,7 +39,7 @@ export default async function StudioEventSettingsPage({
   const { id } = await params;
   const dict = await getDictionary();
 
-  const event = await getMyEventSettings(photographer.id, id);
+  const event = await getMyEventSettings(photographer, id);
   if (!event) notFound();
 
   const canPause = event.status === "approved" || event.status === "archived";

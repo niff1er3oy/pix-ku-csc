@@ -38,7 +38,7 @@ export default async function AffiliationsPage() {
         <ul className="mt-10 space-y-4">
           {groups.map((group, i) => (
             <li
-              key={group.name}
+              key={group.id}
               className={`enter rounded-card bg-paper p-5 shadow-[var(--shadow-card)] sm:p-6 ${enterDelay(i)}`}
             >
               <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">

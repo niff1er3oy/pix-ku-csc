@@ -9,7 +9,7 @@ import { SavedPhotosSection } from "@/components/profile/saved-photos-section";
 import { FaceSearchPanel } from "@/components/search/face-search-panel";
 import { Avatar } from "@/components/ui/avatar";
 import { GridBackground } from "@/components/ui/grid-background";
-import { getPhotographer, getSessionUser } from "@/lib/dal";
+import { canManageEvent, getPhotographer, getSessionUser } from "@/lib/dal";
 import { isPinCookieValid, pinCookieName } from "@/lib/event-pin";
 import { getDictionary, getLocale, t } from "@/lib/i18n";
 import {
@@ -74,8 +74,7 @@ export default async function EventPage({
     user ? getMyFace(user.id) : null,
     user ? getMySavedPhotosForEvent(user.id, event.id) : [],
   ]);
-  const isManager =
-    user?.role === "admin" || photographer?.id === event.ownerId;
+  const isManager = !!user && canManageEvent(user, event, photographer);
 
   // Before approval the event exists only for its owner and for admins. A 404
   // rather than a 403 so an unapproved slug cannot be probed for existence.

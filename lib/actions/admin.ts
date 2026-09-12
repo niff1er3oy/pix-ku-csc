@@ -208,7 +208,6 @@ async function notifyEventOwner(
 const Promote = z.object({
   userId: z.string().uuid(),
   displayName: z.string().trim().min(2).max(80),
-  affiliation: z.string().trim().max(120).optional(),
 });
 
 /**
@@ -230,7 +229,6 @@ export async function makePhotographer(formData: FormData) {
   const data = Promote.parse({
     userId: formData.get("userId"),
     displayName: formData.get("displayName"),
-    affiliation: formData.get("affiliation"),
   });
 
   await db.transaction(async (tx) => {
@@ -239,7 +237,6 @@ export async function makePhotographer(formData: FormData) {
       .values({
         userId: data.userId,
         displayName: data.displayName,
-        affiliation: data.affiliation || null,
         status: "approved",
         reviewedBy: admin.id,
         reviewedAt: new Date(),
@@ -248,7 +245,6 @@ export async function makePhotographer(formData: FormData) {
         target: photographers.userId,
         set: {
           displayName: data.displayName,
-          affiliation: data.affiliation || null,
           status: "approved",
           reviewedBy: admin.id,
           reviewedAt: new Date(),

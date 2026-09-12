@@ -7,7 +7,7 @@ import * as z from "zod";
 
 import { db } from "@/db";
 import { events, photoFaces, photos } from "@/db/schema";
-import { requireApprovedPhotographer } from "@/lib/dal";
+import { ownedOrSharedEvents, requireApprovedPhotographer } from "@/lib/dal";
 import { isPin } from "@/lib/event-pin";
 import {
   ACCEPTED_MIME,
@@ -110,6 +110,14 @@ const EventInput = z.object({
    * `entryPin` in `db/schema.ts`.
    */
   entryPin: z.string().nullish(),
+  /**
+   * Present only on the create form `/studio/affiliation` renders — hidden,
+   * not a choice the photographer types. Never trusted at face value: it is
+   * only ever honored below when it matches the caller's own
+   * `photographer.affiliationId`, so a crafted request naming someone else's
+   * affiliation cannot brand an event as shared work it never was.
+   */
+  affiliationId: z.string().uuid().nullish(),
 });
 
 export type StudioState =
@@ -155,6 +163,7 @@ export async function createEvent(
     eventDate: todayInBangkok(),
     isPrivate: formData.get("isPrivate"),
     entryPin: formData.get("entryPin"),
+    affiliationId: formData.get("affiliationId"),
   };
 
   // The PIN is deliberately absent from the echo. Everything here is rendered
@@ -172,6 +181,11 @@ export async function createEvent(
 
   const data = parsed.data;
   const wantsPrivate = data.isPrivate === "on";
+  // See the note on `EventInput.affiliationId` — only ever the caller's own.
+  const affiliationId =
+    data.affiliationId && data.affiliationId === photographer.affiliationId
+      ? data.affiliationId
+      : null;
 
   // A private event without a PIN is just an unlisted one, which is a URL
   // guess away from public. Refused rather than quietly downgraded.
@@ -216,6 +230,7 @@ export async function createEvent(
         isPrivate: wantsPrivate,
         entryPin,
         ownerId: photographer.id,
+        affiliationId,
         status: "draft",
       })
       .returning({ id: events.id });
@@ -244,6 +259,7 @@ export async function createEvent(
   }
 
   revalidatePath("/studio");
+  if (affiliationId) revalidatePath("/studio/affiliation");
   redirect(`/studio/events/${created.id}`);
 }
 
@@ -309,7 +325,7 @@ export async function updateEventInfo(
       entryPin: events.entryPin,
     })
     .from(events)
-    .where(and(eq(events.id, idResult.data), eq(events.ownerId, photographer.id)))
+    .where(and(eq(events.id, idResult.data), ownedOrSharedEvents(photographer)))
     .limit(1);
   if (!event) return { ok: false, error: "invalid" };
 
@@ -466,7 +482,7 @@ export async function updateEvent(
   const [event] = await db
     .select({ id: events.id, watermarkLogoPath: events.watermarkLogoPath })
     .from(events)
-    .where(and(eq(events.id, idResult.data), eq(events.ownerId, photographer.id)))
+    .where(and(eq(events.id, idResult.data), ownedOrSharedEvents(photographer)))
     .limit(1);
   if (!event) return { ok: false, error: "invalid" };
 
@@ -583,7 +599,7 @@ export async function publishEvent(formData: FormData) {
     .where(
       and(
         eq(events.id, id),
-        eq(events.ownerId, photographer.id),
+        ownedOrSharedEvents(photographer),
         eq(events.status, "draft"),
       ),
     );
@@ -614,7 +630,7 @@ export async function pauseEvent(formData: FormData) {
     .where(
       and(
         eq(events.id, id),
-        eq(events.ownerId, photographer.id),
+        ownedOrSharedEvents(photographer),
         eq(events.status, "approved"),
       ),
     );
@@ -636,7 +652,7 @@ export async function resumeEvent(formData: FormData) {
     .where(
       and(
         eq(events.id, id),
-        eq(events.ownerId, photographer.id),
+        ownedOrSharedEvents(photographer),
         eq(events.status, "archived"),
       ),
     );
@@ -692,7 +708,7 @@ export async function deleteEvent(formData: FormData): Promise<void> {
       faceCollectionId: events.faceCollectionId,
     })
     .from(events)
-    .where(and(eq(events.id, id), eq(events.ownerId, photographer.id)))
+    .where(and(eq(events.id, id), ownedOrSharedEvents(photographer)))
     .limit(1);
 
   if (!event) return;
@@ -756,7 +772,7 @@ export async function deletePhotos(formData: FormData): Promise<void> {
   const [event] = await db
     .select({ id: events.id, faceCollectionId: events.faceCollectionId })
     .from(events)
-    .where(and(eq(events.id, eventId), eq(events.ownerId, photographer.id)))
+    .where(and(eq(events.id, eventId), ownedOrSharedEvents(photographer)))
     .limit(1);
   if (!event) return;
 
@@ -859,7 +875,7 @@ export async function retryPhotoIndex(formData: FormData): Promise<void> {
   const [event] = await db
     .select({ id: events.id, faceCollectionId: events.faceCollectionId })
     .from(events)
-    .where(and(eq(events.id, eventId), eq(events.ownerId, photographer.id)))
+    .where(and(eq(events.id, eventId), ownedOrSharedEvents(photographer)))
     .limit(1);
   if (!event) return;
 

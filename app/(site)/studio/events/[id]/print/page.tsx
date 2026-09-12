@@ -36,7 +36,7 @@ export default async function PrintPage({
   const { id } = await params;
   const dict = await getDictionary();
 
-  const event = await getMyEvent(photographer.id, id);
+  const event = await getMyEvent(photographer, id);
   if (!event) notFound();
 
   const qr = await eventQrSvg(event.accessCode);

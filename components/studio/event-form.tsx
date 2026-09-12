@@ -31,7 +31,15 @@ const field =
  * defaults the date to today in Bangkok time; both can be filled in afterward
  * from the event's settings page, where `EventSettingsForm` still has them.
  */
-export function EventForm({ labels }: { labels: Dictionary["studio"] }) {
+export function EventForm({
+  labels,
+  affiliationId,
+}: {
+  labels: Dictionary["studio"];
+  /** Present only when this form is reached from `/studio/affiliation` — see
+   *  the note on `EventInput.affiliationId` in `lib/actions/studio.ts`. */
+  affiliationId?: string;
+}) {
   const [state, action] = useActionState<StudioState, FormData>(
     createEvent,
     undefined,
@@ -61,6 +69,9 @@ export function EventForm({ labels }: { labels: Dictionary["studio"] }) {
 
   return (
     <form action={action} className="mt-10 space-y-6">
+      {affiliationId && (
+        <input type="hidden" name="affiliationId" value={affiliationId} />
+      )}
       {message && (
         <p
           role="alert"

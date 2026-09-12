@@ -107,7 +107,7 @@ export async function DirectoryRow({
               </>
             )}
             {approved &&
-              ` · ${row.affiliation || dict.photographer.affiliationIndependent}`}
+              ` · ${row.affiliationName || dict.photographer.affiliationIndependent}`}
           </p>
         </div>
       </div>
@@ -201,20 +201,6 @@ export async function DirectoryRow({
                 minLength={2}
                 maxLength={80}
                 defaultValue={row.name ?? ""}
-                className="mt-1.5 h-[46px] w-full rounded-field bg-paper px-4 text-body text-ink ring-1 ring-inset ring-edge focus:ring-2 focus:ring-green-600"
-              />
-
-              <label
-                htmlFor={`affil-${row.userId}`}
-                className="mt-3 block text-label font-medium text-ink"
-              >
-                {labels.affiliationLabel}
-              </label>
-              <input
-                id={`affil-${row.userId}`}
-                name="affiliation"
-                type="text"
-                maxLength={120}
                 className="mt-1.5 h-[46px] w-full rounded-field bg-paper px-4 text-body text-ink ring-1 ring-inset ring-edge focus:ring-2 focus:ring-green-600"
               />
 

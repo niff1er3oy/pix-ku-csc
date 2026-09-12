@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { events } from "@/db/schema";
-import { requireApprovedPhotographer } from "@/lib/dal";
+import { ownedOrSharedEvents, requireApprovedPhotographer } from "@/lib/dal";
 import { eventQrSvg } from "@/lib/qr";
 
 /**
@@ -23,7 +23,7 @@ export async function GET(
   const [event] = await db
     .select({ code: events.accessCode, name: events.nameTh })
     .from(events)
-    .where(and(eq(events.id, id), eq(events.ownerId, photographer.id)))
+    .where(and(eq(events.id, id), ownedOrSharedEvents(photographer)))
     .limit(1);
 
   if (!event) return new Response(null, { status: 404 });

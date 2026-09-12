@@ -3,7 +3,7 @@ import path from "node:path";
 
 import { db } from "@/db";
 import { events, photos } from "@/db/schema";
-import { requireApprovedPhotographer } from "@/lib/dal";
+import { ownedOrSharedEvents, requireApprovedPhotographer } from "@/lib/dal";
 import { indexPhotoFaces } from "@/lib/face/pipeline";
 import {
   ACCEPTED_MIME,
@@ -58,7 +58,7 @@ export async function POST(
   const [event] = await db
     .select({ id: events.id, faceCollectionId: events.faceCollectionId })
     .from(events)
-    .where(and(eq(events.id, id), eq(events.ownerId, photographer.id)))
+    .where(and(eq(events.id, id), ownedOrSharedEvents(photographer)))
     .limit(1);
 
   if (!event) return json({ ok: false, reason: "not_found" }, 404);

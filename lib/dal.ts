@@ -1,13 +1,13 @@
 import "server-only";
 
-import { eq } from "drizzle-orm";
+import { eq, or, type SQL } from "drizzle-orm";
 import type { Session } from "next-auth";
 import { forbidden, unauthorized } from "next/navigation";
 import { cache } from "react";
 
 import { auth } from "@/auth";
 import { db } from "@/db";
-import { photographers, type Photographer, type UserRole } from "@/db/schema";
+import { events, photographers, type Photographer, type UserRole } from "@/db/schema";
 
 export type SessionUser = {
   id: string;
@@ -100,12 +100,45 @@ export async function requireApprovedPhotographer(): Promise<{
   return { user, photographer };
 }
 
-/** True when this user may edit/administer the given event. */
+/**
+ * True when this user may edit/administer the given event.
+ *
+ * Two ways in beyond admin: owning it outright, or sharing its
+ * `affiliationId` — every member of an affiliation has full run of every
+ * event any other member of the same affiliation created (see
+ * `lib/actions/affiliations.ts`), which is the whole point of an
+ * affiliation studio being a *shared* studio rather than a read-only
+ * roster. `event.affiliationId` is only ever set on an event created from
+ * that shared context (see `createEvent` in `lib/actions/studio.ts`), so a
+ * photographer's own solo events never become reachable this way just
+ * because they later join a group.
+ */
 export function canManageEvent(
   user: SessionUser,
-  event: { ownerId: string },
+  event: { ownerId: string; affiliationId: string | null },
   photographer: Photographer | null,
 ): boolean {
   if (user.role === "admin") return true;
-  return photographer?.id === event.ownerId;
+  if (photographer?.id === event.ownerId) return true;
+  return !!(
+    photographer?.affiliationId &&
+    event.affiliationId &&
+    photographer.affiliationId === event.affiliationId
+  );
+}
+
+/**
+ * The SQL-level counterpart to `canManageEvent`, minus the admin case: a
+ * condition on `events` matching every row this photographer may manage —
+ * their own, plus every event created under an affiliation they belong to.
+ * For a `where` clause selecting several such events, rather than a check on
+ * one already fetched.
+ */
+export function ownedOrSharedEvents(photographer: Photographer): SQL {
+  return photographer.affiliationId
+    ? (or(
+        eq(events.ownerId, photographer.id),
+        eq(events.affiliationId, photographer.affiliationId),
+      ) as SQL)
+    : eq(events.ownerId, photographer.id);
 }

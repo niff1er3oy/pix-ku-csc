@@ -1,0 +1,1 @@
+ALTER TABLE "photographer" DROP COLUMN "affiliation";

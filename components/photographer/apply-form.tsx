@@ -22,16 +22,6 @@ export function PhotographerApplyForm({ dict }: { dict: Dictionary }) {
   return (
     <form action={action} className="mt-10 space-y-6">
       <div>
-        <label htmlFor="affiliation" className="text-label font-medium">
-          {dict.photographer.affiliation}
-        </label>
-        <input id="affiliation" name="affiliation" className={field} />
-        <p className="mt-1.5 text-caption text-slate">
-          {dict.photographer.affiliationHint}
-        </p>
-      </div>
-
-      <div>
         <label htmlFor="bio" className="text-label font-medium">
           {dict.photographer.bio}
         </label>

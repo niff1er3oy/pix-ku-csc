@@ -3,7 +3,7 @@ import "server-only";
 import { and, asc, count, desc, eq, ilike, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { events, photographers, users } from "@/db/schema";
+import { affiliations, events, photographers, users } from "@/db/schema";
 
 /**
  * Rows per page in the directory.
@@ -18,7 +18,6 @@ export const ADMIN_PAGE_SIZE = 25;
 export type PendingPhotographer = {
   id: string;
   displayName: string;
-  affiliation: string | null;
   contactEmail: string | null;
   bio: string | null;
   createdAt: Date;
@@ -28,13 +27,16 @@ export type PendingPhotographer = {
  * Oldest first. A review queue sorted newest-first quietly starves whoever has
  * been waiting longest, which on a campus service is the person who applied
  * before an event they are already committed to shooting.
+ *
+ * No affiliation here — that is a membership in `affiliations` a photographer
+ * only ever joins after being approved (see `lib/actions/affiliations.ts`),
+ * so an application in review never has one yet.
  */
 export async function getPendingPhotographers(): Promise<PendingPhotographer[]> {
   return db
     .select({
       id: photographers.id,
       displayName: photographers.displayName,
-      affiliation: photographers.affiliation,
       contactEmail: photographers.contactEmail,
       bio: photographers.bio,
       createdAt: photographers.createdAt,
@@ -118,7 +120,7 @@ export type DirectoryRow = {
   photographerId: string | null;
   photographerStatus: "pending" | "approved" | "rejected" | null;
   displayName: string | null;
-  affiliation: string | null;
+  affiliationName: string | null;
   eventCount: number;
 };
 
@@ -199,13 +201,14 @@ export async function getDirectory({
       photographerId: photographers.id,
       photographerStatus: photographers.status,
       displayName: photographers.displayName,
-      affiliation: photographers.affiliation,
+      affiliationName: affiliations.name,
       eventCount: sql<number>`(
         select count(*) from event where event.owner_id = photographer.id
       )::int`,
     })
     .from(users)
     .leftJoin(photographers, eq(photographers.userId, users.id))
+    .leftJoin(affiliations, eq(photographers.affiliationId, affiliations.id))
     .where(where)
     // Newest accounts first: the reason to open this page is almost always
     // somebody who just signed up and is waiting to be given something.

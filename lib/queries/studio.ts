@@ -11,7 +11,9 @@ import {
   searches,
   searchMatches,
   users,
+  type Photographer,
 } from "@/db/schema";
+import { ownedOrSharedEvents } from "@/lib/dal";
 
 export type StudioEvent = {
   id: string;
@@ -111,9 +113,11 @@ export async function getMyEvents(
     .orderBy(desc(events.eventDate));
 }
 
-/** One event, but only if it belongs to this photographer. */
+/** One event, but only if this photographer may manage it — their own, or
+ *  one shared through an affiliation both belong to (see
+ *  `ownedOrSharedEvents` in `lib/dal.ts`). */
 export async function getMyEvent(
-  photographerId: string,
+  photographer: Photographer,
   id: string,
 ): Promise<StudioEvent | null> {
   // `${events.id}` inside a `sql` fragment renders as a bare `"id"`, not
@@ -198,7 +202,7 @@ export async function getMyEvent(
     // the only gate on an unlisted gallery. Filtering afterwards would mean
     // the row was fetched first, and the next person to add a `console.log`
     // would leak it.
-    .where(and(eq(events.id, id), eq(events.ownerId, photographerId)))
+    .where(and(eq(events.id, id), ownedOrSharedEvents(photographer)))
     .limit(1);
 
   return rows[0] ?? null;
@@ -237,7 +241,7 @@ export type StudioEventSettings = {
 /** Everything the settings form needs to edit — a wider slice of the row than
  *  `getMyEvent`, which only ever renders the event back, never a form. */
 export async function getMyEventSettings(
-  photographerId: string,
+  photographer: Photographer,
   id: string,
 ): Promise<StudioEventSettings | null> {
   const rows = await db
@@ -263,7 +267,7 @@ export async function getMyEventSettings(
       watermarkScale: events.watermarkScale,
     })
     .from(events)
-    .where(and(eq(events.id, id), eq(events.ownerId, photographerId)))
+    .where(and(eq(events.id, id), ownedOrSharedEvents(photographer)))
     .limit(1);
 
   return rows[0] ?? null;
@@ -309,7 +313,7 @@ export type StudioPhoto = {
  * who never signed in.
  */
 export async function getMyEventPhotos(
-  photographerId: string,
+  photographer: Photographer,
   eventId: string,
   options: {
     limit?: number;
@@ -335,7 +339,7 @@ export async function getMyEventPhotos(
     .where(
       and(
         eq(photos.eventId, eventId),
-        eq(events.ownerId, photographerId),
+        ownedOrSharedEvents(photographer),
         faceId
           ? inArray(
               photos.id,
@@ -402,7 +406,7 @@ export type StudioSearch = {
  * the page renders those rows as "anonymous."
  */
 export async function getMyEventSearches(
-  photographerId: string,
+  photographer: Photographer,
   eventId: string,
   limit = 100,
 ): Promise<StudioSearch[]> {
@@ -432,7 +436,7 @@ export async function getMyEventSearches(
     .leftJoin(users, eq(searches.userId, users.id))
     .leftJoin(searchMatches, eq(searchMatches.searchId, searches.id))
     .where(
-      and(eq(searches.eventId, eventId), eq(events.ownerId, photographerId)),
+      and(eq(searches.eventId, eventId), ownedOrSharedEvents(photographer)),
     )
     .groupBy(searches.id, users.name, users.email, users.image, users.role)
     .orderBy(desc(searches.createdAt))
@@ -460,7 +464,7 @@ export type StudioDownloader = {
  * "anonymous" row rather than needing to be collapsed by hand.
  */
 export async function getMyEventDownloaders(
-  photographerId: string,
+  photographer: Photographer,
   eventId: string,
   limit = 100,
 ): Promise<StudioDownloader[]> {
@@ -478,7 +482,7 @@ export async function getMyEventDownloaders(
     .innerJoin(photos, eq(downloads.photoId, photos.id))
     .innerJoin(events, eq(photos.eventId, events.id))
     .leftJoin(users, eq(downloads.userId, users.id))
-    .where(and(eq(photos.eventId, eventId), eq(events.ownerId, photographerId)))
+    .where(and(eq(photos.eventId, eventId), ownedOrSharedEvents(photographer)))
     .groupBy(downloads.userId, users.name, users.email, users.image, users.role)
     .orderBy(desc(sql`max(${downloads.createdAt})`))
     .limit(limit);

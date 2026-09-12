@@ -10,7 +10,6 @@ import { getSessionUser } from "@/lib/dal";
 import { notifyAdmins } from "@/lib/notifications";
 
 const ApplicationSchema = z.object({
-  affiliation: z.string().trim().max(120).optional(),
   bio: z.string().trim().max(600).optional(),
   contactPhone: z.string().trim().max(40).optional(),
 });
@@ -32,7 +31,6 @@ export async function applyAsPhotographer(
   if (!user) return { error: "unauthorized" };
 
   const parsed = ApplicationSchema.safeParse({
-    affiliation: formData.get("affiliation"),
     bio: formData.get("bio"),
     contactPhone: formData.get("contactPhone"),
   });
@@ -52,7 +50,6 @@ export async function applyAsPhotographer(
     await db.insert(photographers).values({
       userId: user.id,
       displayName,
-      affiliation: data.affiliation || null,
       bio: data.bio || null,
       contactEmail: user.email,
       contactPhone: data.contactPhone || null,
