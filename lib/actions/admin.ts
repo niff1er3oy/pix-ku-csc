@@ -8,6 +8,7 @@ import { db } from "@/db";
 import { events, photographers, users } from "@/db/schema";
 import { requireRole } from "@/lib/dal";
 import { notify } from "@/lib/notifications";
+import { ensureAdminPhotographerProfile } from "@/lib/photographers";
 
 const Review = z.object({
   id: z.string().uuid(),
@@ -351,5 +352,17 @@ export async function setUserRole(formData: FormData) {
   if (userId === admin.id) return;
 
   await db.update(users).set({ role }).where(eq(users.id, userId));
+
+  // An admin gets full studio parity too — see the note on
+  // `ensureAdminPhotographerProfile`.
+  if (role === "admin") {
+    const [target] = await db
+      .select({ name: users.name })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    await ensureAdminPhotographerProfile(userId, target?.name ?? "Admin");
+  }
+
   revalidatePath("/admin");
 }

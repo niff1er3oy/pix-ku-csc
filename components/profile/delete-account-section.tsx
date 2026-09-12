@@ -54,7 +54,7 @@ export function DeleteAccountSection({
   }, [open]);
 
   return (
-    <section className="rounded-card bg-danger/5 p-5 ring-1 ring-inset ring-danger/15 sm:p-6">
+    <section className="enter [--d:80ms] rounded-card bg-danger/5 p-5 ring-1 ring-inset ring-danger/15 sm:p-6">
       <h2 className="text-h3 font-semibold text-ink">{dict.profile.dangerTitle}</h2>
       <p className="mt-2 text-label text-slate">{dict.profile.dangerBody}</p>
 

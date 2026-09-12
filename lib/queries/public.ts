@@ -87,6 +87,89 @@ export async function getPublicEvents(
   return rows;
 }
 
+/**
+ * One photographer's own public work, for the portfolio section
+ * `/profile/[id]` shows on an approved photographer's page.
+ *
+ * Same `approved` + not-`isPrivate` filter as `getPublicEvents`, and for the
+ * same reason: a private event is reachable only by whoever holds its link
+ * and PIN, never by browsing — least of all from a page anyone signed in can
+ * open. A draft or rejected event never went live at all, so neither belongs
+ * on a page meant to show what this photographer has actually shot.
+ */
+export async function getPhotographerPortfolio(
+  photographerUserId: string,
+  limit = 24,
+): Promise<EventCard[]> {
+  const rows = await db
+    .select({
+      id: events.id,
+      accessCode: events.accessCode,
+      nameTh: events.nameTh,
+      nameEn: events.nameEn,
+      location: events.location,
+      eventDate: events.eventDate,
+      photoCount: events.photoCount,
+      photographerName: photographers.displayName,
+      photographerUserId: photographers.userId,
+      photographerImage: users.image,
+      coverThumbPath: sql<string | null>`coalesce(
+        ${events.coverPath},
+        (
+          select ${photos.thumbPath} from ${photos}
+          where photo.event_id = event.id
+          order by ${photos.createdAt} asc
+          limit 1
+        )
+      )`,
+    })
+    .from(events)
+    .innerJoin(photographers, eq(events.ownerId, photographers.id))
+    .innerJoin(users, eq(photographers.userId, users.id))
+    .where(
+      and(
+        eq(photographers.userId, photographerUserId),
+        eq(events.status, "approved"),
+        eq(events.isPrivate, false),
+      ),
+    )
+    .orderBy(desc(events.eventDate))
+    .limit(limit);
+
+  return rows;
+}
+
+/**
+ * Faces found across one photographer's public work — the stat
+ * `/profile/[id]`'s portfolio bar shows beside the event and photo counts,
+ * which `getPhotographerPortfolio`'s own rows already carry (a plain sum of
+ * `photoCount`, no query of its own needed).
+ *
+ * Same `approved` + not-`isPrivate` scope as `getPhotographerPortfolio` —
+ * deliberately, not incidentally: summing every event regardless of privacy
+ * would let a private event's face count leak through this total even while
+ * the event itself stays off the page, which is exactly the kind of
+ * side-channel `isPrivate` exists to close.
+ */
+export async function getPhotographerFaceCount(
+  photographerUserId: string,
+): Promise<number> {
+  const [row] = await db
+    .select({ total: sql<number>`coalesce(sum(${photos.faceCount}), 0)` })
+    .from(photos)
+    .innerJoin(events, eq(photos.eventId, events.id))
+    .innerJoin(photographers, eq(events.ownerId, photographers.id))
+    .where(
+      and(
+        eq(photographers.userId, photographerUserId),
+        eq(events.status, "approved"),
+        eq(events.isPrivate, false),
+      ),
+    );
+
+  return Number(row?.total ?? 0);
+}
+
 /** Thumbnails for the hero mosaic, newest first across every public event. */
 export async function getHeroThumbs(limit = 24): Promise<string[]> {
   const rows = await db

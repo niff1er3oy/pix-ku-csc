@@ -1,9 +1,18 @@
 import "server-only";
 
-import { eq } from "drizzle-orm";
+import { and, count, countDistinct, eq } from "drizzle-orm";
 
 import { db } from "@/db";
-import { userFaces, users, type UserRole } from "@/db/schema";
+import {
+  downloads,
+  events,
+  photographers,
+  photos,
+  searches,
+  userFaces,
+  users,
+  type UserRole,
+} from "@/db/schema";
 
 export type MyFace = {
   imagePath: string;
@@ -46,4 +55,74 @@ export async function getPublicProfile(userId: string): Promise<PublicProfile | 
     .where(eq(users.id, userId))
     .limit(1);
   return row ?? null;
+}
+
+export type PublicPhotographerInfo = {
+  displayName: string;
+  bio: string | null;
+  affiliation: string | null;
+};
+
+/**
+ * The photographer-specific fields `/profile/[id]` adds on top of
+ * `getPublicProfile` when that account's role is `photographer` — a bio and
+ * who they shoot for, the two fields a photographer fills in that actually
+ * mean something to someone reading their portfolio. `contactEmail` and
+ * `contactPhone` stay out on purpose: those exist for an admin verifying an
+ * application, not as a public "get in touch" surface this page never
+ * offered before.
+ *
+ * `users.role` only ever reads `photographer` once an admin has approved
+ * them (see `approvePhotographer`/`rejectPhotographer` in
+ * `lib/actions/admin.ts`), so a caller that already checked the role can
+ * trust this row to exist without checking `status` again here.
+ */
+export async function getPhotographerProfileInfo(
+  userId: string,
+): Promise<PublicPhotographerInfo | null> {
+  const [row] = await db
+    .select({
+      displayName: photographers.displayName,
+      bio: photographers.bio,
+      affiliation: photographers.affiliation,
+    })
+    .from(photographers)
+    .where(eq(photographers.userId, userId))
+    .limit(1);
+  return row ?? null;
+}
+
+/**
+ * How many photos this account has downloaded — any account, not just a
+ * photographer's. Scoped to non-private events for the same reason the
+ * portfolio stats are: a private event's download would otherwise surface
+ * in this total with nothing on the page to explain where it came from,
+ * which is exactly the kind of side channel `isPrivate` exists to close.
+ */
+export async function getDownloadCount(userId: string): Promise<number> {
+  const [row] = await db
+    .select({ value: count() })
+    .from(downloads)
+    .innerJoin(photos, eq(downloads.photoId, photos.id))
+    .innerJoin(events, eq(photos.eventId, events.id))
+    .where(and(eq(downloads.userId, userId), eq(events.isPrivate, false)));
+  return row?.value ?? 0;
+}
+
+/**
+ * How many distinct events this account has actually searched at —
+ * "participated in," for a page with no other record of a visitor's own
+ * attendance. `searches` rather than `downloads` or saved photos: it is the
+ * one action that means "I was here and looked," on record the moment a
+ * search runs rather than only if it found something worth keeping.
+ *
+ * Same not-private scope as `getDownloadCount`, and the same reason.
+ */
+export async function getEventParticipationCount(userId: string): Promise<number> {
+  const [row] = await db
+    .select({ value: countDistinct(searches.eventId) })
+    .from(searches)
+    .innerJoin(events, eq(searches.eventId, events.id))
+    .where(and(eq(searches.userId, userId), eq(events.isPrivate, false)));
+  return row?.value ?? 0;
 }

@@ -7,7 +7,7 @@ import { SelectCheckbox } from "@/components/photos/select-checkbox";
 import { DownloadIcon } from "@/components/ui/icon";
 import { usePhotoSelection } from "@/lib/hooks/use-photo-selection";
 import { t, type Dictionary } from "@/lib/i18n/dictionaries";
-import { formatNumber } from "@/lib/utils";
+import { enterDelay, formatNumber } from "@/lib/utils";
 
 export type EventGalleryPhoto = {
   id: string;
@@ -75,7 +75,7 @@ export function EventGallery({
       <PhotoGallery
         className="mt-8"
         variant="card"
-        items={photos.map((photo) => ({
+        items={photos.map((photo, i) => ({
           id: photo.id,
           thumbSrc: photo.thumbSrc,
           previewSrc: photo.previewSrc,
@@ -86,8 +86,10 @@ export function EventGallery({
             : undefined,
           // Overrides the card's default white background — the footer sits
           // directly on this, so this is what actually makes it read as a
-          // light green bar rather than white.
-          className: "bg-green-50",
+          // light green bar rather than white. `enter` + a per-item delay is
+          // the same arrival motion the rest of the app uses for a freshly
+          // rendered list — see `enterDelay`.
+          className: `bg-green-50 enter ${enterDelay(i)}`,
           // Hidden until something is picked — see `onLongPress` below,
           // which is what starts a selection from nothing.
           select: selectedIds.size > 0 && (

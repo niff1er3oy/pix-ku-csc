@@ -16,6 +16,7 @@ export const th = {
     studio: "สตูดิโอ",
     admin: "ผู้ดูแล",
     profile: "โปรไฟล์",
+    settings: "ตั้งค่า",
     signIn: "เข้าสู่ระบบ",
     signOut: "ออกจากระบบ",
     switchLanguage: "English",
@@ -217,6 +218,15 @@ export const th = {
     roleAdmin: "ผู้ดูแลระบบ",
     memberSince: "เป็นสมาชิกตั้งแต่ {date}",
 
+    statEvents: "งานที่ถ่าย",
+    statPhotos: "รูปทั้งหมด",
+    statFaces: "ใบหน้าที่พบ",
+    statDownloads: "รูปที่ดาวน์โหลด",
+    statEventsJoined: "งานที่เข้าร่วม",
+
+    portfolioTitle: "ผลงาน",
+    portfolioEmpty: "ยังไม่มีงานที่เผยแพร่",
+
     savedFaceTitle: "รูปหน้าที่บันทึกไว้",
     savedFaceNone: "ยังไม่ได้บันทึกรูปหน้า",
     savedFaceNoneBody:
@@ -235,7 +245,11 @@ export const th = {
     savedPhotosRemove: "เอาออกจากที่บันทึกไว้",
     savedPhotosHideEvent: "ซ่อนงานนี้",
     savedPhotosShowEvent: "แสดงงานนี้",
-    savedPhotosHiddenNote: "ซ่อนอยู่ ไม่แสดงในโปรไฟล์",
+    savedPhotosVisibleTab: "แสดงอยู่",
+    savedPhotosHiddenTab: "ซ่อนไว้ ({count})",
+    savedPhotosHiddenEmpty: "ยังไม่มีงานที่ซ่อนไว้",
+    savedPhotosPrivateTab: "งานส่วนตัว ({count})",
+    savedPhotosPrivateEmpty: "ไม่มีงานส่วนตัวที่บันทึกไว้แล้ว",
 
     historyTitle: "ประวัติการค้นหา",
     historyEmpty: "ยังไม่มีประวัติการค้นหา",
@@ -660,6 +674,7 @@ export const en: Dictionary = {
     studio: "Studio",
     admin: "Admin",
     profile: "Profile",
+    settings: "Settings",
     signIn: "Sign in",
     signOut: "Sign out",
     switchLanguage: "ไทย",
@@ -862,6 +877,15 @@ export const en: Dictionary = {
     roleAdmin: "Admin",
     memberSince: "Member since {date}",
 
+    statEvents: "Events shot",
+    statPhotos: "Total photos",
+    statFaces: "Faces found",
+    statDownloads: "Photos downloaded",
+    statEventsJoined: "Events joined",
+
+    portfolioTitle: "Portfolio",
+    portfolioEmpty: "No published events yet",
+
     savedFaceTitle: "Saved face",
     savedFaceNone: "No face saved yet",
     savedFaceNoneBody:
@@ -880,7 +904,11 @@ export const en: Dictionary = {
     savedPhotosRemove: "Remove from saved",
     savedPhotosHideEvent: "Hide this event",
     savedPhotosShowEvent: "Show this event",
-    savedPhotosHiddenNote: "Hidden — not shown on your profile",
+    savedPhotosVisibleTab: "Visible",
+    savedPhotosHiddenTab: "Hidden ({count})",
+    savedPhotosHiddenEmpty: "No hidden events yet",
+    savedPhotosPrivateTab: "Private ({count})",
+    savedPhotosPrivateEmpty: "No private events saved anymore",
 
     historyTitle: "Search history",
     historyEmpty: "No searches yet",

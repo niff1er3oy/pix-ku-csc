@@ -3,7 +3,14 @@ import "server-only";
 import { and, desc, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
-import { events, photos, profileHiddenEvents, savedPhotos } from "@/db/schema";
+import {
+  events,
+  photographers,
+  photos,
+  profileHiddenEvents,
+  savedPhotos,
+  users,
+} from "@/db/schema";
 
 /**
  * Which of these photo ids this user has already saved — built for one
@@ -51,10 +58,23 @@ export type SavedPhotosGroup = {
   eventNameEn: string | null;
   eventAccessCode: string;
   allowOriginalDownload: boolean;
+  /** Whoever shot it — a saved-photos list can span several photographers'
+   *  events, unlike a photographer's own portfolio where it always goes
+   *  without saying. Linked to `/profile/[id]` the same way any other name
+   *  on this site is. */
+  photographerUserId: string;
+  photographerName: string;
+  photographerImage: string | null;
   /** Whether this user has opted to hide this event's group from
    *  `/profile/[id]` — see `profileHiddenEvents` in `db/schema.ts` for why
-   *  absence, not presence, is what "visible" means. */
+   *  absence, not presence, is what "visible" means. Meaningless for a
+   *  private event's group, which no other viewer ever receives regardless
+   *  — see `getMySavedPhotosGroupedByEvent`'s `includePrivate` param. */
   hidden: boolean;
+  /** Whether the event itself is private. A private event's group is only
+   *  ever present when the caller asked for it with `includePrivate` — see
+   *  that function's own note for who is allowed to ask. */
+  isPrivate: boolean;
   photos: {
     id: string;
     photoId: string;
@@ -72,13 +92,19 @@ export type SavedPhotosGroup = {
  * to, without re-running a search or scattering across each event's own
  * results.
  *
- * A private event's photos never appear here at all, regardless of any
- * per-event visibility choice — that rule isn't a preference either side
- * can override, so it is a `where` clause, not a `hidden` flag the caller
- * has to remember to also check.
+ * `includePrivate` defaults to `false` — a private event's group is left out
+ * entirely unless a caller explicitly asks otherwise, which `/profile/[id]`
+ * only ever does for the account's own view of its own list (`isOwner`).
+ * Someone saved it there by actually searching that event with its PIN, the
+ * same way anyone gets to any private gallery — this does not hand out
+ * access to anything they had not already reached, only shows them their
+ * own saves in one more place. Nobody *else* looking at that profile is
+ * ever `userId` here, so this can never be the thing that leaks a private
+ * event's existence to a stranger.
  */
 export async function getMySavedPhotosGroupedByEvent(
   userId: string,
+  includePrivate = false,
 ): Promise<SavedPhotosGroup[]> {
   const rows = await db
     .select({
@@ -93,6 +119,10 @@ export async function getMySavedPhotosGroupedByEvent(
       eventNameEn: events.nameEn,
       eventAccessCode: events.accessCode,
       allowOriginalDownload: events.allowOriginalDownload,
+      isPrivate: events.isPrivate,
+      photographerUserId: photographers.userId,
+      photographerName: photographers.displayName,
+      photographerImage: users.image,
       // Present only when this user has hidden this event — see the
       // `leftJoin` below. Its id is never read, only whether it is null.
       hiddenRowId: profileHiddenEvents.id,
@@ -100,6 +130,8 @@ export async function getMySavedPhotosGroupedByEvent(
     .from(savedPhotos)
     .innerJoin(photos, eq(savedPhotos.photoId, photos.id))
     .innerJoin(events, eq(photos.eventId, events.id))
+    .innerJoin(photographers, eq(events.ownerId, photographers.id))
+    .innerJoin(users, eq(photographers.userId, users.id))
     .leftJoin(
       profileHiddenEvents,
       and(
@@ -107,7 +139,12 @@ export async function getMySavedPhotosGroupedByEvent(
         eq(profileHiddenEvents.eventId, events.id),
       ),
     )
-    .where(and(eq(savedPhotos.userId, userId), eq(events.isPrivate, false)))
+    .where(
+      and(
+        eq(savedPhotos.userId, userId),
+        includePrivate ? undefined : eq(events.isPrivate, false),
+      ),
+    )
     .orderBy(desc(savedPhotos.createdAt));
 
   // One pass, in `savedAt desc` order — a group is created the moment its
@@ -123,6 +160,10 @@ export async function getMySavedPhotosGroupedByEvent(
         eventNameEn: row.eventNameEn,
         eventAccessCode: row.eventAccessCode,
         allowOriginalDownload: row.allowOriginalDownload,
+        isPrivate: row.isPrivate,
+        photographerUserId: row.photographerUserId,
+        photographerName: row.photographerName,
+        photographerImage: row.photographerImage,
         hidden: row.hiddenRowId !== null,
         photos: [],
       };

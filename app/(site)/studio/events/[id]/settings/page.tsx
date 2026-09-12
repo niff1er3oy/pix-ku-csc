@@ -68,7 +68,7 @@ export default async function StudioEventSettingsPage({
 
       <div className="mt-8 space-y-6">
         {canPause && (
-          <section className="rounded-card bg-cloud p-5 sm:p-6">
+          <section className="enter rounded-card bg-cloud p-5 sm:p-6">
             <h2 className="text-h3 font-semibold text-ink">
               {dict.studio.pauseTitle}
             </h2>

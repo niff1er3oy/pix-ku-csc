@@ -11,7 +11,7 @@ import { usePhotoSelection } from "@/lib/hooks/use-photo-selection";
 import { unsavePhotos } from "@/lib/actions/saved-photos";
 import { t, type Dictionary } from "@/lib/i18n/dictionaries";
 import type { SavedPhoto } from "@/lib/queries/saved-photos";
-import { formatNumber } from "@/lib/utils";
+import { enterDelay, formatNumber } from "@/lib/utils";
 
 /**
  * What a visitor has saved from this one event's own face search results —
@@ -96,11 +96,11 @@ export function SavedPhotosSection({
           <PhotoGallery
             className="mt-5"
             variant="card"
-            items={items.map((photo) => ({
+            items={items.map((photo, i) => ({
               id: photo.photoId,
               thumbSrc: `/api/media/${photo.thumbPath}`,
               previewSrc: `/api/media/${photo.previewPath}`,
-              className: "bg-green-50",
+              className: `bg-green-50 enter ${enterDelay(i)}`,
               downloadHref: photo.allowOriginalDownload
                 ? `/api/media/${photo.originalPath}?download=1`
                 : undefined,

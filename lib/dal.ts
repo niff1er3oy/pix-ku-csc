@@ -82,6 +82,13 @@ export const getPhotographer = cache(
  * Studio pages need an *approved* photographer, not just the photographer
  * role — an application that is still pending must not be able to create
  * events by guessing the URL.
+ *
+ * An admin reaches this the same way: `ensureAdminPhotographerProfile` gives
+ * every admin an approved row the moment they become one (at sign-in for the
+ * `ADMIN_EMAILS` bootstrap, at `setUserRole` for one promoted in the admin
+ * console), so this never needs to special-case `user.role === "admin"`
+ * itself — by the time anyone reaches this function, the row already
+ * decides it.
  */
 export async function requireApprovedPhotographer(): Promise<{
   user: SessionUser;

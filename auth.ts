@@ -11,6 +11,7 @@ import {
   verificationTokens,
   type UserRole,
 } from "@/db/schema";
+import { ensureAdminPhotographerProfile } from "@/lib/photographers";
 
 declare module "next-auth" {
   interface Session {
@@ -70,6 +71,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         .update(users)
         .set({ role: "admin" })
         .where(eq(users.id, user.id));
+
+      // An admin gets full studio parity too — see the note on
+      // `ensureAdminPhotographerProfile`.
+      await ensureAdminPhotographerProfile(user.id, user.name ?? "Admin");
     },
   },
   trustHost: true,

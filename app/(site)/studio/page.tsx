@@ -10,7 +10,7 @@ import { requireApprovedPhotographer } from "@/lib/dal";
 import { getDictionary, getLocale, t } from "@/lib/i18n";
 import { getMyEvents } from "@/lib/queries/studio";
 import { safely } from "@/lib/queries/public";
-import { formatDate, formatNumber } from "@/lib/utils";
+import { enterDelay, formatDate, formatNumber } from "@/lib/utils";
 
 export async function generateMetadata(): Promise<Metadata> {
   const dict = await getDictionary();
@@ -54,10 +54,10 @@ export default async function StudioPage() {
         </div>
       ) : (
         <ul className="mt-8 space-y-4">
-          {events.map((event) => (
+          {events.map((event, i) => (
             <li
               key={event.id}
-              className="rounded-card bg-paper p-4 ring-1 ring-edge transition-shadow duration-200 hover:shadow-[var(--shadow-card)] sm:p-5"
+              className={`enter rounded-card bg-paper p-4 ring-1 ring-edge transition-shadow duration-200 hover:shadow-[var(--shadow-card)] sm:p-5 ${enterDelay(i)}`}
             >
               <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
                 <Link

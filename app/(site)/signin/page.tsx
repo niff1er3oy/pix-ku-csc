@@ -38,7 +38,7 @@ export default async function SignInPage({
   }
 
   return (
-    <section className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-5 py-20 sm:py-28">
+    <section className="enter mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-5 py-20 sm:py-28">
       <h1 className="text-h1 font-bold">{dict.auth.signInTitle}</h1>
       <p className="mt-4 text-body-lg text-slate">{dict.auth.signInLede}</p>
 

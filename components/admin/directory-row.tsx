@@ -51,7 +51,7 @@ export function DirectoryRow({
           : labels.roleUser;
 
   return (
-    <li className="grid gap-4 border-t border-edge py-5 sm:grid-cols-[1fr_auto] sm:items-start">
+    <li className="enter grid gap-4 border-t border-edge py-5 sm:grid-cols-[1fr_auto] sm:items-start">
       <div className="flex min-w-0 gap-3">
         <Link href={`/profile/${row.userId}`} className="shrink-0">
           <Avatar src={row.image} size={40} className="mt-0.5" />

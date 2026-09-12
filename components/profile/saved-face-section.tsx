@@ -35,7 +35,7 @@ export function SavedFaceSection({
   const showForm = !face || replacing;
 
   return (
-    <section className="rounded-card bg-cloud p-5 sm:p-6">
+    <section className="enter rounded-card bg-cloud p-5 sm:p-6">
       <h2 className="text-h3 font-semibold text-ink">
         {dict.profile.savedFaceTitle}
       </h2>

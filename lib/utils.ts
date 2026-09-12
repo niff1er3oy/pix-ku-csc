@@ -5,6 +5,16 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/**
+ * A capped, evenly-stepped delay for `.enter`'s stagger (see `app/globals.css`
+ * §Motion) — steps of 40ms, capped at the 9th item so a grid of hundreds of
+ * photos does not leave its tail waiting behind a multi-second queue. Every
+ * item still animates; past the cap they just all arrive at the same beat.
+ */
+export function enterDelay(index: number): string {
+  return `[--d:${Math.min(index, 8) * 40}ms]`;
+}
+
 /** Thai-friendly date formatting. Thai uses the Buddhist era by default. */
 export function formatDate(
   date: Date | string,

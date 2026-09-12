@@ -28,7 +28,7 @@ export default async function PhotographerApplyPage() {
       </p>
 
       {!user && (
-        <div className="mt-10 rounded-card bg-cloud p-6">
+        <div className="enter mt-10 rounded-card bg-cloud p-6">
           <p className="text-body text-slate">{dict.auth.signInLede}</p>
           <ButtonLink
             href="/signin?next=/photographer/apply"
@@ -41,7 +41,7 @@ export default async function PhotographerApplyPage() {
       )}
 
       {user && existing?.status === "pending" && (
-        <div className="mt-10 rounded-card bg-lime-100 p-6">
+        <div className="enter mt-10 rounded-card bg-lime-100 p-6">
           <p className="font-display text-h3 text-green-950">
             {dict.photographer.statusPending}
           </p>
@@ -52,7 +52,7 @@ export default async function PhotographerApplyPage() {
       )}
 
       {user && existing?.status === "approved" && (
-        <div className="mt-10 rounded-card bg-green-50 p-6">
+        <div className="enter mt-10 rounded-card bg-green-50 p-6">
           <p className="font-display text-h3 text-green-950">
             {dict.admin.approved}
           </p>
@@ -63,7 +63,7 @@ export default async function PhotographerApplyPage() {
       )}
 
       {user && existing?.status === "rejected" && (
-        <div className="mt-10 rounded-card bg-cloud p-6">
+        <div className="enter mt-10 rounded-card bg-cloud p-6">
           <p className="font-display text-h3">
             {dict.photographer.statusRejected}
           </p>

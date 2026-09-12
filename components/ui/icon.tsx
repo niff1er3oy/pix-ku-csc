@@ -67,6 +67,15 @@ export const UsersIcon = (p: Props) => (
   </Icon>
 );
 
+/** One person, centred — `UsersIcon` above is a group; this is the single
+ *  account a profile link or chip refers to. */
+export const UserIcon = (p: Props) => (
+  <Icon {...p}>
+    <circle cx="12" cy="8" r="3.25" />
+    <path d="M5 20c0-3.5 3.1-6 7-6s7 2.5 7 6" />
+  </Icon>
+);
+
 export const CameraIcon = (p: Props) => (
   <Icon {...p}>
     <path d="M3 8.5h3l1.6-2.4a1 1 0 0 1 .84-.45h7.12a1 1 0 0 1 .84.45L18 8.5h3a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1Z" />
@@ -192,6 +201,15 @@ export const ChevronLeftIcon = (p: Props) => (
 export const ChevronRightIcon = (p: Props) => (
   <Icon {...p}>
     <path d="m10 6 6 6-6 6" />
+  </Icon>
+);
+
+/** An open door with the arrow leaving it, not entering — the same frame a
+ *  sign-*in* icon would use, pointed the other way. */
+export const SignOutIcon = (p: Props) => (
+  <Icon {...p}>
+    <path d="M13 4H6.5A1.5 1.5 0 0 0 5 5.5v13A1.5 1.5 0 0 0 6.5 20H13" />
+    <path d="M10.5 12H21m0 0-3.5-3.5M21 12l-3.5 3.5" />
   </Icon>
 );
 
