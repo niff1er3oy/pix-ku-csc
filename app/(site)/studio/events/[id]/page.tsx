@@ -24,6 +24,7 @@ import { CopyLinkButton } from "@/components/studio/copy-link-button";
 import { DeletePhotosForm } from "@/components/studio/delete-photos-form";
 import { EventHealthCard } from "@/components/studio/event-health-card";
 import { PhotoUploader } from "@/components/studio/photo-uploader";
+import { SearchableList } from "@/components/studio/searchable-list";
 import { StatusChip } from "@/components/studio/status-chip";
 import {
   getMyEvent,
@@ -339,9 +340,16 @@ export default async function StudioEventPage({
           {/* Five rows tall, not paginated — older ones are one scroll away
               rather than behind a "show more" click, since this list is
               read for a pattern (who's showing up) more than clicked
-              through row by row the way the photo grid is. */}
-          <ul className="mt-4 max-h-96 divide-y divide-edge overflow-y-auto rounded-card bg-paper ring-1 ring-edge">
-            {searches.map((s) => {
+              through row by row the way the photo grid is. The search box
+              `SearchableList` adds does not change that — it is empty by
+              default and the full list still scrolls the same way; it just
+              gives a photographer who already has one name in mind a way to
+              jump straight to it. */}
+          <SearchableList
+            items={searches}
+            getSearchText={(s) => s.userName ?? s.userEmail ?? dict.studio.searchesAnonymous}
+            dict={dict}
+            renderItem={(s, rowHidden) => {
               const name = s.userName ?? s.userEmail;
               const initial = name?.trim().charAt(0).toUpperCase();
               const hasMatch = s.matchCount > 0;
@@ -374,6 +382,7 @@ export default async function StudioEventPage({
                   className={cn(
                     "flex items-center gap-4 p-4 transition-colors duration-200",
                     active && "bg-green-50",
+                    rowHidden && "hidden",
                   )}
                 >
                   {/* Only the avatar leads to the profile — the name and
@@ -444,8 +453,8 @@ export default async function StudioEventPage({
                   )}
                 </li>
               );
-            })}
-          </ul>
+            }}
+          />
         </section>
       )}
 
@@ -453,9 +462,14 @@ export default async function StudioEventPage({
         <section className="reveal mt-12">
           <h2 className="text-h2">{dict.studio.downloadersTitle}</h2>
           {/* Same reasoning as the searches list above: five rows visible,
-              the rest a scroll away rather than paginated. */}
-          <ul className="mt-4 max-h-96 divide-y divide-edge overflow-y-auto rounded-card bg-paper ring-1 ring-edge">
-            {downloaders.map((d) => {
+              the rest a scroll away rather than paginated — the search box
+              only adds a way to jump to one name, it does not replace the
+              full scrolling list. */}
+          <SearchableList
+            items={downloaders}
+            getSearchText={(d) => d.userName ?? d.userEmail ?? dict.studio.searchesAnonymous}
+            dict={dict}
+            renderItem={(d, rowHidden) => {
               const name = d.userName ?? d.userEmail;
               const initial = name?.trim().charAt(0).toUpperCase();
               const active = (d.userId ?? "anonymous") === downloader;
@@ -482,6 +496,7 @@ export default async function StudioEventPage({
                   className={cn(
                     "flex items-center gap-4 p-4 transition-colors duration-200",
                     active && "bg-green-50",
+                    rowHidden && "hidden",
                   )}
                 >
                   {/* Only the avatar leads to the profile — see the same
@@ -543,8 +558,8 @@ export default async function StudioEventPage({
                   </Link>
                 </li>
               );
-            })}
-          </ul>
+            }}
+          />
         </section>
       )}
 

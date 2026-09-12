@@ -14,7 +14,10 @@ import {
   getPublicAffiliation,
 } from "@/lib/queries/affiliations";
 import { safely } from "@/lib/queries/public";
-import { enterDelay, formatDate, formatNumber } from "@/lib/utils";
+import { cn, enterDelay, formatDate, formatNumber } from "@/lib/utils";
+
+const TABS = ["portfolio", "members"] as const;
+type Tab = (typeof TABS)[number];
 
 export async function generateMetadata({
   params,
@@ -27,25 +30,32 @@ export async function generateMetadata({
 }
 
 /**
- * An affiliation's own public page — the same shape `/profile/[id]` gives a
- * photographer, but for the group rather than one person: its picture and
+ * An affiliation's own public page — the same structure `/profile/[id]`
+ * gives a photographer (identity header, stat tiles, a tab bar switching one
+ * content area), just for the group rather than one person: its picture and
  * name, aggregate stats across every member's published work, that work
- * itself, and its full roster. Reachable with no session at all, the same
- * as the `/affiliations` index it's linked from — there is no owner-only
- * exception here the way an admin gets on a photographer's own profile,
- * because there is no private side of an affiliation to gate; everything
- * this page reads is already scoped to public, approved events.
+ * itself, and its full roster behind the other tab. Reachable with no
+ * session at all, the same as the `/affiliations` index it's linked from —
+ * there is no owner-only exception here the way an admin gets on a
+ * photographer's own profile, because there is no private side of an
+ * affiliation to gate; everything this page reads is already scoped to
+ * public, approved events.
  */
 export default async function AffiliationProfilePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string }>;
 }) {
   const { id } = await params;
+  const { tab } = await searchParams;
   const [locale, dict] = await Promise.all([getLocale(), getDictionary()]);
 
   const affiliation = await getPublicAffiliation(id);
   if (!affiliation) notFound();
+
+  const activeTab: Tab = tab === "members" ? "members" : "portfolio";
 
   const [members, portfolio, faceCount] = await Promise.all([
     safely(() => getAffiliationMembers(id), []),
@@ -64,33 +74,28 @@ export default async function AffiliationProfilePage({
 
   return (
     <section className="mx-auto w-full max-w-4xl px-5 py-16 sm:px-8 sm:py-24">
-      <Link
-        href="/affiliations"
-        className="inline-flex min-h-11 items-center text-label font-medium text-green-700 hover:underline"
-      >
-        ← {dict.affiliationsPage.title}
-      </Link>
-
-      <div className="enter mt-4 flex items-center gap-4">
+      <div className="enter flex items-center gap-4">
         <Avatar
           src={affiliation.imagePath ? `/api/media/${affiliation.imagePath}` : null}
           size={64}
         />
         <div className="min-w-0">
           <h1 className="truncate text-h1 font-bold">{affiliation.name}</h1>
-          <p className="text-label text-slate">
-            {t(dict.affiliationsPage.createdLabel, {
-              date: formatDate(affiliation.createdAt, locale, {
-                day: "numeric",
-                month: "long",
-                year: "numeric",
-              }),
-            })}
-          </p>
+          <p className="text-label text-slate">{dict.affiliationStudio.title}</p>
         </div>
       </div>
 
-      <ul className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <p className="mt-3 text-caption text-slate">
+        {t(dict.affiliationsPage.createdLabel, {
+          date: formatDate(affiliation.createdAt, locale, {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          }),
+        })}
+      </p>
+
+      <ul className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {stats.map((stat, i) => (
           <li
             key={stat.label}
@@ -111,39 +116,59 @@ export default async function AffiliationProfilePage({
         ))}
       </ul>
 
-      <h2 className="enter [--d:80ms] mt-10 text-h3 font-semibold text-ink">
-        {dict.affiliationStudio.membersTitle}
-      </h2>
-      {members.length === 0 ? (
-        <p className="enter [--d:100ms] mt-4 text-label text-slate">
-          {dict.affiliationsPage.membersEmpty}
-        </p>
-      ) : (
-        <ul className="enter [--d:100ms] mt-4 flex flex-wrap gap-3">
-          {members.map((member) => (
-            <li key={member.photographerId}>
-              <Link
-                href={`/profile/${member.userId}`}
-                className="flex items-center gap-2 rounded-pill bg-cloud py-1.5 pl-1.5 pr-3 text-label text-ink transition-colors duration-200 hover:bg-green-50 hover:text-green-700"
-              >
-                <Avatar src={member.image} size={28} />
-                <span className="truncate">{member.displayName}</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
+      <nav
+        className="enter [--d:80ms] mt-10 flex flex-wrap gap-1.5"
+        aria-label={dict.profile.portfolioTitle}
+      >
+        {TABS.map((key) => {
+          const active = key === activeTab;
+          return (
+            <Link
+              key={key}
+              href={key === "portfolio" ? `/affiliations/${id}` : `/affiliations/${id}?tab=members`}
+              aria-current={active ? "page" : undefined}
+              className={cn(
+                "inline-flex min-h-11 items-center whitespace-nowrap rounded-pill px-4 text-sm font-medium transition-colors duration-200",
+                active
+                  ? "bg-green-600 text-paper"
+                  : "text-slate hover:bg-cloud hover:text-green-700",
+              )}
+            >
+              {key === "portfolio" ? dict.profile.portfolioTitle : dict.affiliationStudio.membersTitle}
+            </Link>
+          );
+        })}
+      </nav>
 
-      <h2 className="enter [--d:120ms] mt-10 text-h3 font-semibold text-ink">
-        {dict.profile.portfolioTitle}
+      <h2 className="sr-only">
+        {activeTab === "portfolio" ? dict.profile.portfolioTitle : dict.affiliationStudio.membersTitle}
       </h2>
-      {portfolio.length === 0 ? (
-        <p className="enter [--d:140ms] mt-5 text-label text-slate">
-          {dict.profile.portfolioEmpty}
-        </p>
-      ) : (
-        <PortfolioGrid events={portfolio} dict={dict} locale={locale} />
-      )}
+
+      {activeTab === "portfolio" &&
+        (portfolio.length === 0 ? (
+          <p className="enter mt-5 text-label text-slate">{dict.profile.portfolioEmpty}</p>
+        ) : (
+          <PortfolioGrid events={portfolio} dict={dict} locale={locale} />
+        ))}
+
+      {activeTab === "members" &&
+        (members.length === 0 ? (
+          <p className="enter mt-5 text-label text-slate">{dict.affiliationsPage.membersEmpty}</p>
+        ) : (
+          <ul className="enter mt-5 flex flex-wrap gap-3">
+            {members.map((member) => (
+              <li key={member.photographerId}>
+                <Link
+                  href={`/profile/${member.userId}`}
+                  className="flex items-center gap-2 rounded-pill bg-cloud py-1.5 pl-1.5 pr-3 text-label text-ink transition-colors duration-200 hover:bg-green-50 hover:text-green-700"
+                >
+                  <Avatar src={member.image} size={28} />
+                  <span className="truncate">{member.displayName}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ))}
     </section>
   );
 }

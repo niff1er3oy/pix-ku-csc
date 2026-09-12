@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { CheckIcon, CloseIcon } from "@/components/ui/icon";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
+import { cn } from "@/lib/utils";
 
 /**
  * One item awaiting review, with the two decisions attached.
@@ -23,6 +24,7 @@ export function ReviewRow({
   approve,
   reject,
   labels,
+  hidden = false,
 }: {
   id: string;
   title: string;
@@ -33,11 +35,21 @@ export function ReviewRow({
   approve: (formData: FormData) => Promise<void>;
   reject: (formData: FormData) => Promise<void>;
   labels: Dictionary["admin"];
+  /** Set by `ReviewQueue` when a search doesn't match this row — hidden
+   *  with CSS rather than left out of the list, since the reject form below
+   *  can already hold a half-typed reason nobody wants to lose to a
+   *  keystroke that briefly filters it out and back in. */
+  hidden?: boolean;
 }) {
   const facts = meta.filter((value): value is string => Boolean(value));
 
   return (
-    <li className="enter rounded-card bg-paper p-5 shadow-[var(--shadow-card)] sm:p-6">
+    <li
+      className={cn(
+        "enter rounded-card bg-paper p-5 shadow-[var(--shadow-card)] sm:p-6",
+        hidden && "hidden",
+      )}
+    >
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <h3 className="text-h3">{title}</h3>
         <span className="tnum text-caption text-slate">{submitted}</span>

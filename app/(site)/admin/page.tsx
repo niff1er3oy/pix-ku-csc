@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Directory, type DirectoryTab } from "@/components/admin/directory";
 import { IndexingMeter, StatTiles } from "@/components/admin/metrics";
 import { SearchesChart } from "@/components/admin/searches-chart";
+import { ReviewQueue } from "@/components/admin/review-queue";
 import { ReviewRow } from "@/components/admin/review-row";
 import {
   approveEvent,
@@ -137,8 +138,11 @@ export default async function AdminPage({
       {photographers.length > 0 && (
         <section className="mt-12">
           <h2 className="text-h2">{dict.admin.pendingPhotographers}</h2>
-          <ul className="mt-6 space-y-4">
-            {photographers.map((row) => (
+          <ReviewQueue
+            items={photographers}
+            getTitle={(row) => row.displayName}
+            labels={dict.admin}
+            renderRow={(row, hidden) => (
               <ReviewRow
                 key={row.id}
                 id={row.id}
@@ -149,17 +153,21 @@ export default async function AdminPage({
                 approve={approvePhotographer}
                 reject={rejectPhotographer}
                 labels={dict.admin}
+                hidden={hidden}
               />
-            ))}
-          </ul>
+            )}
+          />
         </section>
       )}
 
       {events.length > 0 && (
         <section className="mt-12">
           <h2 className="text-h2">{dict.admin.pendingEvents}</h2>
-          <ul className="mt-6 space-y-4">
-            {events.map((row) => (
+          <ReviewQueue
+            items={events}
+            getTitle={(row) => row.nameTh}
+            labels={dict.admin}
+            renderRow={(row, hidden) => (
               <ReviewRow
                 key={row.id}
                 id={row.id}
@@ -170,9 +178,10 @@ export default async function AdminPage({
                 approve={approveEvent}
                 reject={rejectEvent}
                 labels={dict.admin}
+                hidden={hidden}
               />
-            ))}
-          </ul>
+            )}
+          />
         </section>
       )}
 

@@ -235,11 +235,8 @@ export type AffiliationGroup = {
   id: string;
   name: string;
   imagePath: string | null;
-  photographers: {
-    userId: string;
-    displayName: string;
-    image: string | null;
-  }[];
+  memberCount: number;
+  eventCount: number;
 };
 
 /**
@@ -249,10 +246,18 @@ export type AffiliationGroup = {
  * `affiliationId`. Public with no session required, the same as `/events`:
  * this is a directory of who shoots for whom, not anyone's own data.
  *
- * An affiliation with no approved members yet still shows, with an empty
- * list — an admin can create one before anyone has joined it, and it not
- * appearing here until someone does would make the join code an admin just
- * handed out look like it went nowhere.
+ * An affiliation with no approved members yet still shows, at zero — an
+ * admin can create one before anyone has joined it, and it not appearing
+ * here until someone does would make the join code an admin just handed out
+ * look like it went nowhere.
+ *
+ * Just the counts, not the roster or the events themselves — this feeds the
+ * card grid, and the full member list and portfolio already have their own
+ * page at `/affiliations/[id]`, one click away. `count(distinct …)` rather
+ * than two separate queries per affiliation: joining both `photographers`
+ * and `events` in one pass fans each row out to every combination of the
+ * two, but a distinct count of either column is unaffected by how many
+ * times it repeats.
  */
 export async function getAffiliations(): Promise<AffiliationGroup[]> {
   const rows = await db
@@ -260,35 +265,19 @@ export async function getAffiliations(): Promise<AffiliationGroup[]> {
       id: affiliations.id,
       name: affiliations.name,
       imagePath: affiliations.imagePath,
-      userId: photographers.userId,
-      displayName: photographers.displayName,
-      image: users.image,
+      memberCount: sql<number>`count(distinct ${photographers.id}) filter (where ${photographers.status} = 'approved')::int`,
+      eventCount: sql<number>`count(distinct ${events.id}) filter (where ${events.status} = 'approved' and ${events.isPrivate} = false)::int`,
     })
     .from(affiliations)
-    .leftJoin(
-      photographers,
-      and(eq(photographers.affiliationId, affiliations.id), eq(photographers.status, "approved")),
-    )
-    .leftJoin(users, eq(photographers.userId, users.id))
-    .orderBy(asc(affiliations.name), asc(photographers.displayName));
+    .leftJoin(photographers, eq(photographers.affiliationId, affiliations.id))
+    .leftJoin(events, eq(events.affiliationId, affiliations.id))
+    .groupBy(affiliations.id)
+    .orderBy(asc(affiliations.name));
 
-  const groups = new Map<string, AffiliationGroup>();
-  for (const row of rows) {
-    let group = groups.get(row.id);
-    if (!group) {
-      group = { id: row.id, name: row.name, imagePath: row.imagePath, photographers: [] };
-      groups.set(row.id, group);
-    }
-    if (row.userId) {
-      group.photographers.push({
-        userId: row.userId,
-        displayName: row.displayName!,
-        image: row.image,
-      });
-    }
-  }
-
-  return [...groups.values()].sort((a, b) => a.name.localeCompare(b.name, "th"));
+  // SQL's own `order by` sorted byte-wise; re-sorted here for the same
+  // Thai collation reason `getAllAffiliations`'s admin-facing sibling never
+  // needed to bother with — that one has no locale-sensitive UI reading it.
+  return rows.sort((a, b) => a.name.localeCompare(b.name, "th"));
 }
 
 /**
