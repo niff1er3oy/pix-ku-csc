@@ -139,10 +139,9 @@ export default async function AdminPage({
         <section className="mt-12">
           <h2 className="text-h2">{dict.admin.pendingPhotographers}</h2>
           <ReviewQueue
-            items={photographers}
-            getTitle={(row) => row.displayName}
+            titles={photographers.map((row) => row.displayName)}
             labels={dict.admin}
-            renderRow={(row, hidden) => (
+            rows={photographers.map((row) => (
               <ReviewRow
                 key={row.id}
                 id={row.id}
@@ -153,9 +152,8 @@ export default async function AdminPage({
                 approve={approvePhotographer}
                 reject={rejectPhotographer}
                 labels={dict.admin}
-                hidden={hidden}
               />
-            )}
+            ))}
           />
         </section>
       )}
@@ -164,10 +162,9 @@ export default async function AdminPage({
         <section className="mt-12">
           <h2 className="text-h2">{dict.admin.pendingEvents}</h2>
           <ReviewQueue
-            items={events}
-            getTitle={(row) => row.nameTh}
+            titles={events.map((row) => row.nameTh)}
             labels={dict.admin}
-            renderRow={(row, hidden) => (
+            rows={events.map((row) => (
               <ReviewRow
                 key={row.id}
                 id={row.id}
@@ -178,9 +175,8 @@ export default async function AdminPage({
                 approve={approveEvent}
                 reject={rejectEvent}
                 labels={dict.admin}
-                hidden={hidden}
               />
-            )}
+            ))}
           />
         </section>
       )}

@@ -1,15 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 
 import { DeleteEvent } from "@/components/studio/delete-event";
 import { StatusChip } from "@/components/studio/status-chip";
+import { Avatar } from "@/components/ui/avatar";
 import { SearchIcon, CalendarIcon, LockIcon, PhotoIcon, SettingsIcon } from "@/components/ui/icon";
 import { t, type Dictionary } from "@/lib/i18n/dictionaries";
 import type { Locale } from "@/lib/i18n/locale";
 import type { StudioEventListItem } from "@/lib/queries/studio";
 import { cn, enterDelay, formatDate, formatNumber } from "@/lib/utils";
+
+/** `StudioEventListItem` plus the optional owner-attribution fields
+ *  `AffiliationEventListItem` actually carries. Optional here so a plain
+ *  `StudioEventListItem` (no `ownerName` at all) still satisfies this type —
+ *  `showOwner` is what decides whether they're read, not their presence. */
+type EventWithOptionalOwner = StudioEventListItem & {
+  ownerUserId?: string;
+  ownerName?: string;
+  ownerImage?: string | null;
+};
 
 /**
  * The event-list card `/studio` and `/studio/affiliation` each render, with
@@ -20,20 +31,25 @@ import { cn, enterDelay, formatDate, formatNumber } from "@/lib/utils";
  * past "just scroll" the way the public `/events` index already did before
  * it got one.
  *
- * `footer`, when given, renders below each card's own content — only
- * `/studio/affiliation` uses it, for the "ถ่ายโดย …" line an event a
- * photographer's own personal list has no reason to show.
+ * `showOwner`, when true, adds the "ถ่ายโดย …" line — only
+ * `/studio/affiliation` sets it, for events its own list can show several
+ * different photographers' names on. A render-prop function would do the
+ * same job, but this component is a Client Component and its callers are
+ * Server Components — a function passed as a prop across that boundary
+ * cannot be serialized, so the flag itself has to be the only thing that
+ * crosses; the actual owner line is rendered from `event.ownerName`/
+ * `ownerUserId`/`ownerImage` in here.
  */
-export function StudioEventList<T extends StudioEventListItem>({
+export function StudioEventList<T extends EventWithOptionalOwner>({
   events,
   dict,
   locale,
-  footer,
+  showOwner = false,
 }: {
   events: T[];
   dict: Dictionary;
   locale: Locale;
-  footer?: (event: T) => ReactNode;
+  showOwner?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const needle = query.trim().toLowerCase();
@@ -148,7 +164,18 @@ export function StudioEventList<T extends StudioEventListItem>({
                 </div>
               </div>
 
-              {footer?.(event)}
+              {showOwner && event.ownerName && event.ownerUserId && (
+                // "งานของสังกัดจะบอกว่าใครเป็นคนถ่ายด้วย" — the one thing this
+                // adds over the personal studio's own list: who among every
+                // member with full editing rights actually shot it.
+                <Link
+                  href={`/profile/${event.ownerUserId}`}
+                  className="mt-3 flex w-fit items-center gap-1.5 text-label text-slate transition-colors duration-200 hover:text-green-700"
+                >
+                  <Avatar src={event.ownerImage ?? null} size={20} />
+                  {t(dict.affiliationStudio.shotBy, { name: event.ownerName })}
+                </Link>
+              )}
 
               {event.status === "rejected" && event.rejectionReason && (
                 <p className="mt-3 rounded-field bg-danger/5 px-3 py-2 text-label text-danger">

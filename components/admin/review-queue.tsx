@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { cloneElement, isValidElement, useState, type ReactElement } from "react";
 
 import { SearchIcon } from "@/components/ui/icon";
 import { t, type Dictionary } from "@/lib/i18n/dictionaries";
-import { cn } from "@/lib/utils";
 
 /**
  * Wraps a review queue — pending photographers, pending events — with a
@@ -15,30 +14,34 @@ import { cn } from "@/lib/utils";
  * is exactly the point past which scrolling stops being the fastest way to
  * find one name.
  *
- * Non-matching rows are hidden with `hidden` rather than dropped from the
- * array — a queue row is a real `<form>` with its own reject-reason text
- * field, and unmounting one on every keystroke would drop whatever an admin
- * had half-typed into a row that later matches again.
+ * `rows` arrives already built as `<ReviewRow>` elements — this is a Client
+ * Component and its caller (`/admin`) is a Server Component, and a function
+ * that builds JSX from raw data cannot cross that boundary the way a value
+ * can. `titles` is the plain-string parallel array this searches against,
+ * matched by index; a non-matching row gets `hidden` set on its already-
+ * built element via `cloneElement` (which `ReviewRow` reads to hide itself)
+ * rather than being left out of `rows` — a queue row is a real `<form>` with
+ * its own reject-reason text field, and unmounting one on every keystroke
+ * would drop whatever an admin had half-typed into a row that later matches
+ * again.
  */
-export function ReviewQueue<T>({
-  items,
-  getTitle,
-  renderRow,
+export function ReviewQueue({
+  titles,
+  rows,
   labels,
 }: {
-  items: T[];
-  getTitle: (item: T) => string;
-  renderRow: (item: T, hidden: boolean) => ReactNode;
+  titles: string[];
+  rows: ReactElement[];
   labels: Dictionary["admin"];
 }) {
   const [query, setQuery] = useState("");
   const needle = query.trim().toLowerCase();
-  const matches = (item: T) => !needle || getTitle(item).toLowerCase().includes(needle);
-  const visibleCount = items.filter(matches).length;
+  const matches = (i: number) => !needle || titles[i]?.toLowerCase().includes(needle);
+  const visibleCount = titles.filter((_, i) => matches(i)).length;
 
   return (
     <>
-      {items.length > 1 && (
+      {titles.length > 1 && (
         <div className="relative mt-6 max-w-sm">
           <SearchIcon
             size={18}
@@ -56,13 +59,15 @@ export function ReviewQueue<T>({
       )}
 
       {needle && visibleCount === 0 && (
-        <p className={cn("rounded-card bg-cloud px-6 py-12 text-center text-body text-slate", "mt-6")}>
+        <p className="mt-6 rounded-card bg-cloud px-6 py-12 text-center text-body text-slate">
           {t(labels.reviewSearchEmpty, { query: query.trim() })}
         </p>
       )}
 
-      <ul className={cn("space-y-4", items.length > 1 ? "mt-4" : "mt-6")}>
-        {items.map((item) => renderRow(item, !matches(item)))}
+      <ul className={titles.length > 1 ? "mt-4 space-y-4" : "mt-6 space-y-4"}>
+        {rows.map((row, i) =>
+          isValidElement(row) ? cloneElement(row, { hidden: !matches(i) } as never) : row,
+        )}
       </ul>
     </>
   );

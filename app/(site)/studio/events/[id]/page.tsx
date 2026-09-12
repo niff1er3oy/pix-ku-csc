@@ -346,10 +346,9 @@ export default async function StudioEventPage({
               gives a photographer who already has one name in mind a way to
               jump straight to it. */}
           <SearchableList
-            items={searches}
-            getSearchText={(s) => s.userName ?? s.userEmail ?? dict.studio.searchesAnonymous}
             dict={dict}
-            renderItem={(s, rowHidden) => {
+            titles={searches.map((s) => s.userName ?? s.userEmail ?? dict.studio.searchesAnonymous)}
+            rows={searches.map((s) => {
               const name = s.userName ?? s.userEmail;
               const initial = name?.trim().charAt(0).toUpperCase();
               const hasMatch = s.matchCount > 0;
@@ -382,7 +381,6 @@ export default async function StudioEventPage({
                   className={cn(
                     "flex items-center gap-4 p-4 transition-colors duration-200",
                     active && "bg-green-50",
-                    rowHidden && "hidden",
                   )}
                 >
                   {/* Only the avatar leads to the profile — the name and
@@ -453,7 +451,7 @@ export default async function StudioEventPage({
                   )}
                 </li>
               );
-            }}
+            })}
           />
         </section>
       )}
@@ -466,10 +464,9 @@ export default async function StudioEventPage({
               only adds a way to jump to one name, it does not replace the
               full scrolling list. */}
           <SearchableList
-            items={downloaders}
-            getSearchText={(d) => d.userName ?? d.userEmail ?? dict.studio.searchesAnonymous}
             dict={dict}
-            renderItem={(d, rowHidden) => {
+            titles={downloaders.map((d) => d.userName ?? d.userEmail ?? dict.studio.searchesAnonymous)}
+            rows={downloaders.map((d) => {
               const name = d.userName ?? d.userEmail;
               const initial = name?.trim().charAt(0).toUpperCase();
               const active = (d.userId ?? "anonymous") === downloader;
@@ -496,7 +493,6 @@ export default async function StudioEventPage({
                   className={cn(
                     "flex items-center gap-4 p-4 transition-colors duration-200",
                     active && "bg-green-50",
-                    rowHidden && "hidden",
                   )}
                 >
                   {/* Only the avatar leads to the profile — see the same
@@ -558,7 +554,7 @@ export default async function StudioEventPage({
                   </Link>
                 </li>
               );
-            }}
+            })}
           />
         </section>
       )}

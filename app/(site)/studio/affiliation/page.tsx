@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 
 import { AffiliationMembers } from "@/components/studio/affiliation-members";
 import { AffiliationSettingsButton } from "@/components/studio/affiliation-settings-button";
@@ -10,12 +9,11 @@ import { ButtonLink } from "@/components/ui/button";
 import { GridBackground } from "@/components/ui/grid-background";
 import { UsersIcon } from "@/components/ui/icon";
 import { requireApprovedPhotographer } from "@/lib/dal";
-import { getDictionary, getLocale, t } from "@/lib/i18n";
+import { getDictionary, getLocale } from "@/lib/i18n";
 import {
   getAffiliationById,
   getAffiliationEvents,
   getAffiliationMembers,
-  type AffiliationEventListItem,
 } from "@/lib/queries/affiliations";
 import { safely } from "@/lib/queries/public";
 
@@ -117,23 +115,7 @@ export default async function AffiliationStudioPage() {
             </div>
           </div>
         ) : (
-          <StudioEventList
-            events={events}
-            dict={dict}
-            locale={locale}
-            footer={(event: AffiliationEventListItem) => (
-              // "งานของสังกัดจะบอกว่าใครเป็นคนถ่ายด้วย" — the one thing this
-              // list adds over the personal studio's own: who among every
-              // member with full editing rights actually shot it.
-              <Link
-                href={`/profile/${event.ownerUserId}`}
-                className="mt-3 flex w-fit items-center gap-1.5 text-label text-slate transition-colors duration-200 hover:text-green-700"
-              >
-                <Avatar src={event.ownerImage} size={20} />
-                {t(dict.affiliationStudio.shotBy, { name: event.ownerName })}
-              </Link>
-            )}
-          />
+          <StudioEventList events={events} dict={dict} locale={locale} showOwner />
         )}
       </div>
     </section>

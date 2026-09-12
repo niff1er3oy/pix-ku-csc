@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { cloneElement, isValidElement, useState, type ReactElement } from "react";
 
 import { SearchIcon } from "@/components/ui/icon";
 import { t, type Dictionary } from "@/lib/i18n/dictionaries";
@@ -14,28 +14,32 @@ import { t, type Dictionary } from "@/lib/i18n/dictionaries";
  * scrolls the same way with the box empty, it just gives a photographer who
  * already has one name in mind a way to jump straight to it in a full list.
  *
- * Non-matching rows are hidden with `hidden` rather than dropped from the
- * array, the same reason `EventsManager`'s own search does that.
+ * `rows` arrives already built — this is a Client Component and its caller
+ * (the studio event page) is a Server Component, and a function that builds
+ * JSX from raw data cannot cross that boundary the way a value can. `titles`
+ * is the plain-string parallel array this searches against, matched by
+ * index; a non-matching row gets `hidden` set on the already-built element
+ * via `cloneElement` rather than being left out of `rows` — the browser's
+ * own `hidden` attribute hides it the same as CSS would, and the row stays
+ * mounted either way.
  */
-export function SearchableList<T>({
-  items,
-  getSearchText,
-  renderItem,
+export function SearchableList({
+  titles,
+  rows,
   dict,
 }: {
-  items: T[];
-  getSearchText: (item: T) => string;
-  renderItem: (item: T, hidden: boolean) => ReactNode;
+  titles: string[];
+  rows: ReactElement[];
   dict: Dictionary;
 }) {
   const [query, setQuery] = useState("");
   const needle = query.trim().toLowerCase();
-  const matches = (item: T) => !needle || getSearchText(item).toLowerCase().includes(needle);
-  const visibleCount = items.filter(matches).length;
+  const matches = (i: number) => !needle || titles[i]?.toLowerCase().includes(needle);
+  const visibleCount = titles.filter((_, i) => matches(i)).length;
 
   return (
     <>
-      {items.length > 1 && (
+      {titles.length > 1 && (
         <div className="relative mt-4 max-w-xs">
           <SearchIcon
             size={16}
@@ -58,7 +62,9 @@ export function SearchableList<T>({
         </p>
       ) : (
         <ul className="mt-4 max-h-96 divide-y divide-edge overflow-y-auto rounded-card bg-paper ring-1 ring-edge">
-          {items.map((item) => renderItem(item, !matches(item)))}
+          {rows.map((row, i) =>
+            isValidElement(row) ? cloneElement(row, { hidden: !matches(i) } as never) : row,
+          )}
         </ul>
       )}
     </>
