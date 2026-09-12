@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { CopyLinkButton } from "@/components/studio/copy-link-button";
 import { AffiliationMembers } from "@/components/studio/affiliation-members";
+import { AffiliationSettingsButton } from "@/components/studio/affiliation-settings-button";
 import { JoinAffiliationForm } from "@/components/studio/join-affiliation-form";
-import { LeaveAffiliationButton } from "@/components/studio/leave-affiliation-button";
 import { DeleteEvent } from "@/components/studio/delete-event";
 import { StatusChip } from "@/components/studio/status-chip";
 import { Avatar } from "@/components/ui/avatar";
@@ -75,32 +74,27 @@ export default async function AffiliationStudioPage() {
   return (
     <section className="mx-auto w-full max-w-4xl px-5 py-16 sm:px-8 sm:py-24">
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="flex items-center gap-1.5 text-label font-medium text-green-700">
-            <UsersIcon size={16} />
-            {dict.affiliationStudio.title}
-          </p>
-          <h1 className="mt-1 text-h1 font-bold">{affiliation.name}</h1>
+        <div className="flex items-center gap-4">
+          <Avatar src={affiliation.imagePath ? `/api/media/${affiliation.imagePath}` : null} size={56} />
+          <div>
+            <p className="flex items-center gap-1.5 text-label font-medium text-green-700">
+              <UsersIcon size={16} />
+              {dict.affiliationStudio.title}
+            </p>
+            <h1 className="mt-1 text-h1 font-bold">{affiliation.name}</h1>
+          </div>
         </div>
-        <ButtonLink href="/studio/events/new?affiliation=1" size="md">
-          {dict.affiliationStudio.newEvent}
-        </ButtonLink>
-      </div>
-
-      <div className="mt-6 flex flex-wrap items-center gap-3 rounded-card bg-cloud px-5 py-4">
-        <p className="text-label text-slate">
-          <span className="font-medium text-ink">{dict.affiliationStudio.joinCodeLabel}:</span>{" "}
-          <span className="tnum tracking-[0.2em] text-ink">{affiliation.joinCode}</span>
-        </p>
-        <CopyLinkButton
-          value={affiliation.joinCode}
-          label={dict.affiliationStudio.copyCode}
-          copiedLabel={dict.affiliationStudio.copyCodeCopied}
-        />
-        <LeaveAffiliationButton
-          label={dict.affiliationStudio.leaveAffiliation}
-          confirmMessage={dict.affiliationStudio.leaveConfirm}
-        />
+        <div className="flex items-center gap-2">
+          <AffiliationSettingsButton
+            dict={dict}
+            affiliationName={affiliation.name}
+            imagePath={affiliation.imagePath}
+            joinCode={affiliation.joinCode}
+          />
+          <ButtonLink href="/studio/events/new?affiliation=1" size="md">
+            {dict.affiliationStudio.newEvent}
+          </ButtonLink>
+        </div>
       </div>
 
       <div className="mt-10">

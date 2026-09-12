@@ -8,6 +8,8 @@ import { db } from "@/db";
 import { affiliations, photographers, users } from "@/db/schema";
 import { generatePin } from "@/lib/event-pin";
 import { requireApprovedPhotographer, requireRole } from "@/lib/dal";
+import { ACCEPTED_MIME, buildCoverImage, MAX_COVER_BYTES } from "@/lib/images";
+import { storagePaths, writeStorageFile } from "@/lib/storage";
 
 const CreateAffiliation = z.object({
   name: z.string().trim().min(2).max(120),
@@ -15,10 +17,69 @@ const CreateAffiliation = z.object({
 });
 
 export type CreateAffiliationState =
+  | { ok: true }
   | {
       error: "invalid" | "email_not_found" | "email_not_approved" | "email_already_in";
     }
   | undefined;
+
+export type FounderPreview =
+  | {
+      found: true;
+      name: string;
+      image: string | null;
+      /** False when this account exists but cannot actually found an
+       *  affiliation right now — the create form still shows the name and
+       *  photo (an admin typing the wrong email deserves to see whose
+       *  account that actually is), just alongside why submitting would
+       *  fail. */
+      eligible: boolean;
+      reason?: "not_approved" | "already_in";
+    }
+  | { found: false };
+
+/**
+ * What `CreateAffiliationForm`'s email field previews as an admin types —
+ * name, avatar, and eligibility, so the wrong person or a typo turns up
+ * before submitting rather than after. Read-only and admin-only, called
+ * directly from the client on a debounce (see `savePhotos` in
+ * `lib/actions/saved-photos.ts` for the same "server action as a plain
+ * function call" shape) rather than through a `<form action>` — there is
+ * nothing here to submit, just something to look up.
+ */
+export async function lookupAffiliationFounder(email: string): Promise<FounderPreview> {
+  await requireRole("admin");
+
+  const parsed = z.string().trim().email().safeParse(email);
+  if (!parsed.success) return { found: false };
+
+  const [row] = await db
+    .select({
+      displayName: photographers.displayName,
+      name: users.name,
+      email: users.email,
+      image: users.image,
+      status: photographers.status,
+      affiliationId: photographers.affiliationId,
+    })
+    .from(users)
+    .innerJoin(photographers, eq(photographers.userId, users.id))
+    .where(eq(users.email, parsed.data))
+    .limit(1);
+
+  if (!row) return { found: false };
+
+  const reason =
+    row.status !== "approved" ? "not_approved" : row.affiliationId ? "already_in" : undefined;
+
+  return {
+    found: true,
+    name: row.displayName || row.name || row.email || "",
+    image: row.image,
+    eligible: !reason,
+    reason,
+  };
+}
 
 /**
  * Stands up a new affiliation with a fresh join code — and, in the same
@@ -90,6 +151,7 @@ export async function createAffiliation(
   revalidatePath("/admin");
   revalidatePath("/studio/affiliation");
   revalidatePath(`/profile/${founder.userId}`);
+  return { ok: true };
 }
 
 /**
@@ -148,6 +210,75 @@ export async function joinAffiliation(
 
   revalidatePath("/studio/affiliation");
   revalidatePath(`/profile/${photographer.userId}`);
+}
+
+const UpdateAffiliationSettings = z.object({
+  name: z.string().trim().min(2).max(120),
+});
+
+export type AffiliationSettingsState =
+  | { ok: true }
+  | { error: "invalid" | "image_too_large" | "image_bad_format" }
+  | undefined;
+
+/**
+ * Renames the caller's own affiliation and/or replaces its picture — full
+ * mutual management extends to both, the same as its events and its
+ * roster; there is no admin step in between and no admin-only path for
+ * this either.
+ *
+ * Scoped implicitly by `photographer.affiliationId`, the same as every other
+ * member-facing action here: there is no id in the form to point this at a
+ * group the caller does not already belong to.
+ *
+ * The image is optional and only ever replaces what is there — leaving the
+ * file field empty on a resave keeps the current picture, the same
+ * "blank means unchanged" behavior `updateEventInfo`'s own cover field has.
+ * Reuses `buildCoverImage`: a 1600px square crop is exactly what an
+ * affiliation's picture needs too, and it is never run through face
+ * detection, so nothing here processes biometric data.
+ */
+export async function updateAffiliationSettings(
+  _prev: AffiliationSettingsState,
+  formData: FormData,
+): Promise<AffiliationSettingsState> {
+  const { photographer } = await requireApprovedPhotographer();
+  if (!photographer.affiliationId) return { error: "invalid" };
+
+  const parsed = UpdateAffiliationSettings.safeParse({ name: formData.get("name") });
+  if (!parsed.success) return { error: "invalid" };
+
+  const imageFile = formData.get("image") as File | null;
+  let imagePath: string | undefined;
+
+  if (imageFile && imageFile.size > 0) {
+    if (imageFile.size > MAX_COVER_BYTES) return { error: "image_too_large" };
+    if (!ACCEPTED_MIME.includes(imageFile.type as (typeof ACCEPTED_MIME)[number])) {
+      return { error: "image_bad_format" };
+    }
+
+    let processed: Buffer;
+    try {
+      processed = await buildCoverImage(Buffer.from(await imageFile.arrayBuffer()));
+    } catch {
+      // sharp refuses anything it cannot decode — see the identical note on
+      // `prepareCover` in `lib/actions/studio.ts`.
+      return { error: "image_bad_format" };
+    }
+
+    imagePath = storagePaths.affiliationImage(photographer.affiliationId);
+    await writeStorageFile(imagePath, processed);
+  }
+
+  await db
+    .update(affiliations)
+    .set({ name: parsed.data.name, ...(imagePath ? { imagePath } : {}) })
+    .where(eq(affiliations.id, photographer.affiliationId));
+
+  revalidatePath("/studio/affiliation");
+  revalidatePath("/admin");
+  revalidatePath("/affiliations");
+  return { ok: true };
 }
 
 /**

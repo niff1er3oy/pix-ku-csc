@@ -61,6 +61,7 @@ export async function getPublicProfile(userId: string): Promise<PublicProfile | 
 export type PublicPhotographerInfo = {
   displayName: string;
   bio: string | null;
+  affiliationId: string | null;
   affiliationName: string | null;
 };
 
@@ -85,6 +86,7 @@ export async function getPhotographerProfileInfo(
     .select({
       displayName: photographers.displayName,
       bio: photographers.bio,
+      affiliationId: photographers.affiliationId,
       affiliationName: affiliations.name,
     })
     .from(photographers)

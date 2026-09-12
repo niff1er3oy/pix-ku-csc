@@ -175,12 +175,9 @@ export default async function ProfilePage({
       {isPhotographer && (
         <p className="mt-2 flex items-center gap-1.5 text-label text-slate">
           <span className="font-medium text-ink">{dict.photographer.affiliation}:</span>
-          {photographerInfo?.affiliationName ? (
-            // Links out to the directory of every affiliation rather than a
-            // filtered view of just this one — `/affiliations` has no
-            // per-group route yet, only the one list.
+          {photographerInfo?.affiliationName && photographerInfo.affiliationId ? (
             <Link
-              href="/affiliations"
+              href={`/affiliations/${photographerInfo.affiliationId}`}
               className="underline-offset-4 hover:text-green-700 hover:underline"
             >
               {photographerInfo.affiliationName}

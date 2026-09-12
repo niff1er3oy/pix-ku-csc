@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 
 import { db } from "@/db";
-import { downloads, events, photographers, photos, type Event } from "@/db/schema";
+import { affiliations, downloads, events, photographers, photos, type Event } from "@/db/schema";
 import { canManageEvent, getPhotographer, getSessionUser } from "@/lib/dal";
 import { applyWatermark } from "@/lib/images";
 import { notifyPhotoDownloaded } from "@/lib/notifications";
@@ -123,6 +123,21 @@ async function authorize(
     if (!user) return { ok: false, status: 401 };
     if (parts[1] !== user.id) return { ok: false, status: 403 };
     return { ok: true, private: true };
+  }
+
+  // --- affiliations/{affiliationId}/image/{file} ---------------------------
+  // Public the same way `/affiliations` itself is — no session, no
+  // ownership check, just whether the affiliation still exists.
+  if (parts[0] === "affiliations") {
+    if (parts.length < 3) return { ok: false, status: 404 };
+    const [, affiliationId] = parts;
+    const [affiliation] = await db
+      .select({ id: affiliations.id })
+      .from(affiliations)
+      .where(eq(affiliations.id, affiliationId))
+      .limit(1);
+    if (!affiliation) return { ok: false, status: 404 };
+    return { ok: true, private: false };
   }
 
   // --- events/{eventId}/{kind}/{file} --------------------------------------

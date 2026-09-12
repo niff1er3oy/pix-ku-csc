@@ -1,0 +1,1 @@
+ALTER TABLE "affiliation" ADD COLUMN "image_path" text;

@@ -159,6 +159,12 @@ export const affiliations = pgTable("affiliation", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
   joinCode: text("join_code").notNull().unique(),
+  /** Set by `updateAffiliationSettings` in `lib/actions/affiliations.ts` —
+   *  any member, the same mutual-management scope as the name itself. Null
+   *  until someone uploads one; every place this shows falls back to
+   *  `Avatar`'s own generic placeholder, the same as a person with no
+   *  picture gets. */
+  imagePath: text("image_path"),
   createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()

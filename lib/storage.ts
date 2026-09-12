@@ -62,6 +62,10 @@ export const storagePaths = {
   userFace: (userId: string, faceId: string) =>
     path.posix.join("faces", userId, `${faceId}.jpg`),
   userFaceDir: (userId: string) => path.posix.join("faces", userId),
+  /** One per affiliation, so re-uploading overwrites rather than
+   *  accumulating — the same fixed-filename shape as `eventCover`. */
+  affiliationImage: (affiliationId: string) =>
+    path.posix.join("affiliations", affiliationId, "image", "image.webp"),
 };
 
 export async function writeStorageFile(

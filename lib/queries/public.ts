@@ -234,6 +234,7 @@ export async function getSiteStats(): Promise<SiteStats> {
 export type AffiliationGroup = {
   id: string;
   name: string;
+  imagePath: string | null;
   photographers: {
     userId: string;
     displayName: string;
@@ -258,6 +259,7 @@ export async function getAffiliations(): Promise<AffiliationGroup[]> {
     .select({
       id: affiliations.id,
       name: affiliations.name,
+      imagePath: affiliations.imagePath,
       userId: photographers.userId,
       displayName: photographers.displayName,
       image: users.image,
@@ -274,7 +276,7 @@ export async function getAffiliations(): Promise<AffiliationGroup[]> {
   for (const row of rows) {
     let group = groups.get(row.id);
     if (!group) {
-      group = { id: row.id, name: row.name, photographers: [] };
+      group = { id: row.id, name: row.name, imagePath: row.imagePath, photographers: [] };
       groups.set(row.id, group);
     }
     if (row.userId) {

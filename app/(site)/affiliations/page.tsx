@@ -41,8 +41,19 @@ export default async function AffiliationsPage() {
               key={group.id}
               className={`enter rounded-card bg-paper p-5 shadow-[var(--shadow-card)] sm:p-6 ${enterDelay(i)}`}
             >
-              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                <h2 className="text-h3 font-semibold text-ink">{group.name}</h2>
+              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+                <Link
+                  href={`/affiliations/${group.id}`}
+                  className="group/link flex min-w-0 items-center gap-3"
+                >
+                  <Avatar
+                    src={group.imagePath ? `/api/media/${group.imagePath}` : null}
+                    size={40}
+                  />
+                  <h2 className="truncate text-h3 font-semibold text-ink transition-colors duration-200 group-hover/link:text-green-700">
+                    {group.name}
+                  </h2>
+                </Link>
                 <p className="tnum text-label text-slate">
                   {t(dict.affiliationsPage.photographerCount, {
                     count: formatNumber(group.photographers.length, locale),
