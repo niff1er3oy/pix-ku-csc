@@ -18,6 +18,22 @@ export type EventCard = {
    *  `photographers.id`, since that route looks visitors up by `users.id`. */
   photographerUserId: string;
   photographerImage: string | null;
+  /**
+   * Set only when this event was created from an affiliation's shared
+   * studio — when it is, `EventCard` credits the affiliation instead of
+   * `photographerName`/`photographerUserId`/`photographerImage` above,
+   * linking to `/affiliations/[id]` rather than `/profile/[id]`: on a feed
+   * mixing everyone's work, "shot by KU Photo Club" says more than any one
+   * member's name does. `getAffiliationPortfolio` in
+   * `lib/queries/affiliations.ts` deliberately leaves these null on its own
+   * rows even though the underlying event really does have an
+   * `affiliationId` — the whole point of that page is showing which member
+   * shot each piece, so crediting the affiliation you are already looking
+   * at would say nothing new.
+   */
+  affiliationId: string | null;
+  affiliationName: string | null;
+  affiliationImage: string | null;
   coverThumbPath: string | null;
   /** Always `false` coming out of `getPublicEvents` — a private event never
    *  reaches that query at all. Present on the type (rather than assumed)
@@ -51,6 +67,9 @@ export async function getPublicEvents(
       photographerName: photographers.displayName,
       photographerUserId: photographers.userId,
       photographerImage: users.image,
+      affiliationId: events.affiliationId,
+      affiliationName: affiliations.name,
+      affiliationImage: affiliations.imagePath,
       isPrivate: events.isPrivate,
       /**
        * The cover the photographer chose, falling back to the first photo
@@ -78,6 +97,7 @@ export async function getPublicEvents(
     .from(events)
     .innerJoin(photographers, eq(events.ownerId, photographers.id))
     .innerJoin(users, eq(photographers.userId, users.id))
+    .leftJoin(affiliations, eq(events.affiliationId, affiliations.id))
     .where(
       and(
         eq(events.status, "approved"),
@@ -127,6 +147,9 @@ export async function getPhotographerPortfolio(
       photographerName: photographers.displayName,
       photographerUserId: photographers.userId,
       photographerImage: users.image,
+      affiliationId: events.affiliationId,
+      affiliationName: affiliations.name,
+      affiliationImage: affiliations.imagePath,
       isPrivate: events.isPrivate,
       coverThumbPath: sql<string | null>`coalesce(
         ${events.coverPath},
@@ -141,6 +164,7 @@ export async function getPhotographerPortfolio(
     .from(events)
     .innerJoin(photographers, eq(events.ownerId, photographers.id))
     .innerJoin(users, eq(photographers.userId, users.id))
+    .leftJoin(affiliations, eq(events.affiliationId, affiliations.id))
     .where(
       and(
         eq(photographers.userId, photographerUserId),

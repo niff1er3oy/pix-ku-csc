@@ -188,7 +188,7 @@ export async function getAffiliationPortfolio(
   affiliationId: string,
   limit = 24,
 ): Promise<EventCard[]> {
-  return db
+  const rows = await db
     .select({
       id: events.id,
       accessCode: events.accessCode,
@@ -223,6 +223,21 @@ export async function getAffiliationPortfolio(
     )
     .orderBy(desc(events.eventDate))
     .limit(limit);
+
+  // `affiliationId`/`affiliationName`/`affiliationImage` are left null on
+  // purpose, even though every one of these events really does have an
+  // `affiliationId` — this is the one page where crediting the affiliation
+  // you are already looking at would say nothing new; see the note on
+  // `EventCard` in `lib/queries/public.ts`. `EventCard` reads null here as
+  // "credit the individual instead," which is the whole reason this list
+  // carries `photographerName`/`photographerUserId`/`photographerImage` at
+  // all.
+  return rows.map((row) => ({
+    ...row,
+    affiliationId: null,
+    affiliationName: null,
+    affiliationImage: null,
+  }));
 }
 
 /**

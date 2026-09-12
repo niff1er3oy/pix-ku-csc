@@ -82,15 +82,35 @@ export function EventCard({
           </div>
         </Link>
 
-        <Link
-          href={`/profile/${event.photographerUserId}`}
-          className="mt-3 flex w-fit items-center gap-2 px-5 pb-5 text-label text-slate transition-colors duration-200 hover:text-green-700"
-        >
-          <Avatar src={event.photographerImage} size={20} />
-          <span className="truncate">
-            {dict.event.by} {event.photographerName}
-          </span>
-        </Link>
+        {/* An affiliation-shot event credits the affiliation here, not
+            whichever member happened to create it — "shot by KU Photo Club"
+            says more on a feed mixing everyone's work than any one member's
+            name would. `getAffiliationPortfolio` deliberately leaves
+            `affiliationId` null on its own rows so this still falls back to
+            the individual on the affiliation's own page, where crediting
+            the affiliation you are already looking at would say nothing
+            new — see the note on `EventCard` in `lib/queries/public.ts`. */}
+        {event.affiliationId && event.affiliationName ? (
+          <Link
+            href={`/affiliations/${event.affiliationId}`}
+            className="mt-3 flex w-fit items-center gap-2 px-5 pb-5 text-label text-slate transition-colors duration-200 hover:text-green-700"
+          >
+            <Avatar src={event.affiliationImage} size={20} />
+            <span className="truncate">
+              {dict.event.by} {event.affiliationName}
+            </span>
+          </Link>
+        ) : (
+          <Link
+            href={`/profile/${event.photographerUserId}`}
+            className="mt-3 flex w-fit items-center gap-2 px-5 pb-5 text-label text-slate transition-colors duration-200 hover:text-green-700"
+          >
+            <Avatar src={event.photographerImage} size={20} />
+            <span className="truncate">
+              {dict.event.by} {event.photographerName}
+            </span>
+          </Link>
+        )}
       </div>
     </li>
   );

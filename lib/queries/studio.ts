@@ -74,11 +74,20 @@ export type StudioEventListItem = Omit<
 };
 
 /**
- * A photographer's own events, newest first.
+ * A photographer's own events, newest first — their solo work only.
  *
  * Scoped by `ownerId` in the query rather than filtered after the fact. There
  * is no version of this list that should ever contain somebody else's event,
  * so the restriction belongs where it cannot be forgotten.
+ *
+ * `affiliationId is null` excludes an event created from the affiliation
+ * studio even though its `ownerId` still names whoever created it — that
+ * event belongs to the shared list at `/studio/affiliation`
+ * (`getAffiliationEvents`), not this personal one, so it shows up in exactly
+ * one place rather than both. Leaving the affiliation studio (or being
+ * removed from it) never moves an event back here either: `affiliationId` is
+ * set once, at creation, and this list reads it exactly the same way
+ * `canManageEvent` in `lib/dal.ts` does for the same reason.
  */
 export async function getMyEvents(
   photographerId: string,
@@ -109,7 +118,7 @@ export async function getMyEvents(
       )`,
     })
     .from(events)
-    .where(eq(events.ownerId, photographerId))
+    .where(and(eq(events.ownerId, photographerId), isNull(events.affiliationId)))
     .orderBy(desc(events.eventDate));
 }
 
