@@ -12,6 +12,7 @@ export const th = {
   nav: {
     home: "หน้าแรก",
     events: "งานอีเวนต์",
+    affiliations: "สังกัด",
     forPhotographers: "สำหรับช่างภาพ",
     studio: "สตูดิโอ",
     admin: "ผู้ดูแล",
@@ -276,12 +277,10 @@ export const th = {
     applyTitle: "สมัครเป็นช่างภาพ",
     applyLede:
       "กรอกข้อมูลแล้วรอผู้ดูแลอนุมัติ อนุมัติแล้วจะสร้างงานและอัปโหลดรูปได้",
-    displayName: "ชื่อที่แสดง",
-    displayNameHint: "ชื่อนี้จะขึ้นใต้รูปทุกใบที่คุณอัปโหลด",
     affiliation: "สังกัด",
     affiliationHint: "คณะ ชมรม หรือทีมที่คุณถ่ายให้",
+    affiliationIndependent: "อิสระ",
     bio: "แนะนำตัว",
-    contactEmail: "อีเมลติดต่อ",
     contactPhone: "เบอร์ติดต่อ",
     submit: "ส่งใบสมัคร",
     statusPending: "รอผู้ดูแลตรวจสอบ",
@@ -617,6 +616,13 @@ export const th = {
     searchClear: "ล้างการค้นหา",
   },
 
+  affiliationsPage: {
+    title: "สังกัด",
+    lede: "ช่างภาพในระบบ จัดกลุ่มตามคณะ ชมรม หรือทีมที่ถ่ายให้",
+    empty: "ยังไม่มีช่างภาพที่ตั้งสังกัดไว้",
+    photographerCount: "{count} คน",
+  },
+
   privacy: {
     title: "นโยบายข้อมูลใบหน้าและความเป็นส่วนตัว",
     lede: "ใบหน้าเป็นข้อมูลส่วนบุคคลอ่อนไหวตาม พ.ร.บ. คุ้มครองข้อมูลส่วนบุคคล พ.ศ. 2562 หน้านี้อธิบายว่าระบบทำอะไรกับมันบ้าง ตามที่ระบบทำงานจริง",
@@ -676,6 +682,7 @@ export const en: Dictionary = {
   nav: {
     home: "Home",
     events: "Events",
+    affiliations: "Affiliations",
     forPhotographers: "For photographers",
     studio: "Studio",
     admin: "Admin",
@@ -941,12 +948,10 @@ export const en: Dictionary = {
     applyTitle: "Apply as a photographer",
     applyLede:
       "Fill this in and wait for admin approval. Once approved you can create events and upload photos.",
-    displayName: "Display name",
-    displayNameHint: "Shown under every photo you upload",
     affiliation: "Affiliation",
     affiliationHint: "The faculty, club, or team you shoot for",
+    affiliationIndependent: "Independent",
     bio: "About you",
-    contactEmail: "Contact email",
     contactPhone: "Contact phone",
     submit: "Send application",
     statusPending: "Waiting on admin review",
@@ -1285,6 +1290,13 @@ export const en: Dictionary = {
     searchEmpty: 'No events match "{query}"',
     searchEmptyBody: "Try a different word, or browse every event.",
     searchClear: "Clear search",
+  },
+
+  affiliationsPage: {
+    title: "Affiliations",
+    lede: "Photographers on the site, grouped by the faculty, club, or team they shoot for.",
+    empty: "No photographer has set an affiliation yet",
+    photographerCount: "{count} people",
   },
 
   privacy: {

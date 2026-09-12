@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, count, desc, eq, ilike, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, ilike, isNotNull, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { events, photoFaces, photographers, photos, users } from "@/db/schema";
@@ -229,6 +229,56 @@ export async function getSiteStats(): Promise<SiteStats> {
     photos: photoRow?.value ?? 0,
     faces: faceRow?.value ?? 0,
   };
+}
+
+export type AffiliationGroup = {
+  name: string;
+  photographers: {
+    userId: string;
+    displayName: string;
+    image: string | null;
+  }[];
+};
+
+/**
+ * Every affiliation an approved photographer has actually typed, grouped —
+ * "อิสระ" (independent) never appears here, because it is not a real
+ * affiliation anyone entered; it is only ever the fallback `/profile/[id]`
+ * shows in its place. Public with no session required, the same as
+ * `/events`: this is a directory of who shoots for whom, not anyone's own
+ * data.
+ */
+export async function getAffiliations(): Promise<AffiliationGroup[]> {
+  const rows = await db
+    .select({
+      affiliation: photographers.affiliation,
+      userId: photographers.userId,
+      displayName: photographers.displayName,
+      image: users.image,
+    })
+    .from(photographers)
+    .innerJoin(users, eq(photographers.userId, users.id))
+    .where(and(eq(photographers.status, "approved"), isNotNull(photographers.affiliation)))
+    .orderBy(photographers.affiliation, photographers.displayName);
+
+  const groups = new Map<string, AffiliationGroup>();
+  for (const row of rows) {
+    // Narrowed by the `isNotNull` filter above; the column type alone
+    // cannot express that here.
+    const name = row.affiliation as string;
+    let group = groups.get(name);
+    if (!group) {
+      group = { name, photographers: [] };
+      groups.set(name, group);
+    }
+    group.photographers.push({
+      userId: row.userId,
+      displayName: row.displayName,
+      image: row.image,
+    });
+  }
+
+  return [...groups.values()].sort((a, b) => a.name.localeCompare(b.name, "th"));
 }
 
 /**

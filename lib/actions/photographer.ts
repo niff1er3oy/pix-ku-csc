@@ -10,10 +10,8 @@ import { getSessionUser } from "@/lib/dal";
 import { notifyAdmins } from "@/lib/notifications";
 
 const ApplicationSchema = z.object({
-  displayName: z.string().trim().min(2).max(80),
   affiliation: z.string().trim().max(120).optional(),
   bio: z.string().trim().max(600).optional(),
-  contactEmail: z.string().trim().email().max(160).optional().or(z.literal("")),
   contactPhone: z.string().trim().max(40).optional(),
 });
 
@@ -34,23 +32,29 @@ export async function applyAsPhotographer(
   if (!user) return { error: "unauthorized" };
 
   const parsed = ApplicationSchema.safeParse({
-    displayName: formData.get("displayName"),
     affiliation: formData.get("affiliation"),
     bio: formData.get("bio"),
-    contactEmail: formData.get("contactEmail"),
     contactPhone: formData.get("contactPhone"),
   });
 
   if (!parsed.success) return { error: "invalid" };
   const data = parsed.data;
 
+  // Neither the display name nor the contact email is its own form field —
+  // the Google account already has both, and asking someone to retype a
+  // name and address that are sitting right there was friction with nothing
+  // behind it. An admin can still edit the display name later from the
+  // directory's own "make photographer" form, which is where a name that
+  // genuinely needs to differ from the account's actually gets typed.
+  const displayName = user.name?.trim() || user.email || "Photographer";
+
   try {
     await db.insert(photographers).values({
       userId: user.id,
-      displayName: data.displayName,
+      displayName,
       affiliation: data.affiliation || null,
       bio: data.bio || null,
-      contactEmail: data.contactEmail || user.email,
+      contactEmail: user.email,
       contactPhone: data.contactPhone || null,
     });
   } catch {
@@ -61,7 +65,7 @@ export async function applyAsPhotographer(
   await notifyAdmins({
     type: "photographer_application_received",
     href: "/admin",
-    data: { name: data.displayName },
+    data: { name: displayName },
   });
 
   revalidatePath("/photographer/apply");

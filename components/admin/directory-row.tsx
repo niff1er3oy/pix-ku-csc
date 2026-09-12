@@ -106,7 +106,8 @@ export async function DirectoryRow({
                 {t(labels.eventsOwned, { count: String(row.eventCount) })}
               </>
             )}
-            {row.affiliation && ` · ${row.affiliation}`}
+            {approved &&
+              ` · ${row.affiliation || dict.photographer.affiliationIndependent}`}
           </p>
         </div>
       </div>

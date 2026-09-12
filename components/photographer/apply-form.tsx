@@ -22,16 +22,6 @@ export function PhotographerApplyForm({ dict }: { dict: Dictionary }) {
   return (
     <form action={action} className="mt-10 space-y-6">
       <div>
-        <label htmlFor="displayName" className="text-label font-medium">
-          {dict.photographer.displayName}
-        </label>
-        <input id="displayName" name="displayName" required className={field} />
-        <p className="mt-1.5 text-caption text-slate">
-          {dict.photographer.displayNameHint}
-        </p>
-      </div>
-
-      <div>
         <label htmlFor="affiliation" className="text-label font-medium">
           {dict.photographer.affiliation}
         </label>
@@ -53,29 +43,16 @@ export function PhotographerApplyForm({ dict }: { dict: Dictionary }) {
         />
       </div>
 
-      <div className="grid gap-6 sm:grid-cols-2">
-        <div>
-          <label htmlFor="contactEmail" className="text-label font-medium">
-            {dict.photographer.contactEmail}
-          </label>
-          <input
-            id="contactEmail"
-            name="contactEmail"
-            type="email"
-            className={field}
-          />
-        </div>
-        <div>
-          <label htmlFor="contactPhone" className="text-label font-medium">
-            {dict.photographer.contactPhone}
-          </label>
-          <input
-            id="contactPhone"
-            name="contactPhone"
-            type="tel"
-            className={field}
-          />
-        </div>
+      <div>
+        <label htmlFor="contactPhone" className="text-label font-medium">
+          {dict.photographer.contactPhone}
+        </label>
+        <input
+          id="contactPhone"
+          name="contactPhone"
+          type="tel"
+          className={field}
+        />
       </div>
 
       {state?.error && (

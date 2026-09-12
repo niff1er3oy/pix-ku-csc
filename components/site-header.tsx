@@ -69,6 +69,10 @@ export async function SiteHeader() {
             {dict.nav.events}
           </Link>
 
+          <Link href="/affiliations" className={navLink}>
+            {dict.nav.affiliations}
+          </Link>
+
           {/* Hidden below `sm` alongside Events: a signed-in admin who is also
               an approved photographer would otherwise push four links plus the
               language toggle and profile chip past 360px, which is a real

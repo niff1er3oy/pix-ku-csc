@@ -164,14 +164,30 @@ export default async function ProfilePage({
       {/* A photographer's bio and affiliation — the two fields on their
           application that actually mean something to someone reading their
           page, unlike `contactEmail`/`contactPhone`, which exist for an
-          admin verifying them, not as a public "get in touch" surface. */}
+          admin verifying them, not as a public "get in touch" surface.
+          Affiliation always shows once there is a real photographer profile
+          to read it off — "อิสระ" (independent) says something true about
+          an account that never filled it in, where leaving the line out
+          entirely would just read as a page still loading. */}
       {photographerInfo?.bio && (
         <p className="mt-4 max-w-prose text-body text-ink">{photographerInfo.bio}</p>
       )}
-      {photographerInfo?.affiliation && (
+      {isPhotographer && (
         <p className="mt-2 flex items-center gap-1.5 text-label text-slate">
           <span className="font-medium text-ink">{dict.photographer.affiliation}:</span>
-          {photographerInfo.affiliation}
+          {photographerInfo?.affiliation ? (
+            // Links out to the directory of every affiliation rather than a
+            // filtered view of just this one — `/affiliations` has no
+            // per-group route yet, only the one list.
+            <Link
+              href="/affiliations"
+              className="underline-offset-4 hover:text-green-700 hover:underline"
+            >
+              {photographerInfo.affiliation}
+            </Link>
+          ) : (
+            dict.photographer.affiliationIndependent
+          )}
         </p>
       )}
 
