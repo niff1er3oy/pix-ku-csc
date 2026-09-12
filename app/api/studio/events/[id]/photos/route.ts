@@ -5,11 +5,11 @@ import { after } from "next/server";
 import { db } from "@/db";
 import { events, photos } from "@/db/schema";
 import { ownedOrSharedEvents, requireApprovedPhotographer } from "@/lib/dal";
-import { indexPhotoFaces } from "@/lib/face/pipeline";
+import { processPhoto } from "@/lib/face/pipeline";
 import {
   ACCEPTED_MIME,
-  buildDerivatives,
   MAX_UPLOAD_BYTES,
+  readImageMeta,
 } from "@/lib/images";
 import {
   newId,
@@ -19,7 +19,7 @@ import {
 } from "@/lib/storage";
 
 export type UploadResult =
-  | { ok: true; id: string; duplicate: boolean; thumbPath: string }
+  | { ok: true; id: string; duplicate: boolean }
   | { ok: false; reason: UploadFailure };
 
 export type UploadFailure =
@@ -85,23 +85,23 @@ export async function POST(
   // the top of the folder, and `photo_event_checksum_idx` is what makes that
   // cost nothing instead of doubling the event.
   const [existing] = await db
-    .select({ id: photos.id, thumbPath: photos.thumbPath })
+    .select({ id: photos.id })
     .from(photos)
     .where(and(eq(photos.eventId, id), eq(photos.checksum, checksum)))
     .limit(1);
 
   if (existing) {
-    return json({
-      ok: true,
-      id: existing.id,
-      duplicate: true,
-      thumbPath: existing.thumbPath,
-    });
+    return json({ ok: true, id: existing.id, duplicate: true });
   }
 
-  let derived;
+  let meta;
   try {
-    derived = await buildDerivatives(original);
+    // Header only — no resize, no encode. `buildDerivatives` and
+    // `buildDetectionCopy`, the actually expensive part of turning this into
+    // a gallery entry, run later in the background (see the `after()` call
+    // below); this is only enough to satisfy `width`/`height`, which are
+    // `NOT NULL` from the moment the row exists.
+    meta = await readImageMeta(original);
   } catch {
     // A file the browser called an image and sharp cannot decode: a truncated
     // download, a renamed document, a camera format sharp does not read.
@@ -111,19 +111,13 @@ export async function POST(
   const photoId = newId();
   const ext = path.extname(file.name).toLowerCase() || ".jpg";
   const originalPath = storagePaths.eventOriginal(id, photoId, ext);
-  const previewPath = storagePaths.eventPreview(id, photoId);
-  const thumbPath = storagePaths.eventThumb(id, photoId);
 
   try {
-    // Files first, row second. A row pointing at a file that was never written
-    // is a broken thumbnail in the gallery forever; a written file with no row
-    // is invisible and gets cleaned up. The recoverable failure is the one to
-    // prefer.
-    await Promise.all([
-      writeStorageFile(originalPath, original),
-      writeStorageFile(previewPath, derived.preview),
-      writeStorageFile(thumbPath, derived.thumb),
-    ]);
+    // File first, row second — same reasoning as before, just for one file
+    // instead of three: a row pointing at a file that was never written is
+    // permanently broken, and a written file with no row is invisible and
+    // gets cleaned up.
+    await writeStorageFile(originalPath, original);
 
     await db.transaction(async (tx) => {
       await tx.insert(photos).values({
@@ -132,12 +126,14 @@ export async function POST(
         uploadedBy: user.id,
         originalFilename: file.name.slice(0, 255),
         originalPath,
-        previewPath,
-        thumbPath,
-        width: derived.width,
-        height: derived.height,
+        // Null until `processPhoto` builds them in the background — see the
+        // note on `photos.previewPath` in db/schema.ts.
+        previewPath: null,
+        thumbPath: null,
+        width: meta.width,
+        height: meta.height,
         bytes: original.length,
-        capturedAt: derived.capturedAt,
+        capturedAt: meta.capturedAt,
         checksum,
         indexStatus: "pending",
       });
@@ -155,27 +151,29 @@ export async function POST(
     return json({ ok: false, reason: "server" }, 500);
   }
 
-  // The photo is already saved and visible in the gallery at this point, so a
-  // Rekognition problem here becomes an "indexed: failed" badge, not a failed
-  // upload — the photographer keeps the file either way. Scheduled with
-  // `after()` rather than awaited: `indexPhotoFaces` never rejects (its own
-  // try/catch swallows every failure into a "failed" status row on `photos`),
-  // so there is nothing here for an `await` to usefully wait for except
-  // Rekognition's own latency — and awaiting it held this response, and this
-  // upload's concurrency slot in `PhotoUploader`, open for however long that
-  // took. At bulk-upload volume that is the one part of this route slow
-  // enough to matter: a large or throttled batch could plausibly push a
-  // single request past the Cloudflare Tunnel's own edge timeout, which would
-  // report the upload as failed to the photographer even though the file and
-  // its database row had already been written successfully moments earlier.
+  // The photo is already saved and visible in the gallery (as a "processing"
+  // placeholder — see `photos.previewPath`) at this point, so a problem in
+  // any of this becomes a "!" badge on that row, not a failed upload — the
+  // photographer keeps the file either way. Scheduled with `after()` rather
+  // than awaited: `processPhoto` never rejects (its own try/catch, and
+  // `indexPhotoFaces`'s beneath it, swallow every failure into a "failed"
+  // status row on `photos`), so there is nothing here for an `await` to
+  // usefully wait for except sharp's and Rekognition's own latency — and
+  // awaiting it held this response, and this upload's concurrency slot in
+  // `PhotoUploader`, open for however long that took. That was the actual
+  // cost behind a large batch feeling slow: every request used to sit through
+  // its own decode-resize-encode of three separate outputs before the next
+  // file in the same slot could even start uploading. Passing `original`
+  // through directly means this background call re-decodes the same buffer
+  // already sitting in memory rather than reading it back off disk.
   // `after()` (not a bare un-awaited call) is what keeps this safe if this
   // ever moves off a persistent Node server: it is the platform's own
   // supported way to run work after a response ships, and it hooks into
   // `waitUntil` on platforms that need it instead of racing the runtime
   // tearing the request context down.
-  after(() => indexPhotoFaces(id, photoId, derived.detection, event.faceCollectionId));
+  after(() => processPhoto(id, photoId, event.faceCollectionId, original));
 
-  return json({ ok: true, id: photoId, duplicate: false, thumbPath });
+  return json({ ok: true, id: photoId, duplicate: false });
 }
 
 function json(body: UploadResult, status = 200) {

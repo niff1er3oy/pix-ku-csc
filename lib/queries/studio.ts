@@ -284,8 +284,10 @@ export async function getMyEventSettings(
 
 export type StudioPhoto = {
   id: string;
-  thumbPath: string;
-  previewPath: string;
+  /** Null until `processPhoto` builds them in the background — see the note
+   *  on `photos.previewPath` in db/schema.ts. */
+  thumbPath: string | null;
+  previewPath: string | null;
   originalPath: string;
   originalFilename: string;
   indexStatus: "pending" | "indexing" | "indexed" | "no_face" | "failed";

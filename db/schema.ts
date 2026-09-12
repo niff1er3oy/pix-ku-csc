@@ -380,8 +380,13 @@ export const photos = pgTable(
     originalFilename: text("original_filename").notNull(),
     /** All paths are relative to STORAGE_ROOT. */
     originalPath: text("original_path").notNull(),
-    previewPath: text("preview_path").notNull(),
-    thumbPath: text("thumb_path").notNull(),
+    /** Null until `processPhoto` (lib/face/pipeline.ts) builds them in the
+     *  background — the upload route only ever writes `originalPath`
+     *  synchronously, so every photo is briefly rowed with no derivatives at
+     *  all. Every place that renders a thumbnail has to treat null as "still
+     *  processing," the same way it already treats `indexStatus: "pending"`. */
+    previewPath: text("preview_path"),
+    thumbPath: text("thumb_path"),
 
     width: integer("width").notNull(),
     height: integer("height").notNull(),

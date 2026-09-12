@@ -123,8 +123,12 @@ export async function getEventStats(eventId: string): Promise<EventStats> {
 
 export type EventPhoto = {
   id: string;
-  thumbPath: string;
-  previewPath: string;
+  /** Null until `processPhoto` builds them in the background — see the note
+   *  on `photos.previewPath` in db/schema.ts. A freshly uploaded photo is
+   *  visible here (this query does not filter by `indexStatus`) before its
+   *  derivatives exist. */
+  thumbPath: string | null;
+  previewPath: string | null;
   originalPath: string;
   width: number;
   height: number;

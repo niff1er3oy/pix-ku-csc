@@ -32,7 +32,7 @@ import {
   getMyEventPhotos,
   getMyEventSearches,
 } from "@/lib/queries/studio";
-import { avatarRingClass, cn, formatDate, formatNumber } from "@/lib/utils";
+import { avatarRingClass, cn, formatDate, formatNumber, mediaSrc } from "@/lib/utils";
 
 export async function generateMetadata({
   params,
@@ -612,8 +612,8 @@ export default async function StudioEventPage({
             dict={dict}
             photos={photos.map((photo) => ({
               id: photo.id,
-              thumbSrc: `/api/media/${photo.thumbPath}`,
-              previewSrc: `/api/media/${photo.previewPath}`,
+              thumbSrc: mediaSrc(photo.thumbPath),
+              previewSrc: mediaSrc(photo.previewPath),
               alt: photo.originalFilename,
               originalPath: photo.originalPath,
               statusLabel: photoStatusLabel(photo),

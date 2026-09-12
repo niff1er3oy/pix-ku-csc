@@ -11,8 +11,9 @@ import { enterDelay, formatNumber } from "@/lib/utils";
 
 export type EventGalleryPhoto = {
   id: string;
-  thumbSrc: string;
-  previewSrc: string;
+  /** Null while still processing — see `PhotoThumb`'s own `src`. */
+  thumbSrc: string | null;
+  previewSrc: string | null;
   width?: number;
   height?: number;
   originalPath: string;

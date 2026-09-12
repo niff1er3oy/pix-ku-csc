@@ -6,6 +6,19 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
+ * A stored path (relative to STORAGE_ROOT) as an `/api/media` URL, or null
+ * straight through — for `photos.previewPath`/`thumbPath`, null while
+ * `processPhoto` (lib/face/pipeline.ts) hasn't built them yet. A plain
+ * template literal turns `null` into the literal string `"null"`, which
+ * `/api/media` would try and fail to serve as a real path; every gallery
+ * that reads a photo's derivatives goes through this instead so that never
+ * happens by omission.
+ */
+export function mediaSrc(path: string | null): string | null {
+  return path ? `/api/media/${path}` : null;
+}
+
+/**
  * A capped, evenly-stepped delay for `.enter`'s stagger (see `app/globals.css`
  * §Motion) — steps of 40ms, capped at the 9th item so a grid of hundreds of
  * photos does not leave its tail waiting behind a multi-second queue. Every

@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/icon";
 import { t, type Dictionary } from "@/lib/i18n/dictionaries";
 import type { SavedPhotosGroup } from "@/lib/queries/saved-photos";
-import { cn, enterDelay, formatNumber } from "@/lib/utils";
+import { cn, enterDelay, formatNumber, mediaSrc } from "@/lib/utils";
 
 type Photo = SavedPhotosGroup["photos"][number];
 
@@ -353,8 +353,8 @@ function EventGroup({
         variant="card"
         items={group.photos.map((photo, i) => ({
           id: photo.photoId,
-          thumbSrc: `/api/media/${photo.thumbPath}`,
-          previewSrc: `/api/media/${photo.previewPath}`,
+          thumbSrc: mediaSrc(photo.thumbPath),
+          previewSrc: mediaSrc(photo.previewPath),
           className: `bg-green-50 enter ${enterDelay(i)}`,
           downloadHref: group.allowOriginalDownload
             ? `/api/media/${photo.originalPath}?download=1`

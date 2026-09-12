@@ -3,11 +3,21 @@
 import { useEffect, ViewTransition, type ReactNode } from "react";
 
 import { buttonClass } from "@/components/ui/button";
-import { ChevronLeftIcon, ChevronRightIcon, CloseIcon, DownloadIcon } from "@/components/ui/icon";
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  CloseIcon,
+  DownloadIcon,
+  PhotoIcon,
+} from "@/components/ui/icon";
 
 export type LightboxPhoto = {
   id: string;
-  src: string;
+  /** Null while still processing — see `PhotoThumb`'s own `src`. Reachable
+   *  here even though the grid never opens one directly (`onClick` is
+   *  omitted for those thumbnails): stepping through the set with the arrow
+   *  keys has no such gate, since `hasNext`/`hasPrev` only check position. */
+  src: string | null;
   alt?: string;
   width?: number;
   height?: number;
@@ -80,7 +90,7 @@ export function PhotoLightbox({
 
   if (!photo) return null;
 
-  const image = (
+  const image = photo.src ? (
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src={photo.src}
@@ -89,6 +99,11 @@ export function PhotoLightbox({
       height={photo.height}
       className="max-h-[85vh] max-w-full rounded-card object-contain"
     />
+  ) : (
+    <div className="grid aspect-[4/3] max-h-[85vh] w-full max-w-2xl place-items-center gap-2 rounded-card bg-cloud/10">
+      <PhotoIcon size={32} className="text-paper/60" />
+      <span aria-hidden className="animate-pulse-dot size-2 rounded-pill bg-paper/60" />
+    </div>
   );
 
   return (

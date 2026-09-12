@@ -20,7 +20,7 @@ import {
 } from "@/lib/queries/event";
 import { getMyFace } from "@/lib/queries/profile";
 import { getMySavedPhotosForEvent } from "@/lib/queries/saved-photos";
-import { formatDate, formatNumber } from "@/lib/utils";
+import { formatDate, formatNumber, mediaSrc } from "@/lib/utils";
 
 const PAGE_SIZE = 60;
 
@@ -261,8 +261,8 @@ export default async function EventPage({
             <EventGallery
               photos={photos.map((photo) => ({
                 id: photo.id,
-                thumbSrc: `/api/media/${photo.thumbPath}`,
-                previewSrc: `/api/media/${photo.previewPath}`,
+                thumbSrc: mediaSrc(photo.thumbPath),
+                previewSrc: mediaSrc(photo.previewPath),
                 width: photo.width,
                 height: photo.height,
                 originalPath: photo.originalPath,

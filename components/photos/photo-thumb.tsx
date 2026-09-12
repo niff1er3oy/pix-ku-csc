@@ -1,11 +1,15 @@
 import { useRef, ViewTransition, type ReactNode } from "react";
 
+import { PhotoIcon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 
 const LONG_PRESS_MS = 1000;
 
 export type PhotoThumbProps = {
-  src: string;
+  /** Null while a freshly uploaded photo is still waiting on
+   *  `processPhoto` (lib/face/pipeline.ts) to build it — renders a
+   *  "processing" placeholder instead of a broken `<img>`. */
+  src: string | null;
   alt?: string;
   width?: number;
   height?: number;
@@ -88,7 +92,7 @@ export function PhotoThumb({
     onClick?.();
   }
 
-  const img = (
+  const img = src ? (
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src={src}
@@ -102,6 +106,16 @@ export function PhotoThumb({
         aspect === "square" ? "aspect-square" : "aspect-[4/3]",
       )}
     />
+  ) : (
+    <div
+      className={cn(
+        "grid h-full w-full place-items-center gap-1.5 bg-cloud",
+        aspect === "square" ? "aspect-square" : "aspect-[4/3]",
+      )}
+    >
+      <PhotoIcon size={20} className="text-slate" />
+      <span aria-hidden className="animate-pulse-dot size-1.5 rounded-pill bg-slate" />
+    </div>
   );
 
   const frame = (

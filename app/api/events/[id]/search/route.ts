@@ -235,8 +235,13 @@ async function resolvePhotos(
     if (!existing || similarity > existing.similarity) {
       byPhoto.set(row.photoId, {
         photoId: row.photoId,
-        thumbPath: row.thumbPath,
-        previewPath: row.previewPath,
+        // Non-null in practice, not just in principle: a `photo_face` row is
+        // only ever inserted inside `indexPhotoFaces`'s own transaction (see
+        // lib/face/pipeline.ts), which only runs once `processPhoto` has
+        // already written both paths — a photo cannot match a search before
+        // its derivatives exist.
+        thumbPath: row.thumbPath!,
+        previewPath: row.previewPath!,
         originalPath: row.originalPath,
         similarity,
       });

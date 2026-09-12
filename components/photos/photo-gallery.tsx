@@ -9,8 +9,9 @@ import { cn } from "@/lib/utils";
 
 export type PhotoGalleryItem = {
   id: string;
-  thumbSrc: string;
-  previewSrc: string;
+  /** Null while still processing — see `PhotoThumb`'s own `src`. */
+  thumbSrc: string | null;
+  previewSrc: string | null;
   width?: number;
   height?: number;
   alt?: string;
@@ -101,7 +102,12 @@ export function PhotoGallery({
               // `open` above is what lets React pair the two up instead of
               // seeing a collision.
               viewTransitionName={i === openIndex ? undefined : item.viewTransitionName}
-              onClick={() => open(i)}
+              // Omitted while still processing — there's nothing to open
+              // into yet, so the thumbnail is a plain placeholder, not a
+              // button. Reaching this photo's index by stepping through the
+              // lightbox with the arrow keys is still possible; see the note
+              // on `LightboxPhoto.src`.
+              onClick={item.thumbSrc ? () => open(i) : undefined}
             />
           </li>
         ))}

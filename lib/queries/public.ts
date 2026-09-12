@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, count, desc, eq, ilike, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, isNotNull, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { affiliations, events, photoFaces, photographers, photos, users } from "@/db/schema";
@@ -211,17 +211,31 @@ export async function getPhotographerFaceCount(
   return Number(row?.total ?? 0);
 }
 
-/** Thumbnails for the hero mosaic, newest first across every public event. */
+/**
+ * Thumbnails for the hero mosaic, newest first across every public event.
+ *
+ * `thumbPath IS NOT NULL` matters more here than almost anywhere else it
+ * appears: ordered newest-first, the photos most likely to still be waiting
+ * on `processPhoto` in the background are exactly the ones this would
+ * otherwise pick first for the one gallery every visitor sees before signing
+ * in at all.
+ */
 export async function getHeroThumbs(limit = 24): Promise<string[]> {
   const rows = await db
     .select({ thumbPath: photos.thumbPath })
     .from(photos)
     .innerJoin(events, eq(photos.eventId, events.id))
-    .where(and(eq(events.status, "approved"), eq(events.isPrivate, false)))
+    .where(
+      and(
+        eq(events.status, "approved"),
+        eq(events.isPrivate, false),
+        isNotNull(photos.thumbPath),
+      ),
+    )
     .orderBy(desc(photos.createdAt))
     .limit(limit);
 
-  return rows.map((r) => r.thumbPath);
+  return rows.map((r) => r.thumbPath!);
 }
 
 export type SiteStats = {

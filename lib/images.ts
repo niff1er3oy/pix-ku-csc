@@ -37,10 +37,9 @@ const WATERMARK_LOGO_MAX_EDGE = 800;
  * would otherwise be squeezed or padded by CSS instead of composed once
  * here, in front of the photographer, before it is ever saved.
  *
- * Deliberately not `buildDerivatives`. That produces three outputs including a
- * Rekognition detection copy, and a cover is never searched — no face is ever
- * indexed from it, and running one through face detection would be processing
- * biometric data nobody consented to. One decode, one file.
+ * Deliberately not `buildDerivatives`. A cover is never searched — no face is
+ * ever indexed from it, and running one through face detection would be
+ * processing biometric data nobody consented to. One decode, one file.
  */
 export async function buildCoverImage(input: Buffer): Promise<Buffer> {
   return sharp(input, { failOn: "none" })
@@ -75,25 +74,21 @@ export async function buildWatermarkLogo(input: Buffer): Promise<Buffer> {
     .toBuffer();
 }
 
-export type Derivatives = {
+export type ImageMeta = {
   width: number;
   height: number;
   capturedAt: Date | null;
-  preview: Buffer;
-  thumb: Buffer;
-  /** Downscaled copy sent to Rekognition, guaranteed under the 5 MB limit. */
-  detection: Buffer;
 };
 
 /**
- * One decode, three outputs. The detection copy is why this app needs no S3:
- * Rekognition only ever sees a resized JPEG, so a 60 MB raw-ish JPEG straight
- * off a DSLR still fits in an inline API call while the untouched original
- * stays on disk for download.
+ * Just the header — no decode of the actual pixels, so this stays cheap
+ * enough to run in the upload request itself. `photo.width`/`height` are
+ * `NOT NULL`, so the row needs real values from the moment it is inserted,
+ * even though the derivatives that need a full decode (see `buildDerivatives`
+ * below) are built afterward in the background.
  */
-export async function buildDerivatives(input: Buffer): Promise<Derivatives> {
-  const image = sharp(input, { failOn: "none" }).rotate(); // honour EXIF orientation
-  const meta = await image.metadata();
+export async function readImageMeta(input: Buffer): Promise<ImageMeta> {
+  const meta = await sharp(input, { failOn: "none" }).rotate().metadata();
 
   const width = meta.width ?? 0;
   const height = meta.height ?? 0;
@@ -101,7 +96,25 @@ export async function buildDerivatives(input: Buffer): Promise<Derivatives> {
     throw new ImageError("unreadable");
   }
 
-  const [preview, thumb, detection] = await Promise.all([
+  return { width, height, capturedAt: parseExifDate(meta) };
+}
+
+export type Derivatives = {
+  preview: Buffer;
+  thumb: Buffer;
+};
+
+/**
+ * The two outputs a gallery actually displays. Deliberately not also the
+ * Rekognition detection copy `buildDetectionCopy` produces below — that one
+ * is never shown to anyone, only sent to AWS, so a photo whose indexing is
+ * still queued behind `MAX_CONCURRENT_INDEXING` has no reason to also wait
+ * on it. Callers that need both call the two functions separately, in
+ * whichever order (or parallelism) fits their own flow — see `processPhoto`
+ * in lib/face/pipeline.ts, which is the one that actually needs both.
+ */
+export async function buildDerivatives(input: Buffer): Promise<Derivatives> {
+  const [preview, thumb] = await Promise.all([
     sharp(input, { failOn: "none" })
       .rotate()
       .resize({
@@ -122,17 +135,9 @@ export async function buildDerivatives(input: Buffer): Promise<Derivatives> {
       })
       .webp({ quality: 74 })
       .toBuffer(),
-    buildDetectionCopy(input),
   ]);
 
-  return {
-    width,
-    height,
-    capturedAt: parseExifDate(meta),
-    preview,
-    thumb,
-    detection,
-  };
+  return { preview, thumb };
 }
 
 /** Steps quality down until the JPEG fits Rekognition's inline byte limit. */

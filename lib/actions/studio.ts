@@ -12,19 +12,13 @@ import { isPin } from "@/lib/event-pin";
 import {
   ACCEPTED_MIME,
   buildCoverImage,
-  buildDetectionCopy,
   buildWatermarkLogo,
   MAX_COVER_BYTES,
   MAX_WATERMARK_LOGO_BYTES,
 } from "@/lib/images";
 import { faceProvider } from "@/lib/face";
-import { indexPhotoFaces } from "@/lib/face/pipeline";
-import {
-  deleteStoragePath,
-  readStorageFile,
-  storagePaths,
-  writeStorageFile,
-} from "@/lib/storage";
+import { processPhoto } from "@/lib/face/pipeline";
+import { deleteStoragePath, storagePaths, writeStorageFile } from "@/lib/storage";
 
 /**
  * Validates and decodes an uploaded cover, without touching storage.
@@ -815,12 +809,15 @@ export async function deletePhotos(formData: FormData): Promise<void> {
     }
   }
 
+  // `previewPath`/`thumbPath` can still be null — a photo deleted moments
+  // after upload, before `processPhoto` got to it in the background — so
+  // there is nothing on disk yet at either path to clean up.
   await Promise.all(
-    rows.flatMap((row) => [
-      deleteStoragePath(row.originalPath),
-      deleteStoragePath(row.previewPath),
-      deleteStoragePath(row.thumbPath),
-    ]),
+    rows.flatMap((row) =>
+      [row.originalPath, row.previewPath, row.thumbPath]
+        .filter((p): p is string => p !== null)
+        .map((p) => deleteStoragePath(p)),
+    ),
   );
 
   await db.transaction(async (tx) => {
@@ -850,13 +847,16 @@ const RetryIndex = z.object({
 });
 
 /**
- * Re-runs Rekognition indexing for one photo whose first attempt failed —
- * the studio grid's "!" badge is the only way a photographer reaches this.
+ * Re-runs whatever a photo whose first attempt failed still needs — the
+ * studio grid's "!" badge is the only way a photographer reaches this.
  *
- * Rebuilds the detection copy from the stored original rather than keeping
- * the one from upload time around: that copy exists only for the length of
- * the original request, and a photo can sit in `failed` indefinitely before
- * anyone notices and retries.
+ * `processPhoto` (lib/face/pipeline.ts) itself decides whether that means
+ * rebuilding derivatives, just re-indexing, or both: a photo can land in
+ * `failed` from either stage now that both run in the background after
+ * upload, and this button does not need to know which one it was to fix it.
+ * It always reads the original back off disk rather than being handed
+ * anything from the request that failed — that request is long gone by the
+ * time anyone notices the badge and clicks retry.
  *
  * Silently no-ops on anything that does not match — wrong owner, wrong event,
  * or a photo that is not actually `failed` — the same shape as `deletePhotos`
@@ -880,16 +880,13 @@ export async function retryPhotoIndex(formData: FormData): Promise<void> {
   if (!event) return;
 
   const [photo] = await db
-    .select({ originalPath: photos.originalPath, indexStatus: photos.indexStatus })
+    .select({ indexStatus: photos.indexStatus })
     .from(photos)
     .where(and(eq(photos.id, photoId), eq(photos.eventId, eventId)))
     .limit(1);
   if (!photo || photo.indexStatus !== "failed") return;
 
-  const original = await readStorageFile(photo.originalPath);
-  const detection = await buildDetectionCopy(original);
-
-  await indexPhotoFaces(eventId, photoId, detection, event.faceCollectionId);
+  await processPhoto(eventId, photoId, event.faceCollectionId);
 
   revalidatePath(`/studio/events/${eventId}`);
 }

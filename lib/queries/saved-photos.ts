@@ -38,8 +38,12 @@ export async function getSavedPhotoIds(
 export type SavedPhoto = {
   id: string;
   photoId: string;
-  thumbPath: string;
-  previewPath: string;
+  /** Null until `processPhoto` builds them in the background — see the note
+   *  on `photos.previewPath` in db/schema.ts. `savePhotos` does not check
+   *  `indexStatus`, so a photo saved (or, more likely, still mid-request
+   *  when this is read) moments after upload can briefly still be null. */
+  thumbPath: string | null;
+  previewPath: string | null;
   originalPath: string;
   eventNameTh: string;
   eventAccessCode: string;
@@ -78,8 +82,8 @@ export type SavedPhotosGroup = {
   photos: {
     id: string;
     photoId: string;
-    thumbPath: string;
-    previewPath: string;
+    thumbPath: string | null;
+    previewPath: string | null;
     originalPath: string;
     savedAt: Date;
   }[];

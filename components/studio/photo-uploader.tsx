@@ -22,11 +22,15 @@ import { cn } from "@/lib/utils";
 /**
  * How many uploads are in flight at once.
  *
- * Not one — a single stream leaves the connection idle while the server
- * decodes and writes three derivatives, and 400 photos would take all
- * afternoon. Not twenty either: every concurrent request holds a full-size
- * decode in server memory, and a phone on venue wifi has one uplink to share
- * between them. Three keeps the pipe busy without either end thrashing.
+ * The server side of each request is cheap now — it writes the original file
+ * and returns; `processPhoto` builds derivatives and indexes faces afterward,
+ * in the background (see `app/api/studio/events/[id]/photos/route.ts`) — so
+ * this is really only about the upload itself. Not one: a single stream
+ * leaves the connection idle between requests, and 400 photos would take all
+ * afternoon. Not twenty either: a phone on venue wifi has one uplink to share
+ * between them, and every request still holds a full file buffer in memory
+ * for the length of its own upload. Three keeps the pipe busy without either
+ * end thrashing.
  */
 const CONCURRENCY = 3;
 

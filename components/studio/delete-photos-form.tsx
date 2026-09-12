@@ -21,8 +21,9 @@ export const DELETE_PHOTOS_FORM_ID = "delete-photos-form";
 
 export type ManagedPhoto = {
   id: string;
-  thumbSrc: string;
-  previewSrc: string;
+  /** Null while still processing — see `PhotoThumb`'s own `src`. */
+  thumbSrc: string | null;
+  previewSrc: string | null;
   alt: string;
   originalPath: string;
   statusLabel: string | undefined;
