@@ -37,7 +37,7 @@ export function ReviewRow({
   const facts = meta.filter((value): value is string => Boolean(value));
 
   return (
-    <li className="enter rounded-card bg-paper p-5 ring-1 ring-edge sm:p-6">
+    <li className="enter rounded-card bg-paper p-5 shadow-[var(--shadow-card)] sm:p-6">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <h3 className="text-h3">{title}</h3>
         <span className="tnum text-caption text-slate">{submitted}</span>

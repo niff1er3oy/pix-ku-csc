@@ -1,13 +1,15 @@
 import Link from "next/link";
 
+import { EventsManager } from "@/components/admin/events-manager";
 import { Avatar } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
+import { Button, buttonClass } from "@/components/ui/button";
+import { CameraIcon, CloseIcon, ShieldIcon } from "@/components/ui/icon";
 import {
   makePhotographer,
   revokePhotographer,
   setUserRole,
 } from "@/lib/actions/admin";
-import type { DirectoryRow as Row } from "@/lib/queries/admin";
+import { getPhotographerEvents, type DirectoryRow as Row } from "@/lib/queries/admin";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 import { t } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -24,21 +26,31 @@ import { cn } from "@/lib/utils";
  * belongs to still visible above it, which is exactly what a modal takes away.
  * It also keeps working with no JavaScript.
  */
-export function DirectoryRow({
+export async function DirectoryRow({
   row,
   isSelf,
   labels,
+  dict,
+  locale,
   joined,
 }: {
   row: Row;
   /** The signed-in admin cannot change their own role — see `setUserRole`. */
   isSelf: boolean;
   labels: Dictionary["admin"];
+  /** For `EventsManager` alone — see the note on `Directory`'s own `dict` prop. */
+  dict: Dictionary;
+  locale: "th" | "en";
   joined: string;
 }) {
   const approved = row.photographerStatus === "approved";
   const pending = row.photographerStatus === "pending";
   const revoked = row.photographerStatus === "rejected";
+  // Fetched here, not lazily from the popup: 25 rows a page, only the
+  // approved-photographer ones, each a short list — cheap enough to load
+  // with the row rather than standing up a second round trip just to open
+  // it.
+  const events = approved && row.photographerId ? await getPhotographerEvents(row.photographerId) : [];
 
   const roleLabel = pending
     ? labels.roleWaiting
@@ -101,12 +113,12 @@ export function DirectoryRow({
 
       <div className="flex flex-wrap items-center gap-2 sm:justify-end">
         {approved && row.photographerId && (
-          <Link
-            href={`/admin/photographer/${row.photographerId}`}
-            className="inline-flex min-h-11 items-center whitespace-nowrap rounded-pill px-3 text-sm text-slate transition-colors duration-200 hover:bg-cloud hover:text-green-700"
-          >
-            {labels.viewEvents}
-          </Link>
+          <EventsManager
+            photographerName={row.displayName || row.name || row.email || ""}
+            events={events}
+            dict={dict}
+            locale={locale}
+          />
         )}
 
         {!isSelf && (
@@ -117,7 +129,12 @@ export function DirectoryRow({
               name="role"
               value={row.role === "admin" ? (approved ? "photographer" : "user") : "admin"}
             />
-            <Button type="submit" variant="ghost" size="sm">
+            <Button
+              type="submit"
+              variant={row.role === "admin" ? "danger" : "ghost"}
+              size="sm"
+            >
+              <ShieldIcon size={16} />
               {row.role === "admin" ? labels.removeAdmin : labels.makeAdmin}
             </Button>
           </form>
@@ -125,7 +142,8 @@ export function DirectoryRow({
 
         {approved && row.photographerId ? (
           <details className="w-full sm:w-auto">
-            <summary className="inline-flex min-h-11 cursor-pointer list-none items-center whitespace-nowrap rounded-pill px-3 text-sm font-medium text-danger transition-colors duration-200 hover:bg-cloud">
+            <summary className={cn(buttonClass({ variant: "danger", size: "sm" }), "cursor-pointer list-none")}>
+              <CloseIcon size={16} />
               {labels.revokePhotographer}
             </summary>
             <form
@@ -154,7 +172,8 @@ export function DirectoryRow({
           </details>
         ) : (
           <details className="w-full sm:w-auto">
-            <summary className="inline-flex min-h-11 cursor-pointer list-none items-center whitespace-nowrap rounded-pill bg-green-600 px-5 text-sm font-semibold text-paper transition-colors duration-200 hover:bg-green-700">
+            <summary className={cn(buttonClass({ size: "sm" }), "cursor-pointer list-none")}>
+              <CameraIcon size={16} />
               {labels.makePhotographer}
             </summary>
             <form

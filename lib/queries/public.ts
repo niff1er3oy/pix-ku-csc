@@ -19,6 +19,11 @@ export type EventCard = {
   photographerUserId: string;
   photographerImage: string | null;
   coverThumbPath: string | null;
+  /** Always `false` coming out of `getPublicEvents` — a private event never
+   *  reaches that query at all. Present on the type (rather than assumed)
+   *  because `getPhotographerPortfolio` shares this same shape and, for an
+   *  admin, does not make that same promise — see its own note. */
+  isPrivate: boolean;
 };
 
 /**
@@ -46,6 +51,7 @@ export async function getPublicEvents(
       photographerName: photographers.displayName,
       photographerUserId: photographers.userId,
       photographerImage: users.image,
+      isPrivate: events.isPrivate,
       /**
        * The cover the photographer chose, falling back to the first photo
        * uploaded.
@@ -88,18 +94,26 @@ export async function getPublicEvents(
 }
 
 /**
- * One photographer's own public work, for the portfolio section
- * `/profile/[id]` shows on an approved photographer's page.
+ * One photographer's own work, for the portfolio section `/profile/[id]`
+ * shows on an approved photographer's page.
  *
- * Same `approved` + not-`isPrivate` filter as `getPublicEvents`, and for the
- * same reason: a private event is reachable only by whoever holds its link
- * and PIN, never by browsing — least of all from a page anyone signed in can
- * open. A draft or rejected event never went live at all, so neither belongs
- * on a page meant to show what this photographer has actually shot.
+ * Same `approved` + not-`isPrivate` filter as `getPublicEvents` by default,
+ * and for the same reason: a private event is reachable only by whoever
+ * holds its link and PIN, never by browsing — least of all from a page
+ * anyone signed in can open. A draft or rejected event never went live at
+ * all, so neither belongs on a page meant to show what this photographer
+ * has actually shot.
+ *
+ * `includePrivate` is the one deliberate exception, and only ever passed by
+ * an admin viewing the page — `canManageEvent` already gives that role
+ * blanket authority over every event that exists, so this is not a new
+ * capability, just the same authority reaching a page it had not before.
+ * Nobody else's request for this function ever sets it.
  */
 export async function getPhotographerPortfolio(
   photographerUserId: string,
   limit = 24,
+  includePrivate = false,
 ): Promise<EventCard[]> {
   const rows = await db
     .select({
@@ -113,6 +127,7 @@ export async function getPhotographerPortfolio(
       photographerName: photographers.displayName,
       photographerUserId: photographers.userId,
       photographerImage: users.image,
+      isPrivate: events.isPrivate,
       coverThumbPath: sql<string | null>`coalesce(
         ${events.coverPath},
         (
@@ -130,7 +145,7 @@ export async function getPhotographerPortfolio(
       and(
         eq(photographers.userId, photographerUserId),
         eq(events.status, "approved"),
-        eq(events.isPrivate, false),
+        includePrivate ? undefined : eq(events.isPrivate, false),
       ),
     )
     .orderBy(desc(events.eventDate))
@@ -140,19 +155,21 @@ export async function getPhotographerPortfolio(
 }
 
 /**
- * Faces found across one photographer's public work — the stat
- * `/profile/[id]`'s portfolio bar shows beside the event and photo counts,
- * which `getPhotographerPortfolio`'s own rows already carry (a plain sum of
+ * Faces found across one photographer's work — the stat `/profile/[id]`'s
+ * portfolio bar shows beside the event and photo counts, which
+ * `getPhotographerPortfolio`'s own rows already carry (a plain sum of
  * `photoCount`, no query of its own needed).
  *
- * Same `approved` + not-`isPrivate` scope as `getPhotographerPortfolio` —
- * deliberately, not incidentally: summing every event regardless of privacy
- * would let a private event's face count leak through this total even while
- * the event itself stays off the page, which is exactly the kind of
- * side-channel `isPrivate` exists to close.
+ * Same `approved` + not-`isPrivate` scope as `getPhotographerPortfolio` by
+ * default, and the same `includePrivate` exception for the same
+ * admin-only reason — see that function's own note. Without it, summing
+ * every event regardless of privacy would let a private event's face count
+ * leak through this total even while the event itself stayed off the page,
+ * exactly the side-channel `isPrivate` exists to close for anyone else.
  */
 export async function getPhotographerFaceCount(
   photographerUserId: string,
+  includePrivate = false,
 ): Promise<number> {
   const [row] = await db
     .select({ total: sql<number>`coalesce(sum(${photos.faceCount}), 0)` })
@@ -163,7 +180,7 @@ export async function getPhotographerFaceCount(
       and(
         eq(photographers.userId, photographerUserId),
         eq(events.status, "approved"),
-        eq(events.isPrivate, false),
+        includePrivate ? undefined : eq(events.isPrivate, false),
       ),
     );
 

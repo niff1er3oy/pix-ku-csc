@@ -88,6 +88,11 @@ export default async function ProfilePage({
   // never shot anything, the same honest-empty-state the rest of this page
   // already relies on.
   const showPhotographerLayout = isPhotographer || profile.role === "admin";
+  // `canManageEvent` already gives an admin blanket authority over every
+  // event that exists, private ones included — this just lets that same
+  // authority reach the portfolio grid, instead of an admin needing the
+  // event's own link to see work its owner marked private.
+  const viewerIsAdmin = viewer.role === "admin";
   // A plain user has nothing to switch between — the saved-photos section is
   // the only one that ever applies to them, same as before there was a
   // second tab to pick from. There is no version of a portfolio for an
@@ -102,8 +107,8 @@ export default async function ProfilePage({
     await Promise.all([
       getMySavedPhotosGroupedByEvent(profile.id, isOwner),
       isPhotographer ? getPhotographerProfileInfo(profile.id) : null,
-      showPhotographerLayout ? getPhotographerPortfolio(profile.id) : [],
-      showPhotographerLayout ? getPhotographerFaceCount(profile.id) : 0,
+      showPhotographerLayout ? getPhotographerPortfolio(profile.id, 24, viewerIsAdmin) : [],
+      showPhotographerLayout ? getPhotographerFaceCount(profile.id, viewerIsAdmin) : 0,
       getDownloadCount(profile.id),
       getEventParticipationCount(profile.id),
     ]);
@@ -230,12 +235,12 @@ export default async function ProfilePage({
         {activeTab === "portfolio" ? dict.profile.portfolioTitle : dict.profile.savedPhotosTitle}
       </h2>
 
-      {/* Only an approved photographer has any of this — see the note on
-          `getPhotographerProfileInfo` for why `role` alone is trustworthy
-          here. A private event never appears: `getPhotographerPortfolio`
-          excludes it at the query, the same rule the public events list and
-          `/e/[code]`'s own access gate already enforce, so there is no
-          separate check to forget here. */}
+      {/* A private event stays out of this grid for anyone but an admin —
+          `getPhotographerPortfolio`'s own `includePrivate` decides that at
+          the query, the same rule the public events list and `/e/[code]`'s
+          own access gate enforce for everyone else, so there is no separate
+          check to forget here. `EventCard` badges whichever ones an admin
+          does see, so a mixed grid never reads as if they were all public. */}
       {activeTab === "portfolio" &&
         (portfolio.length === 0 ? (
           <p className="enter mt-5 text-label text-slate">{dict.profile.portfolioEmpty}</p>

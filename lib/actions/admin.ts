@@ -1,14 +1,16 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import * as z from "zod";
 
 import { db } from "@/db";
 import { events, photographers, users } from "@/db/schema";
 import { requireRole } from "@/lib/dal";
+import { faceProvider } from "@/lib/face";
 import { notify } from "@/lib/notifications";
 import { ensureAdminPhotographerProfile } from "@/lib/photographers";
+import { deleteStoragePath, storagePaths } from "@/lib/storage";
 
 const Review = z.object({
   id: z.string().uuid(),
@@ -364,5 +366,66 @@ export async function setUserRole(formData: FormData) {
     await ensureAdminPhotographerProfile(userId, target?.name ?? "Admin");
   }
 
+  revalidatePath("/admin");
+}
+
+const AdminDeleteEvents = z.object({
+  eventIds: z.array(z.string().uuid()).min(1),
+});
+
+/**
+ * An admin's own version of `deleteEvent` in `lib/actions/studio.ts` — same
+ * cleanup order (the Rekognition collection first, since it lives outside
+ * this database and nothing else will ever sweep it up; storage next; the
+ * row last) for the same reason, just reaching across every photographer's
+ * events instead of one owner's own. `canManageEvent` already gives an
+ * admin that authority; this is the bulk action it was missing.
+ *
+ * No retype-to-confirm here the way a photographer's own single delete
+ * asks for — a checkbox list already names exactly which events are about
+ * to go, and `EventsManager`'s own confirm dialog says how many before this
+ * ever runs. A stray call with nothing selected is a no-op, not a wipe.
+ */
+export async function adminDeleteEvents(formData: FormData): Promise<void> {
+  await requireRole("admin");
+  const parsed = AdminDeleteEvents.safeParse({
+    eventIds: formData.getAll("eventIds"),
+  });
+  if (!parsed.success) return;
+  const { eventIds } = parsed.data;
+
+  const rows = await db
+    .select({ id: events.id, faceCollectionId: events.faceCollectionId })
+    .from(events)
+    .where(inArray(events.id, eventIds));
+  if (rows.length === 0) return;
+
+  for (const event of rows) {
+    if (event.faceCollectionId) {
+      try {
+        await faceProvider.deleteCollection(event.faceCollectionId);
+      } catch (error) {
+        // Logged loudly rather than swallowed — see the identical note on
+        // `deleteEvent`: this is biometric data left behind on a
+        // third-party service, and nothing else cleans it up.
+        console.error(
+          "[pix-ku-csc] face collection not deleted for event",
+          event.id,
+          error,
+        );
+      }
+    }
+    await deleteStoragePath(storagePaths.eventDir(event.id));
+  }
+
+  await db.delete(events).where(
+    inArray(
+      events.id,
+      rows.map((row) => row.id),
+    ),
+  );
+
+  revalidatePath("/studio");
+  revalidatePath("/events");
   revalidatePath("/admin");
 }

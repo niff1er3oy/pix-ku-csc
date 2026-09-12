@@ -175,6 +175,7 @@ export default async function AdminPage({
         filter={filter}
         selfId={admin.id}
         labels={dict.admin}
+        dict={dict}
         locale={locale}
       />
     </section>

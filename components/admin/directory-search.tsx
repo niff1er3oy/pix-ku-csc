@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { Button } from "@/components/ui/button";
 import { SearchIcon } from "@/components/ui/icon";
 import type { DirectoryFilter } from "@/lib/queries/admin";
 
@@ -51,7 +50,7 @@ export function DirectorySearch({
     <form
       method="get"
       action="/admin#directory"
-      className="mt-5 flex flex-wrap gap-2"
+      className="relative mt-5 max-w-md"
       onSubmit={(event) => {
         event.preventDefault();
         router.push(target(), { scroll: false });
@@ -64,6 +63,10 @@ export function DirectorySearch({
       <label htmlFor="admin-search" className="sr-only">
         {label}
       </label>
+      <SearchIcon
+        size={20}
+        className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate"
+      />
       <input
         id="admin-search"
         name="q"
@@ -71,12 +74,14 @@ export function DirectorySearch({
         value={value}
         onChange={(event) => setValue(event.target.value)}
         placeholder={label}
-        className="h-[46px] min-w-0 flex-1 rounded-field bg-paper px-4 text-body text-ink ring-1 ring-inset ring-edge transition-shadow duration-200 placeholder:text-slate focus:ring-2 focus:ring-green-600 sm:max-w-xs"
+        className="h-[46px] w-full rounded-pill bg-paper pl-11 pr-24 text-body text-ink ring-1 ring-inset ring-edge transition-shadow duration-200 placeholder:text-slate focus:ring-2 focus:ring-green-600"
       />
-      <Button type="submit" variant="secondary" size="md">
-        <SearchIcon size={18} />
+      <button
+        type="submit"
+        className="absolute right-1.5 top-1/2 h-9 -translate-y-1/2 rounded-pill bg-green-600 px-4 font-display text-label font-semibold text-paper transition-colors duration-200 hover:bg-green-700"
+      >
         {submitLabel}
-      </Button>
+      </button>
     </form>
   );
 }

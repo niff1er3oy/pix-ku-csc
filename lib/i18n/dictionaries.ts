@@ -226,6 +226,8 @@ export const th = {
 
     portfolioTitle: "ผลงาน",
     portfolioEmpty: "ยังไม่มีงานที่เผยแพร่",
+    portfolioPublicTab: "สาธารณะ",
+    portfolioPrivateTab: "งานส่วนตัว ({count})",
 
     savedFaceTitle: "รูปหน้าที่บันทึกไว้",
     savedFaceNone: "ยังไม่ได้บันทึกรูปหน้า",
@@ -499,7 +501,11 @@ export const th = {
     revokeHint: "งานและรูปที่อัปโหลดไว้แล้วยังอยู่เหมือนเดิม แค่สร้างงานใหม่ไม่ได้",
     makeAdmin: "ตั้งเป็นผู้ดูแล",
     removeAdmin: "ถอดสิทธิ์ผู้ดูแล",
-    viewEvents: "ดูงานทั้งหมด",
+    manageEvents: "จัดการงาน",
+    eventsManagerTitle: "งานของ {name}",
+    eventsManagerEmpty: "ยังไม่มีงาน",
+    eventsManagerDeleteSelected: "ลบที่เลือก",
+    eventsManagerDeleteConfirm: "ลบ {count} งานถาวร รวมรูปทั้งหมดในงานนั้นด้วย กู้คืนไม่ได้ ยืนยันหรือไม่?",
     pageOf: "หน้า {page} จาก {total}",
     prevPage: "ก่อนหน้า",
     nextPage: "ถัดไป",
@@ -885,6 +891,8 @@ export const en: Dictionary = {
 
     portfolioTitle: "Portfolio",
     portfolioEmpty: "No published events yet",
+    portfolioPublicTab: "Public",
+    portfolioPrivateTab: "Private ({count})",
 
     savedFaceTitle: "Saved face",
     savedFaceNone: "No face saved yet",
@@ -1159,7 +1167,12 @@ export const en: Dictionary = {
     revokeHint: "Existing events and photos stay exactly as they are; only new events are blocked.",
     makeAdmin: "Make admin",
     removeAdmin: "Remove admin",
-    viewEvents: "View all events",
+    manageEvents: "Manage events",
+    eventsManagerTitle: "{name}'s events",
+    eventsManagerEmpty: "No events yet",
+    eventsManagerDeleteSelected: "Delete selected",
+    eventsManagerDeleteConfirm:
+      "Permanently delete {count} events, including every photo in them? This cannot be undone.",
     pageOf: "Page {page} of {total}",
     prevPage: "Previous",
     nextPage: "Next",

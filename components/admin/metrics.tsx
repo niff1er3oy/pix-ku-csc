@@ -13,19 +13,22 @@ import {
   SearchIcon,
   UsersIcon,
 } from "@/components/ui/icon";
+import { CountUp } from "@/components/ui/count-up";
 import { formatNumber } from "@/lib/utils";
 
 /**
  * The headline numbers.
  *
- * A row of stat tiles rather than a chart: six current values with no shared
- * scale and no time axis have nothing for a chart to say. Each is a number and
- * the word for what it counts, and nothing else — no icon, no accent stripe, no
- * sparkline standing in for a trend that is not being measured.
+ * A row of stat tiles rather than a chart: seven current values with no
+ * shared scale and no time axis have nothing for a chart to say. Each is a
+ * number and the word for what it counts.
  *
- * The values wear ink tokens, never a series colour. Colour on this page means
- * a mark in a chart or a status; a green number would claim to belong to
- * something it is not plotted against.
+ * Same card `/profile/[id]`'s own stat tiles settled on — a badged icon,
+ * card depth from a shadow rather than a flat ring, the count itself
+ * animating in with `CountUp` — rather than a second, flatter version of
+ * the same idea living only here. The badge stays the site's one accent
+ * green rather than a colour per tile: seven different hues would read as
+ * seven unrelated categories instead of one dashboard.
  */
 export function StatTiles({
   totals,
@@ -36,9 +39,6 @@ export function StatTiles({
   labels: Dictionary["admin"];
   locale: "th" | "en";
 }) {
-  // The icon rides with the label, not the number. It is a second way to find
-  // the right tile while scanning six of them — the value still leads, which is
-  // why the glyph is 16px in slate rather than large and coloured.
   const tiles = [
     { label: labels.statUsers, value: totals.users, Icon: UsersIcon },
     { label: labels.statPhotographers, value: totals.photographers, Icon: CameraIcon },
@@ -54,19 +54,20 @@ export function StatTiles({
       {tiles.map((tile, index) => (
         <li
           key={tile.label}
-          className="enter rounded-card bg-paper p-4 ring-1 ring-edge"
+          className="enter rounded-card bg-paper p-4 shadow-[var(--shadow-card)]"
           style={{ "--d": `${index * 50}ms` } as React.CSSProperties}
         >
-          {/* Proportional figures, not `tnum`. Equal-width digits are for
-              columns that line up vertically — a table row, an axis tick. On a
-              standalone stat value they only make it look loose. */}
-          <p className="font-display text-h2 font-bold text-ink">
-            {formatNumber(tile.value, locale)}
+          <span className="grid size-9 place-items-center rounded-pill bg-green-50 text-green-700">
+            <tile.Icon size={18} />
+          </span>
+          <p className="tnum mt-3 font-display text-h2 font-bold text-ink">
+            <CountUp
+              value={tile.value}
+              formatted={formatNumber(tile.value, locale)}
+              delayMs={index * 100}
+            />
           </p>
-          <p className="mt-1 flex items-center gap-1.5 text-caption text-slate">
-            <tile.Icon size={16} />
-            {tile.label}
-          </p>
+          <p className="mt-1 text-caption text-slate">{tile.label}</p>
         </li>
       ))}
     </ul>
@@ -98,7 +99,7 @@ export function IndexingMeter({
   const share = total === 0 ? 0 : Math.round((indexed / total) * 100);
 
   return (
-    <figure className="rounded-card bg-paper p-5 ring-1 ring-edge sm:p-6">
+    <figure className="rounded-card bg-paper p-5 shadow-[var(--shadow-card)] sm:p-6">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <figcaption className="text-h3">{labels.indexingTitle}</figcaption>
         <p className="tnum text-label text-slate">

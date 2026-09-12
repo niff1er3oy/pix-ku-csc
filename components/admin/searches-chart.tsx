@@ -182,7 +182,7 @@ export function SearchesChart({
     // and a dashboard that draws a plausible curve over no data is the exact
     // failure that rule exists to prevent.
     return (
-      <figure className="rounded-card bg-paper p-5 ring-1 ring-edge sm:p-6">
+      <figure className="rounded-card bg-paper p-5 shadow-[var(--shadow-card)] sm:p-6">
         <figcaption className="text-h3">{labels.title}</figcaption>
         <div className="mt-6 rounded-field bg-cloud px-6 py-12 text-center">
           <p className="text-body font-medium text-ink">{labels.empty}</p>
@@ -195,7 +195,7 @@ export function SearchesChart({
   }
 
   return (
-    <figure className="rounded-card bg-paper p-5 ring-1 ring-edge sm:p-6">
+    <figure className="rounded-card bg-paper p-5 shadow-[var(--shadow-card)] sm:p-6">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <figcaption className="text-h3">{labels.title}</figcaption>
         <p className="tnum text-label text-slate">

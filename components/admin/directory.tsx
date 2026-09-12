@@ -27,6 +27,7 @@ export function Directory({
   filter,
   selfId,
   labels,
+  dict,
   locale,
 }: {
   data: Data;
@@ -34,6 +35,11 @@ export function Directory({
   filter: DirectoryFilter;
   selfId: string;
   labels: Dictionary["admin"];
+  /** Threaded through only for `DirectoryRow`'s `EventsManager` popup, which
+   *  reaches into several other namespaces (`eventsPage`, `results`,
+   *  `status`, `studio`) beyond `admin`'s own — everything else here still
+   *  reads off `labels`. */
+  dict: Dictionary;
   locale: "th" | "en";
 }) {
   const filters: { key: DirectoryFilter; label: string }[] = [
@@ -131,6 +137,8 @@ export function Directory({
               row={row}
               isSelf={row.userId === selfId}
               labels={labels}
+              dict={dict}
+              locale={locale}
               joined={t(labels.joined, {
                 date: formatDate(row.joinedAt, locale),
               })}

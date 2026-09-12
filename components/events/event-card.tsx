@@ -3,6 +3,7 @@ import { ViewTransition } from "react";
 
 import { Avatar } from "@/components/ui/avatar";
 import { GridBackground } from "@/components/ui/grid-background";
+import { LockIcon } from "@/components/ui/icon";
 import { Skeleton } from "@/components/ui/loading";
 import type { Dictionary, Locale } from "@/lib/i18n";
 import type { EventCard as EventCardData } from "@/lib/queries/public";
@@ -35,7 +36,7 @@ export function EventCard({
       <div className="group overflow-hidden rounded-card bg-paper shadow-[var(--shadow-card)] transition-[transform,box-shadow] duration-[250ms] ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-[3px] hover:shadow-[var(--shadow-lift)]">
         <Link href={`/e/${event.accessCode}`} className="block">
           <ViewTransition name={`event-cover-${event.id}`}>
-            <div className="aspect-[4/3] overflow-hidden bg-green-100">
+            <div className="relative aspect-[4/3] overflow-hidden bg-green-100">
               {event.coverThumbPath ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img
@@ -48,6 +49,20 @@ export function EventCard({
                 <div className="relative h-full w-full">
                   <GridBackground fade={false} />
                 </div>
+              )}
+
+              {/* Only an admin's request for this card's data ever sets
+                  `isPrivate` on a row that is actually private — see
+                  `getPhotographerPortfolio`'s `includePrivate`. Badged so a
+                  grid mixing public and private work never reads as if it
+                  were all public. */}
+              {event.isPrivate && (
+                <span
+                  title={dict.studio.formPrivate}
+                  className="absolute right-3 top-3 grid size-8 place-items-center rounded-pill bg-ink/70 text-paper backdrop-blur-sm"
+                >
+                  <LockIcon size={16} />
+                </span>
               )}
             </div>
           </ViewTransition>
