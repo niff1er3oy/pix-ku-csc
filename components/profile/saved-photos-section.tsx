@@ -79,9 +79,8 @@ export function SavedPhotosSection({
               />
 
               <DownloadAllButton
-                hrefs={downloadTargets.map(
-                  (photo) => `/api/media/${photo.originalPath}?download=1`,
-                )}
+                paths={downloadTargets.map((photo) => photo.originalPath)}
+                dict={dict}
                 label={
                   selectedIds.size > 0
                     ? dict.results.downloadSelected

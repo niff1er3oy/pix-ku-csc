@@ -7,10 +7,10 @@ const nextConfig: NextConfig = {
        * Next defaults to 1 MB, which a photograph off any modern phone exceeds
        * before it leaves the camera roll. The largest single file a Server
        * Action here has to clear is a selfie upload: `MAX_SELFIE_BYTES` in
-       * lib/images.ts is 10 MB, and the rest is room for the multipart
+       * lib/images.ts is 5 MB, and the rest is room for the multipart
        * envelope and the other form fields around it.
        */
-      bodySizeLimit: "12mb",
+      bodySizeLimit: "7mb",
     },
     // `forbidden()` and `unauthorized()` in lib/dal.ts do nothing catchable
     // without this. Measured before enabling it: a signed-in non-admin

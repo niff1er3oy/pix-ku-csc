@@ -565,9 +565,8 @@ export function FaceSearchPanel({
                           {allowDownload && (
                             <DownloadAllButton
                               variant="primary"
-                              hrefs={downloadTargets.map(
-                                (match) => `/api/media/${match.originalPath}?download=1`,
-                              )}
+                              paths={downloadTargets.map((match) => match.originalPath)}
+                              dict={dict}
                               label={
                                 selectedIds.size > 0
                                   ? dict.results.downloadSelected

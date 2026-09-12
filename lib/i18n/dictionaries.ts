@@ -179,7 +179,7 @@ export const th = {
 
     errorNoFace: "ไม่พบใบหน้าในรูปนี้ ลองรูปที่เห็นหน้าชัดกว่านี้",
     errorManyFaces: "รูปนี้มีหลายคน ใช้รูปที่มีคุณคนเดียว",
-    errorTooLarge: "ไฟล์ใหญ่เกินไป ใช้รูปที่เล็กกว่า 10 MB",
+    errorTooLarge: "ไฟล์ใหญ่เกินไป ใช้รูปที่เล็กกว่า 5 MB",
     errorBadFormat: "รองรับเฉพาะไฟล์ JPEG, PNG และ WebP",
     errorGeneric: "ค้นหาไม่สำเร็จ ลองใหม่อีกครั้ง",
     errorRateLimited: "ค้นหาบ่อยเกินไป รออีกสักครู่แล้วลองใหม่",
@@ -197,6 +197,7 @@ export const th = {
     downloadOne: "ดาวน์โหลดรูป",
     downloadAll: "ดาวน์โหลดรูปทั้งหมด ({count})",
     downloading: "กำลังเตรียมไฟล์",
+    downloadZipError: "เตรียมไฟล์ zip ไม่สำเร็จ ลองใหม่อีกครั้ง",
     searchAgain: "ค้นใหม่",
     watermarkNote: "รูปจากงานนี้ติดลายน้ำของช่างภาพ",
     selectAll: "เลือกทั้งหมด",
@@ -927,7 +928,7 @@ export const en: Dictionary = {
 
     errorNoFace: "No face found in that photo. Try one where your face is clearer.",
     errorManyFaces: "That photo has several people. Use one with just you.",
-    errorTooLarge: "That file is too large. Use a photo under 10 MB.",
+    errorTooLarge: "That file is too large. Use a photo under 5 MB.",
     errorBadFormat: "Only JPEG, PNG and WebP files are supported.",
     errorGeneric: "The search failed. Try again.",
     errorRateLimited: "Too many searches. Wait a moment and try again.",
@@ -945,6 +946,7 @@ export const en: Dictionary = {
     downloadOne: "Download",
     downloadAll: "Download all ({count})",
     downloading: "Preparing your files",
+    downloadZipError: "Couldn't prepare the zip file. Try again.",
     searchAgain: "Search again",
     watermarkNote: "Photos from this event carry the photographer's watermark.",
     selectAll: "Select all",

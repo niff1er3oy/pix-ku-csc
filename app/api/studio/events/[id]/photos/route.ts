@@ -1,5 +1,6 @@
 import { and, eq, sql } from "drizzle-orm";
 import path from "node:path";
+import { after } from "next/server";
 
 import { db } from "@/db";
 import { events, photos } from "@/db/schema";
@@ -156,8 +157,23 @@ export async function POST(
 
   // The photo is already saved and visible in the gallery at this point, so a
   // Rekognition problem here becomes an "indexed: failed" badge, not a failed
-  // upload — the photographer keeps the file either way.
-  await indexPhotoFaces(id, photoId, derived.detection, event.faceCollectionId);
+  // upload — the photographer keeps the file either way. Scheduled with
+  // `after()` rather than awaited: `indexPhotoFaces` never rejects (its own
+  // try/catch swallows every failure into a "failed" status row on `photos`),
+  // so there is nothing here for an `await` to usefully wait for except
+  // Rekognition's own latency — and awaiting it held this response, and this
+  // upload's concurrency slot in `PhotoUploader`, open for however long that
+  // took. At bulk-upload volume that is the one part of this route slow
+  // enough to matter: a large or throttled batch could plausibly push a
+  // single request past the Cloudflare Tunnel's own edge timeout, which would
+  // report the upload as failed to the photographer even though the file and
+  // its database row had already been written successfully moments earlier.
+  // `after()` (not a bare un-awaited call) is what keeps this safe if this
+  // ever moves off a persistent Node server: it is the platform's own
+  // supported way to run work after a response ships, and it hooks into
+  // `waitUntil` on platforms that need it instead of racing the runtime
+  // tearing the request context down.
+  after(() => indexPhotoFaces(id, photoId, derived.detection, event.faceCollectionId));
 
   return json({ ok: true, id: photoId, duplicate: false, thumbPath });
 }
