@@ -162,6 +162,13 @@
       "when": 1789213831838,
       "tag": "0022_broad_magma",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1789235416714,
+      "tag": "0023_open_inertia",
+      "breakpoints": true
     }
   ]
 }

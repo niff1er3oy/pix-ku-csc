@@ -46,7 +46,7 @@ export async function getPendingPhotographers(): Promise<PendingPhotographer[]> 
     .orderBy(asc(photographers.createdAt));
 }
 
-export type PendingEvent = {
+export type TakenDownEvent = {
   id: string;
   accessCode: string;
   nameTh: string;
@@ -54,9 +54,25 @@ export type PendingEvent = {
   location: string | null;
   eventDate: string;
   ownerName: string;
+  /** Why an admin took it down — `rejectEvent`'s own reason field, shown
+   *  back here so restoring one is an informed decision, not a guess from
+   *  the name alone. */
+  rejectionReason: string | null;
 };
 
-export async function getPendingEvents(): Promise<PendingEvent[]> {
+/**
+ * Every event an admin has taken down and not yet restored, most recent
+ * takedown first — the reverse of `getPendingPhotographers`'s oldest-first
+ * order, and deliberately so: a takedown from an hour ago is far more likely
+ * to still need a decision than one from months back that was simply never
+ * revisited.
+ *
+ * `pending` never appears here (see the note on `restoreEvent` in
+ * `lib/actions/admin.ts` for why no event reaches that status anymore) —
+ * this reads `rejected` instead, the one status an admin's own `rejectEvent`
+ * actually produces.
+ */
+export async function getTakenDownEvents(): Promise<TakenDownEvent[]> {
   return db
     .select({
       id: events.id,
@@ -66,11 +82,12 @@ export async function getPendingEvents(): Promise<PendingEvent[]> {
       location: events.location,
       eventDate: events.eventDate,
       ownerName: photographers.displayName,
+      rejectionReason: events.rejectionReason,
     })
     .from(events)
     .innerJoin(photographers, eq(events.ownerId, photographers.id))
-    .where(eq(events.status, "pending"))
-    .orderBy(asc(events.createdAt));
+    .where(eq(events.status, "rejected"))
+    .orderBy(desc(events.reviewedAt));
 }
 
 // ---------------------------------------------------------------------------

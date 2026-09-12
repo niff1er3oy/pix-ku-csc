@@ -9,6 +9,7 @@ import { affiliations, photographers, users } from "@/db/schema";
 import { generatePin } from "@/lib/event-pin";
 import { requireApprovedPhotographer, requireRole } from "@/lib/dal";
 import { ACCEPTED_MIME, buildCoverImage, MAX_COVER_BYTES } from "@/lib/images";
+import { notify } from "@/lib/notifications";
 import { storagePaths, writeStorageFile } from "@/lib/storage";
 
 const CreateAffiliation = z.object({
@@ -147,6 +148,13 @@ export async function createAffiliation(
       if (!isUniqueViolation || attempt === 4) throw error;
     }
   }
+
+  await notify({
+    userId: founder.userId,
+    type: "affiliation_member_added",
+    href: "/studio/affiliation",
+    data: { affiliationName: name },
+  });
 
   revalidatePath("/admin");
   revalidatePath("/studio/affiliation");
@@ -325,6 +333,7 @@ export async function addAffiliationMember(
   const [target] = await db
     .select({
       id: photographers.id,
+      userId: photographers.userId,
       status: photographers.status,
       affiliationId: photographers.affiliationId,
     })
@@ -341,6 +350,21 @@ export async function addAffiliationMember(
     .update(photographers)
     .set({ affiliationId: photographer.affiliationId })
     .where(eq(photographers.id, target.id));
+
+  const [affiliation] = await db
+    .select({ name: affiliations.name })
+    .from(affiliations)
+    .where(eq(affiliations.id, photographer.affiliationId))
+    .limit(1);
+
+  if (affiliation) {
+    await notify({
+      userId: target.userId,
+      type: "affiliation_member_added",
+      href: "/studio/affiliation",
+      data: { affiliationName: affiliation.name },
+    });
+  }
 
   revalidatePath("/studio/affiliation");
 }
@@ -360,7 +384,13 @@ export async function removeAffiliationMember(formData: FormData): Promise<void>
   const targetId = z.string().uuid().safeParse(formData.get("photographerId"));
   if (!targetId.success) return;
 
-  await db
+  const [affiliation] = await db
+    .select({ name: affiliations.name })
+    .from(affiliations)
+    .where(eq(affiliations.id, photographer.affiliationId))
+    .limit(1);
+
+  const [removed] = await db
     .update(photographers)
     .set({ affiliationId: null })
     .where(
@@ -368,7 +398,17 @@ export async function removeAffiliationMember(formData: FormData): Promise<void>
         eq(photographers.id, targetId.data),
         eq(photographers.affiliationId, photographer.affiliationId),
       ),
-    );
+    )
+    .returning({ userId: photographers.userId });
+
+  if (removed && affiliation) {
+    await notify({
+      userId: removed.userId,
+      type: "affiliation_member_removed",
+      href: "/studio",
+      data: { affiliationName: affiliation.name },
+    });
+  }
 
   revalidatePath("/studio/affiliation");
 }

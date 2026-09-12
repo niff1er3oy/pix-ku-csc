@@ -5,19 +5,19 @@ import { IndexingMeter, StatTiles } from "@/components/admin/metrics";
 import { SearchesChart } from "@/components/admin/searches-chart";
 import { ReviewQueue } from "@/components/admin/review-queue";
 import { ReviewRow } from "@/components/admin/review-row";
+import { TakenDownEventRow } from "@/components/admin/taken-down-event-row";
 import {
-  approveEvent,
   approvePhotographer,
-  rejectEvent,
   rejectPhotographer,
+  restoreEvent,
 } from "@/lib/actions/admin";
 import { requireRole } from "@/lib/dal";
 import { getDictionary, getLocale, t } from "@/lib/i18n";
 import {
   getAdminMetrics,
   getDirectory,
-  getPendingEvents,
   getPendingPhotographers,
+  getTakenDownEvents,
   type DirectoryFilter,
 } from "@/lib/queries/admin";
 import { getAllAffiliations } from "@/lib/queries/affiliations";
@@ -71,9 +71,9 @@ export default async function AdminPage({
 
   const [locale, dict] = await Promise.all([getLocale(), getDictionary()]);
 
-  const [photographers, events, directory, affiliations, metrics] = await Promise.all([
+  const [photographers, takenDownEvents, directory, affiliations, metrics] = await Promise.all([
     safely(() => getPendingPhotographers(), []),
-    safely(() => getPendingEvents(), []),
+    safely(() => getTakenDownEvents(), []),
     safely(() => getDirectory({ q, page, filter }), {
       rows: [],
       total: 0,
@@ -96,7 +96,7 @@ export default async function AdminPage({
     }),
   ]);
 
-  const waiting = photographers.length + events.length;
+  const waiting = photographers.length;
 
   return (
     <section className="mx-auto w-full max-w-5xl px-5 py-16 sm:px-8 sm:py-24">
@@ -158,22 +158,21 @@ export default async function AdminPage({
         </section>
       )}
 
-      {events.length > 0 && (
+      {takenDownEvents.length > 0 && (
         <section className="mt-12">
-          <h2 className="text-h2">{dict.admin.pendingEvents}</h2>
+          <h2 className="text-h2">{dict.admin.takenDownEvents}</h2>
           <ReviewQueue
-            titles={events.map((row) => row.nameTh)}
+            titles={takenDownEvents.map((row) => row.nameTh)}
             labels={dict.admin}
-            rows={events.map((row) => (
-              <ReviewRow
+            rows={takenDownEvents.map((row) => (
+              <TakenDownEventRow
                 key={row.id}
                 id={row.id}
                 title={row.nameTh}
                 meta={[row.ownerName, row.location, `/e/${row.accessCode}`]}
-                body={row.descriptionTh}
+                reason={row.rejectionReason}
                 submitted={formatDate(row.eventDate, locale)}
-                approve={approveEvent}
-                reject={rejectEvent}
+                restore={restoreEvent}
                 labels={dict.admin}
               />
             ))}

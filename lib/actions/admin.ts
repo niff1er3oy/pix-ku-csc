@@ -114,15 +114,20 @@ export async function rejectPhotographer(formData: FormData) {
 }
 
 /**
- * Approving an event is what makes it publicly reachable — the finder, the
- * event page and /api/media all refuse anything that is not `approved`.
- *
- * A photographer's own `publishEvent` (in `lib/actions/studio.ts`) already
- * takes a draft straight to `approved` with no admin step in between; this
- * exists for the rare event that is still sitting at `pending` from before
- * that changed, or that got moved back there by hand.
+ * Undoes a takedown — the other direction of `rejectEvent`. Approving an
+ * event is what makes it publicly reachable at all (the finder, the event
+ * page and /api/media all refuse anything that is not `approved`), and a
+ * `rejected` event is exactly the one status that only ever got there
+ * through an admin's own `rejectEvent` in the first place: a photographer's
+ * own `publishEvent` (in `lib/actions/studio.ts`) already takes a draft
+ * straight to `approved` with no admin step in between, and never produces
+ * `pending` or `rejected` on its own. So this is deliberately scoped to
+ * `status = 'rejected'` rather than any event regardless of status — it is
+ * a restore button for a takedown, not a general-purpose "make this live"
+ * switch that could otherwise be pointed at a `draft` the photographer never
+ * chose to publish.
  */
-export async function approveEvent(formData: FormData) {
+export async function restoreEvent(formData: FormData) {
   const admin = await requireRole("admin");
   const { id } = Review.parse({ id: formData.get("id") });
 
@@ -134,7 +139,7 @@ export async function approveEvent(formData: FormData) {
       reviewedAt: new Date(),
       rejectionReason: null,
     })
-    .where(eq(events.id, id))
+    .where(and(eq(events.id, id), eq(events.status, "rejected")))
     .returning({ nameTh: events.nameTh, ownerId: events.ownerId });
 
   if (row) await notifyEventOwner(row.ownerId, "event_approved", id, row.nameTh);

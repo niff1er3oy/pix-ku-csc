@@ -462,7 +462,7 @@ export const th = {
 
   admin: {
     title: "ผู้ดูแลระบบ",
-    pendingEvents: "งานที่รออนุมัติ",
+    takenDownEvents: "งานที่ถูกปิด",
     pendingPhotographers: "ช่างภาพที่รออนุมัติ",
     nothingPending: "ไม่มีรายการรออนุมัติ",
     reviewSearchLabel: "ค้นหาในรายการ",
@@ -474,6 +474,7 @@ export const th = {
     rejectReasonHint: "ช่างภาพจะเห็นข้อความนี้",
     approved: "อนุมัติแล้ว",
     rejected: "ไม่อนุมัติแล้ว",
+    restoreEvent: "กู้คืนงาน",
 
     // --- ไดเรกทอรี ---
     reviewTitle: "รออนุมัติ",
@@ -563,6 +564,8 @@ export const th = {
       photo_index_failed:
         "รูปในงาน “{eventName}” ประมวลผลใบหน้าไม่สำเร็จ {count} รูป กดเข้าไปลองใหม่ได้",
       photo_downloaded: "มีการดาวน์โหลดรูปจากงาน “{eventName}” แล้ว {count} ครั้ง",
+      affiliation_member_added: "คุณเข้าร่วมสังกัด “{affiliationName}” แล้ว",
+      affiliation_member_removed: "คุณถูกนำออกจากสังกัด “{affiliationName}” แล้ว",
     },
   },
 
@@ -1213,7 +1216,7 @@ export const en: Dictionary = {
 
   admin: {
     title: "Admin",
-    pendingEvents: "Events awaiting approval",
+    takenDownEvents: "Taken-down events",
     pendingPhotographers: "Photographers awaiting approval",
     nothingPending: "Nothing is waiting for review",
     reviewSearchLabel: "Search this list",
@@ -1225,6 +1228,7 @@ export const en: Dictionary = {
     rejectReasonHint: "The photographer will see this",
     approved: "Approved",
     rejected: "Rejected",
+    restoreEvent: "Restore",
 
     reviewTitle: "Waiting for review",
     reviewCount: "{count} waiting on you",
@@ -1316,6 +1320,8 @@ export const en: Dictionary = {
       photo_index_failed:
         "{count} photos in “{eventName}” failed face indexing. Tap to retry.",
       photo_downloaded: "{count} downloads so far from “{eventName}”",
+      affiliation_member_added: "You joined “{affiliationName}”",
+      affiliation_member_removed: "You were removed from “{affiliationName}”",
     },
   },
 

@@ -81,6 +81,8 @@ export const notificationType = pgEnum("notification_type", [
   "event_rejected", // -> the event's owner
   "photo_index_failed", // -> the event's owner
   "photo_downloaded", // -> the event's owner
+  "affiliation_member_added", // -> the photographer added
+  "affiliation_member_removed", // -> the photographer removed
 ]);
 
 // ---------------------------------------------------------------------------
