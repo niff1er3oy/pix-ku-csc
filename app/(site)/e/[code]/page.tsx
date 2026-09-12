@@ -15,6 +15,7 @@ import { getDictionary, getLocale, t } from "@/lib/i18n";
 import {
   getEventBySlug,
   getEventPhotos,
+  getEventStats,
   getPendingIndexCount,
 } from "@/lib/queries/event";
 import { getMyFace } from "@/lib/queries/profile";
@@ -95,9 +96,10 @@ export default async function EventPage({
   }
 
   const page = Math.max(1, Number(pageParam) || 1);
-  const [{ photos, total, pageCount }, pendingIndex] = await Promise.all([
+  const [{ photos, total, pageCount }, pendingIndex, stats] = await Promise.all([
     getEventPhotos(event.id, page, PAGE_SIZE),
     getPendingIndexCount(event.id),
+    getEventStats(event.id),
   ]);
 
   const description =
@@ -110,62 +112,110 @@ export default async function EventPage({
       {/* --- Event header ------------------------------------------------ */}
       <header className="border-b border-edge bg-cloud">
         <div className="mx-auto w-full max-w-6xl px-5 py-10 sm:px-8 sm:py-14">
-          {event.status !== "approved" && (
-            <p className="mb-4 inline-block rounded-pill bg-lime-500 px-4 py-1.5 text-label font-semibold text-green-950">
-              {dict.status[event.status]}
-            </p>
-          )}
-
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <h1 className="text-h1 font-bold">{name}</h1>
-            <FaceSearchPanel
-              eventId={event.id}
-              eventSlug={event.accessCode}
-              dict={dict}
-              signedIn={Boolean(user)}
-              savedFaceImagePath={savedFace?.imagePath ?? null}
-              watermarked={event.watermarkEnabled}
-              allowDownload={event.allowOriginalDownload}
-            />
-          </div>
-
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            <span className="rounded-pill bg-paper px-3 py-1 text-caption font-medium text-green-700">
-              {formatDate(event.eventDate, locale)}
-            </span>
-            {event.location && (
-              <span className="rounded-pill bg-paper px-3 py-1 text-caption font-medium text-green-700">
-                {event.location}
-              </span>
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:gap-6">
+            {/* The cover a photographer chose (or the first photo uploaded,
+                same fallback every card elsewhere uses) — a fixed-size
+                square thumbnail beside the details rather than a wide hero
+                banner: `buildCoverImage` already smart-crops the stored file
+                to a square, so this is the one aspect ratio that shows it
+                with no further cropping at all, and staying compact keeps
+                the search button below in reach on a phone without
+                scrolling past a dominating image — the "thirty seconds from
+                QR to photo" promise this page exists for. */}
+            {event.coverThumbPath && (
+              <div className="enter aspect-square w-24 shrink-0 overflow-hidden rounded-card shadow-card sm:w-36 lg:w-44">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`/api/media/${event.coverThumbPath}`}
+                  alt=""
+                  className="h-full w-full object-cover"
+                />
+              </div>
             )}
-            <span className="tnum rounded-pill bg-paper px-3 py-1 text-caption font-medium text-green-700">
-              {formatNumber(total, locale)} {dict.common.photos}
-            </span>
+
+            <div className="min-w-0 flex-1">
+              {event.status !== "approved" && (
+                <p className="mb-4 inline-block rounded-pill bg-lime-500 px-4 py-1.5 text-label font-semibold text-green-950">
+                  {dict.status[event.status]}
+                </p>
+              )}
+
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <h1 className="text-h1 font-bold">{name}</h1>
+                <FaceSearchPanel
+                  eventId={event.id}
+                  eventSlug={event.accessCode}
+                  dict={dict}
+                  signedIn={Boolean(user)}
+                  savedFaceImagePath={savedFace?.imagePath ?? null}
+                  watermarked={event.watermarkEnabled}
+                  allowDownload={event.allowOriginalDownload}
+                />
+              </div>
+
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <span className="rounded-pill bg-paper px-3 py-1 text-caption font-medium text-green-700">
+                  {formatDate(event.eventDate, locale)}
+                </span>
+                {event.location && (
+                  <span className="rounded-pill bg-paper px-3 py-1 text-caption font-medium text-green-700">
+                    {event.location}
+                  </span>
+                )}
+                <span className="tnum rounded-pill bg-paper px-3 py-1 text-caption font-medium text-green-700">
+                  {formatNumber(total, locale)} {dict.common.photos}
+                </span>
+                <span className="tnum rounded-pill bg-paper px-3 py-1 text-caption font-medium text-green-700">
+                  {formatNumber(stats.faceCount, locale)} {dict.common.faces}
+                </span>
+                <span className="tnum rounded-pill bg-paper px-3 py-1 text-caption font-medium text-green-700">
+                  {formatNumber(stats.downloadCount, locale)} {dict.common.downloads}
+                </span>
+                <span className="tnum rounded-pill bg-paper px-3 py-1 text-caption font-medium text-green-700">
+                  {formatNumber(stats.saveCount, locale)} {dict.common.saves}
+                </span>
+              </div>
+
+              {/* An affiliation-shot event credits the affiliation here, not
+                  whichever member happened to create it — the same rule
+                  `EventCard` follows (see its own note in
+                  `lib/queries/public.ts`), for the same reason: "shot by KU
+                  Photo Club" says more here than any one member's name. */}
+              <p className="mt-4 flex flex-wrap items-center gap-2 text-label text-slate">
+                {dict.event.by}
+                {event.affiliationId && event.affiliationName ? (
+                  <Link
+                    href={`/affiliations/${event.affiliationId}`}
+                    className="flex items-center gap-2 font-medium text-ink transition-colors duration-200 hover:text-green-700"
+                  >
+                    <Avatar src={event.affiliationImage} size={24} />
+                    {event.affiliationName}
+                  </Link>
+                ) : (
+                  <Link
+                    href={`/profile/${event.photographerUserId}`}
+                    className="flex items-center gap-2 font-medium text-ink transition-colors duration-200 hover:text-green-700"
+                  >
+                    <Avatar src={event.photographerImage} size={24} />
+                    {event.photographerName}
+                  </Link>
+                )}
+              </p>
+
+              {description && (
+                <p className="mt-4 max-w-2xl text-body text-slate">{description}</p>
+              )}
+
+              {pendingIndex > 0 && (
+                <p className="mt-6 rounded-field bg-lime-100 px-4 py-3 text-label text-green-900">
+                  <strong className="font-semibold">{dict.event.indexing}</strong>{" "}
+                  {t(dict.event.indexingBody, {
+                    count: formatNumber(pendingIndex, locale),
+                  })}
+                </p>
+              )}
+            </div>
           </div>
-
-          <p className="mt-4 flex flex-wrap items-center gap-2 text-label text-slate">
-            {dict.event.by}
-            <Link
-              href={`/profile/${event.photographerUserId}`}
-              className="flex items-center gap-2 font-medium text-ink transition-colors duration-200 hover:text-green-700"
-            >
-              <Avatar src={event.photographerImage} size={24} />
-              {event.photographerName}
-            </Link>
-          </p>
-
-          {description && (
-            <p className="mt-4 max-w-2xl text-body text-slate">{description}</p>
-          )}
-
-          {pendingIndex > 0 && (
-            <p className="mt-6 rounded-field bg-lime-100 px-4 py-3 text-label text-green-900">
-              <strong className="font-semibold">{dict.event.indexing}</strong>{" "}
-              {t(dict.event.indexingBody, {
-                count: formatNumber(pendingIndex, locale),
-              })}
-            </p>
-          )}
         </div>
       </header>
 

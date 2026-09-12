@@ -4,10 +4,18 @@ import { notFound } from "next/navigation";
 
 import { PortfolioGrid } from "@/components/profile/portfolio-grid";
 import { Avatar } from "@/components/ui/avatar";
-import { CameraIcon, FaceScanIcon, PhotoIcon, UsersIcon } from "@/components/ui/icon";
+import {
+  BookmarkIcon,
+  CameraIcon,
+  DownloadIcon,
+  FaceScanIcon,
+  PhotoIcon,
+  UsersIcon,
+} from "@/components/ui/icon";
 import { CountUp } from "@/components/ui/count-up";
 import { getDictionary, getLocale, t } from "@/lib/i18n";
 import {
+  getAffiliationEngagementStats,
   getAffiliationFaceCount,
   getAffiliationMembers,
   getAffiliationPortfolio,
@@ -57,10 +65,11 @@ export default async function AffiliationProfilePage({
 
   const activeTab: Tab = tab === "members" ? "members" : "portfolio";
 
-  const [members, portfolio, faceCount] = await Promise.all([
+  const [members, portfolio, faceCount, engagement] = await Promise.all([
     safely(() => getAffiliationMembers(id), []),
     safely(() => getAffiliationPortfolio(id, 24), []),
     safely(() => getAffiliationFaceCount(id), 0),
+    safely(() => getAffiliationEngagementStats(id), { downloadCount: 0, saveCount: 0 }),
   ]);
 
   const totalPhotos = portfolio.reduce((sum, event) => sum + event.photoCount, 0);
@@ -69,6 +78,8 @@ export default async function AffiliationProfilePage({
     { label: dict.profile.statEvents, value: portfolio.length, Icon: CameraIcon },
     { label: dict.profile.statPhotos, value: totalPhotos, Icon: PhotoIcon },
     { label: dict.profile.statFaces, value: faceCount, Icon: FaceScanIcon },
+    { label: dict.profile.statDownloads, value: engagement.downloadCount, Icon: DownloadIcon },
+    { label: dict.profile.savedPhotosTitle, value: engagement.saveCount, Icon: BookmarkIcon },
     { label: dict.affiliationStudio.membersTitle, value: members.length, Icon: UsersIcon },
   ];
 

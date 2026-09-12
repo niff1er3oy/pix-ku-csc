@@ -3,7 +3,17 @@ import "server-only";
 import { and, asc, count, eq, ne, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { events, photographers, photos, users, type Event } from "@/db/schema";
+import {
+  affiliations,
+  downloads,
+  events,
+  photoFaces,
+  photographers,
+  photos,
+  savedPhotos,
+  users,
+  type Event,
+} from "@/db/schema";
 
 export type EventWithOwner = Event & {
   photographerName: string;
@@ -11,6 +21,19 @@ export type EventWithOwner = Event & {
    *  `photographers.id`, since that route looks visitors up by `users.id`. */
   photographerUserId: string;
   photographerImage: string | null;
+  /** The cover the photographer chose, falling back to the first photo
+   *  uploaded — same coalesce as every list card (`EventCard`, the studio
+   *  lists) uses, so the one page a QR code actually lands on is not the
+   *  one place on the whole site that never shows it. Null only for an
+   *  event with no cover set and nothing uploaded yet. */
+  coverThumbPath: string | null;
+  /** Set only when this event was created from an affiliation's shared
+   *  studio — `/e/[code]` credits the affiliation instead of the individual
+   *  photographer when these are present, the same rule `EventCard` follows
+   *  (see the note on `EventCard` in `lib/queries/public.ts`). */
+  affiliationId: string | null;
+  affiliationName: string | null;
+  affiliationImage: string | null;
 };
 
 export async function getEventBySlug(
@@ -22,10 +45,22 @@ export async function getEventBySlug(
       photographerName: photographers.displayName,
       photographerUserId: photographers.userId,
       photographerImage: users.image,
+      coverThumbPath: sql<string | null>`coalesce(
+        ${events.coverPath},
+        (
+          select ${photos.thumbPath} from ${photos}
+          where photo.event_id = event.id
+          order by ${photos.createdAt} asc
+          limit 1
+        )
+      )`,
+      affiliationName: affiliations.name,
+      affiliationImage: affiliations.imagePath,
     })
     .from(events)
     .innerJoin(photographers, eq(events.ownerId, photographers.id))
     .innerJoin(users, eq(photographers.userId, users.id))
+    .leftJoin(affiliations, eq(events.affiliationId, affiliations.id))
     // Upper-cased on both sides: a code typed into the address bar or
     // read off a printed sign arrives in whatever case the keyboard felt
     // like. The alphabet has no lower-case members, so folding case cannot
@@ -39,6 +74,50 @@ export async function getEventBySlug(
     photographerName: row.photographerName,
     photographerUserId: row.photographerUserId,
     photographerImage: row.photographerImage,
+    coverThumbPath: row.coverThumbPath,
+    affiliationId: row.event.affiliationId,
+    affiliationName: row.affiliationName,
+    affiliationImage: row.affiliationImage,
+  };
+}
+
+export type EventStats = {
+  faceCount: number;
+  downloadCount: number;
+  saveCount: number;
+};
+
+/**
+ * Faces found, downloads made, and photos saved — across this one event,
+ * for the public page's own chip row. Three separate counts rather than one
+ * joined query: `photo_face` already carries its own `event_id`, but
+ * `download`/`saved_photo` only reference `photo_id`, so joining all three
+ * against `events` in one query would fan every row out against every other
+ * table's rows for the same event — cheap to get subtly wrong, not cheap to
+ * notice, on an event with thousands of each.
+ */
+export async function getEventStats(eventId: string): Promise<EventStats> {
+  const [[faceRow], [downloadRow], [saveRow]] = await Promise.all([
+    db
+      .select({ value: count() })
+      .from(photoFaces)
+      .where(eq(photoFaces.eventId, eventId)),
+    db
+      .select({ value: count() })
+      .from(downloads)
+      .innerJoin(photos, eq(downloads.photoId, photos.id))
+      .where(eq(photos.eventId, eventId)),
+    db
+      .select({ value: count() })
+      .from(savedPhotos)
+      .innerJoin(photos, eq(savedPhotos.photoId, photos.id))
+      .where(eq(photos.eventId, eventId)),
+  ]);
+
+  return {
+    faceCount: faceRow?.value ?? 0,
+    downloadCount: downloadRow?.value ?? 0,
+    saveCount: saveRow?.value ?? 0,
   };
 }
 

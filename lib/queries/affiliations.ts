@@ -1,9 +1,9 @@
 import "server-only";
 
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { affiliations, events, photographers, photos, users } from "@/db/schema";
+import { affiliations, downloads, events, photographers, photos, savedPhotos, users } from "@/db/schema";
 import type { EventCard } from "@/lib/queries/public";
 import type { StudioEventListItem } from "@/lib/queries/studio";
 
@@ -261,4 +261,50 @@ export async function getAffiliationFaceCount(affiliationId: string): Promise<nu
     );
 
   return Number(row?.total ?? 0);
+}
+
+export type AffiliationEngagementStats = {
+  downloadCount: number;
+  saveCount: number;
+};
+
+/**
+ * Downloads made and photos saved, across every published event an
+ * affiliation's members have shot under it — the same public-only scope as
+ * `getAffiliationPortfolio`/`getAffiliationFaceCount`, for the same reason:
+ * this runs for whoever opens the public page, never for a signed-in owner
+ * or an admin. Two separate counts rather than one joined query, for the
+ * same fan-out reason `getEventStats` in `lib/queries/event.ts` keeps its
+ * own three apart — `download` and `saved_photo` only reference `photo_id`,
+ * and joining both against the same `events` row at once would multiply
+ * each by however many rows the other table happens to have.
+ */
+export async function getAffiliationEngagementStats(
+  affiliationId: string,
+): Promise<AffiliationEngagementStats> {
+  const scope = and(
+    eq(events.affiliationId, affiliationId),
+    eq(events.status, "approved"),
+    eq(events.isPrivate, false),
+  );
+
+  const [[downloadRow], [saveRow]] = await Promise.all([
+    db
+      .select({ value: count() })
+      .from(downloads)
+      .innerJoin(photos, eq(downloads.photoId, photos.id))
+      .innerJoin(events, eq(photos.eventId, events.id))
+      .where(scope),
+    db
+      .select({ value: count() })
+      .from(savedPhotos)
+      .innerJoin(photos, eq(savedPhotos.photoId, photos.id))
+      .innerJoin(events, eq(photos.eventId, events.id))
+      .where(scope),
+  ]);
+
+  return {
+    downloadCount: downloadRow?.value ?? 0,
+    saveCount: saveRow?.value ?? 0,
+  };
 }
