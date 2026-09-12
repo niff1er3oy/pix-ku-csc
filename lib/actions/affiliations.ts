@@ -11,27 +11,71 @@ import { requireApprovedPhotographer, requireRole } from "@/lib/dal";
 
 const CreateAffiliation = z.object({
   name: z.string().trim().min(2).max(120),
+  email: z.string().trim().email(),
 });
 
+export type CreateAffiliationState =
+  | {
+      error: "invalid" | "email_not_found" | "email_not_approved" | "email_already_in";
+    }
+  | undefined;
+
 /**
- * Stands up a new affiliation with a fresh join code.
+ * Stands up a new affiliation with a fresh join code — and, in the same
+ * breath, its first member. An affiliation with nobody in it yet is not a
+ * useful admin-console object: there is no `/studio/affiliation` for anyone
+ * to reach until at least one approved photographer's own row points at it,
+ * so this asks for that photographer's email up front rather than creating
+ * an empty shell someone has to remember to join afterward with the code.
  *
- * The code is drawn from the same six-digit generator an event's own
+ * The join code is drawn from the same six-digit generator an event's own
  * `entryPin` uses, and retried the same way a collision on `accessCode`
- * would be handled if it needed retrying — up to 5 draws before giving up,
- * which at six digits and a small number of affiliations is not a real
- * limit, just a backstop against an infinite loop.
+ * would be — up to 5 draws before giving up, which at six digits and a small
+ * number of affiliations is not a real limit, just a backstop against an
+ * infinite loop. The insert and the membership update happen in one
+ * transaction per attempt, so a join-code collision can never leave behind
+ * an affiliation with no member or a member pointed at a row that got
+ * rolled back.
  */
-export async function createAffiliation(formData: FormData): Promise<void> {
+export async function createAffiliation(
+  _prev: CreateAffiliationState,
+  formData: FormData,
+): Promise<CreateAffiliationState> {
   const admin = await requireRole("admin");
-  const { name } = CreateAffiliation.parse({ name: formData.get("name") });
+  const parsed = CreateAffiliation.safeParse({
+    name: formData.get("name"),
+    email: formData.get("email"),
+  });
+  if (!parsed.success) return { error: "invalid" };
+  const { name, email } = parsed.data;
+
+  const [founder] = await db
+    .select({
+      id: photographers.id,
+      userId: photographers.userId,
+      status: photographers.status,
+      affiliationId: photographers.affiliationId,
+    })
+    .from(photographers)
+    .innerJoin(users, eq(photographers.userId, users.id))
+    .where(eq(users.email, email))
+    .limit(1);
+
+  if (!founder) return { error: "email_not_found" };
+  if (founder.status !== "approved") return { error: "email_not_approved" };
+  if (founder.affiliationId) return { error: "email_already_in" };
 
   for (let attempt = 0; attempt < 5; attempt++) {
     try {
-      await db.insert(affiliations).values({
-        name,
-        joinCode: generatePin(),
-        createdBy: admin.id,
+      await db.transaction(async (tx) => {
+        const [created] = await tx
+          .insert(affiliations)
+          .values({ name, joinCode: generatePin(), createdBy: admin.id })
+          .returning({ id: affiliations.id });
+        await tx
+          .update(photographers)
+          .set({ affiliationId: created.id })
+          .where(eq(photographers.id, founder.id));
       });
       break;
     } catch (error) {
@@ -43,7 +87,9 @@ export async function createAffiliation(formData: FormData): Promise<void> {
     }
   }
 
-  revalidatePath("/admin/affiliations");
+  revalidatePath("/admin");
+  revalidatePath("/studio/affiliation");
+  revalidatePath(`/profile/${founder.userId}`);
 }
 
 /**
@@ -57,7 +103,7 @@ export async function deleteAffiliation(formData: FormData): Promise<void> {
   await requireRole("admin");
   const id = z.string().uuid().parse(formData.get("id"));
   await db.delete(affiliations).where(eq(affiliations.id, id));
-  revalidatePath("/admin/affiliations");
+  revalidatePath("/admin");
 }
 
 export type JoinAffiliationState =

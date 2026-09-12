@@ -1,11 +1,9 @@
 import type { Metadata } from "next";
 
-import { Directory } from "@/components/admin/directory";
+import { Directory, type DirectoryTab } from "@/components/admin/directory";
 import { IndexingMeter, StatTiles } from "@/components/admin/metrics";
 import { SearchesChart } from "@/components/admin/searches-chart";
 import { ReviewRow } from "@/components/admin/review-row";
-import { ButtonLink } from "@/components/ui/button";
-import { UsersIcon } from "@/components/ui/icon";
 import {
   approveEvent,
   approvePhotographer,
@@ -21,6 +19,7 @@ import {
   getPendingPhotographers,
   type DirectoryFilter,
 } from "@/lib/queries/admin";
+import { getAllAffiliations } from "@/lib/queries/affiliations";
 import { safely } from "@/lib/queries/public";
 import { formatDate, formatNumber } from "@/lib/utils";
 
@@ -35,6 +34,8 @@ const FILTERS = new Set<DirectoryFilter>([
   "photographers",
   "admins",
 ]);
+
+const TABS = new Set<DirectoryTab>(["members", "affiliations"]);
 
 /**
  * The admin console: what is waiting, then everyone.
@@ -53,7 +54,7 @@ const FILTERS = new Set<DirectoryFilter>([
 export default async function AdminPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; page?: string; filter?: string }>;
+  searchParams: Promise<{ q?: string; page?: string; filter?: string; tab?: string }>;
 }) {
   const admin = await requireRole("admin");
   const params = await searchParams;
@@ -63,10 +64,13 @@ export default async function AdminPage({
   const filter = (
     FILTERS.has(params.filter as DirectoryFilter) ? params.filter : "all"
   ) as DirectoryFilter;
+  const tab = (
+    TABS.has(params.tab as DirectoryTab) ? params.tab : "members"
+  ) as DirectoryTab;
 
   const [locale, dict] = await Promise.all([getLocale(), getDictionary()]);
 
-  const [photographers, events, directory, metrics] = await Promise.all([
+  const [photographers, events, directory, affiliations, metrics] = await Promise.all([
     safely(() => getPendingPhotographers(), []),
     safely(() => getPendingEvents(), []),
     safely(() => getDirectory({ q, page, filter }), {
@@ -75,6 +79,7 @@ export default async function AdminPage({
       page: 1,
       pageCount: 1,
     }),
+    safely(() => getAllAffiliations(), []),
     safely(() => getAdminMetrics(), {
       totals: {
         users: 0,
@@ -94,22 +99,14 @@ export default async function AdminPage({
 
   return (
     <section className="mx-auto w-full max-w-5xl px-5 py-16 sm:px-8 sm:py-24">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-h1 font-bold">{dict.admin.title}</h1>
-          <p className="tnum mt-3 text-body-lg text-slate">
-            {waiting > 0
-              ? t(dict.admin.reviewCount, {
-                  count: formatNumber(waiting, locale),
-                })
-              : dict.admin.reviewClear}
-          </p>
-        </div>
-        <ButtonLink href="/admin/affiliations" variant="secondary" size="md">
-          <UsersIcon size={18} />
-          {dict.admin.manageAffiliations}
-        </ButtonLink>
-      </div>
+      <h1 className="text-h1 font-bold">{dict.admin.title}</h1>
+      <p className="tnum mt-3 text-body-lg text-slate">
+        {waiting > 0
+          ? t(dict.admin.reviewCount, {
+              count: formatNumber(waiting, locale),
+            })
+          : dict.admin.reviewClear}
+      </p>
 
       <StatTiles totals={metrics.totals} labels={dict.admin} locale={locale} />
 
@@ -183,6 +180,8 @@ export default async function AdminPage({
         data={directory}
         q={q}
         filter={filter}
+        tab={tab}
+        affiliations={affiliations}
         selfId={admin.id}
         labels={dict.admin}
         dict={dict}

@@ -1,12 +1,16 @@
 import Link from "next/link";
 
+import { AffiliationsPanel } from "@/components/admin/affiliations-panel";
 import { DirectoryRow } from "@/components/admin/directory-row";
 import { DirectorySearch } from "@/components/admin/directory-search";
 import { ChevronLeftIcon, ChevronRightIcon } from "@/components/ui/icon";
 import { t } from "@/lib/i18n";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
+import type { AdminAffiliationRow } from "@/lib/queries/affiliations";
 import type { Directory as Data, DirectoryFilter } from "@/lib/queries/admin";
 import { cn, formatDate, formatNumber } from "@/lib/utils";
+
+export type DirectoryTab = "members" | "affiliations";
 
 /**
  * The account directory: search, filter, one row per person, paging.
@@ -25,6 +29,8 @@ export function Directory({
   data,
   q,
   filter,
+  tab,
+  affiliations,
   selfId,
   labels,
   dict,
@@ -33,6 +39,12 @@ export function Directory({
   data: Data;
   q: string;
   filter: DirectoryFilter;
+  /** Which of the section's two tabs is showing — the member list this
+   *  component always rendered, or the affiliation-management panel that
+   *  used to be its own page at `/admin/affiliations` before it moved in
+   *  here. */
+  tab: DirectoryTab;
+  affiliations: AdminAffiliationRow[];
   selfId: string;
   labels: Dictionary["admin"];
   /** Threaded through only for `DirectoryRow`'s `EventsManager` popup, which
@@ -82,92 +94,135 @@ export function Directory({
        anchor above brings the reader here. */
     <section id="directory" className="mt-16 scroll-mt-20">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <h2 className="text-h2">{labels.directoryTitle}</h2>
+        <h2 className="text-h2">
+          {tab === "affiliations" ? dict.adminAffiliationsPage.title : labels.directoryTitle}
+        </h2>
         {/* Totals live here rather than in a row of big-number tiles at the
             top. The count of accounts is context for reading this list; it is
             not something an admin arrives needing to act on. */}
         <p className="tnum text-label text-slate">
-          {t(labels.directoryCount, {
-            count: formatNumber(data.total, locale),
-          })}
+          {tab === "affiliations"
+            ? t(dict.adminAffiliationsPage.count, {
+                count: formatNumber(affiliations.length, locale),
+              })
+            : t(labels.directoryCount, {
+                count: formatNumber(data.total, locale),
+              })}
         </p>
       </div>
 
-      <DirectorySearch
-        q={q}
-        filter={filter}
-        label={labels.directorySearch}
-        submitLabel={labels.directorySearchSubmit}
-      />
-
-      <nav className="mt-3 flex flex-wrap gap-1.5" aria-label={labels.filterAll}>
-        {filters.map((item) => {
-          const params = new URLSearchParams();
-          if (q) params.set("q", q);
-          if (item.key !== "all") params.set("filter", item.key);
-          const active = item.key === filter;
-
-          return (
-            <Link
-              key={item.key}
-              href={withAnchor(params)}
-              aria-current={active ? "page" : undefined}
-              className={cn(
-                "inline-flex min-h-11 items-center whitespace-nowrap rounded-pill px-4 text-sm font-medium transition-colors duration-200",
-                active
-                  ? "bg-green-600 text-paper"
-                  : "text-slate hover:bg-cloud hover:text-green-700",
-              )}
-            >
-              {item.label}
-            </Link>
-          );
-        })}
+      {/* The account directory and the affiliation roster are two views onto
+          the same "everyone in the system" section, not two unrelated
+          screens — a tab switch here rather than a second page, so an admin
+          never leaves this scroll position to move between them. */}
+      <nav className="mt-3 flex flex-wrap gap-1.5">
+        <Link
+          href="/admin#directory"
+          aria-current={tab === "members" ? "page" : undefined}
+          className={cn(
+            "inline-flex min-h-11 items-center whitespace-nowrap rounded-pill px-4 text-sm font-semibold transition-colors duration-200",
+            tab === "members"
+              ? "bg-ink text-paper"
+              : "text-slate hover:bg-cloud hover:text-green-700",
+          )}
+        >
+          {labels.tabMembers}
+        </Link>
+        <Link
+          href="/admin?tab=affiliations#directory"
+          aria-current={tab === "affiliations" ? "page" : undefined}
+          className={cn(
+            "inline-flex min-h-11 items-center whitespace-nowrap rounded-pill px-4 text-sm font-semibold transition-colors duration-200",
+            tab === "affiliations"
+              ? "bg-ink text-paper"
+              : "text-slate hover:bg-cloud hover:text-green-700",
+          )}
+        >
+          {labels.tabAffiliations}
+        </Link>
       </nav>
 
-      {data.rows.length === 0 ? (
-        <p className="mt-10 rounded-card bg-cloud px-6 py-12 text-center text-body text-slate">
-          {labels.directoryNoResults}
-        </p>
+      {tab === "affiliations" ? (
+        <AffiliationsPanel dict={dict} locale={locale} affiliations={affiliations} />
       ) : (
-        <ul className="mt-4">
-          {data.rows.map((row) => (
-            <DirectoryRow
-              key={row.userId}
-              row={row}
-              isSelf={row.userId === selfId}
-              labels={labels}
-              dict={dict}
-              locale={locale}
-              joined={t(labels.joined, {
-                date: formatDate(row.joinedAt, locale),
-              })}
-            />
-          ))}
-        </ul>
-      )}
+        <>
+          <DirectorySearch
+            q={q}
+            filter={filter}
+            label={labels.directorySearch}
+            submitLabel={labels.directorySearchSubmit}
+          />
 
-      {data.pageCount > 1 && (
-        <nav className="mt-8 flex items-center justify-between gap-4 border-t border-edge pt-6">
-          <PagerLink
-            href={href(data.page - 1)}
-            disabled={data.page <= 1}
-            label={labels.prevPage}
-            side="prev"
-          />
-          <p className="tnum text-label text-slate">
-            {t(labels.pageOf, {
-              page: formatNumber(data.page, locale),
-              total: formatNumber(data.pageCount, locale),
+          <nav className="mt-3 flex flex-wrap gap-1.5" aria-label={labels.filterAll}>
+            {filters.map((item) => {
+              const params = new URLSearchParams();
+              if (q) params.set("q", q);
+              if (item.key !== "all") params.set("filter", item.key);
+              const active = item.key === filter;
+
+              return (
+                <Link
+                  key={item.key}
+                  href={withAnchor(params)}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "inline-flex min-h-11 items-center whitespace-nowrap rounded-pill px-4 text-sm font-medium transition-colors duration-200",
+                    active
+                      ? "bg-green-600 text-paper"
+                      : "text-slate hover:bg-cloud hover:text-green-700",
+                  )}
+                >
+                  {item.label}
+                </Link>
+              );
             })}
-          </p>
-          <PagerLink
-            href={href(data.page + 1)}
-            disabled={data.page >= data.pageCount}
-            label={labels.nextPage}
-            side="next"
-          />
-        </nav>
+          </nav>
+
+          {data.rows.length === 0 ? (
+            <p className="mt-10 rounded-card bg-cloud px-6 py-12 text-center text-body text-slate">
+              {labels.directoryNoResults}
+            </p>
+          ) : (
+            <ul className="mt-4">
+              {data.rows.map((row) => (
+                <DirectoryRow
+                  key={row.userId}
+                  row={row}
+                  isSelf={row.userId === selfId}
+                  labels={labels}
+                  dict={dict}
+                  locale={locale}
+                  joined={t(labels.joined, {
+                    date: formatDate(row.joinedAt, locale),
+                  })}
+                />
+              ))}
+            </ul>
+          )}
+
+          {data.pageCount > 1 && (
+            <nav className="mt-8 flex items-center justify-between gap-4 border-t border-edge pt-6">
+              <PagerLink
+                href={href(data.page - 1)}
+                disabled={data.page <= 1}
+                label={labels.prevPage}
+                side="prev"
+              />
+              <p className="tnum text-label text-slate">
+                {t(labels.pageOf, {
+                  page: formatNumber(data.page, locale),
+                  total: formatNumber(data.pageCount, locale),
+                })}
+              </p>
+              <PagerLink
+                href={href(data.page + 1)}
+                disabled={data.page >= data.pageCount}
+                label={labels.nextPage}
+                side="next"
+              />
+            </nav>
+          )}
+        </>
       )}
     </section>
   );
