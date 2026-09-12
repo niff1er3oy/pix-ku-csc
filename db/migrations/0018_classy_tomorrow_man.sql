@@ -1,1 +1,0 @@
-ALTER TABLE "event" DROP COLUMN "entry_pin_hash";

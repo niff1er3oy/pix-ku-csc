@@ -1,1 +1,0 @@
-ALTER TABLE "event" ADD COLUMN "cover_path" text;

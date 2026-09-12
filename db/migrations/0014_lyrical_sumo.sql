@@ -1,2 +1,0 @@
-ALTER TYPE "public"."notification_type" ADD VALUE 'photographer_granted' BEFORE 'event_approved';--> statement-breakpoint
-ALTER TYPE "public"."notification_type" ADD VALUE 'photographer_revoked' BEFORE 'event_approved';
