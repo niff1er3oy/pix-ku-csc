@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { events, photos, savedPhotos } from "@/db/schema";
 import { requireUser } from "@/lib/dal";
+import { isUuid } from "@/lib/utils";
 
 /**
  * Saves one or more photos to the caller's own list — scoped by more than
@@ -20,13 +21,14 @@ import { requireUser } from "@/lib/dal";
  */
 export async function savePhotos(photoIds: string[]): Promise<void> {
   const user = await requireUser();
-  if (photoIds.length === 0) return;
+  const ids = photoIds.filter(isUuid);
+  if (ids.length === 0) return;
 
   const visible = await db
     .select({ id: photos.id })
     .from(photos)
     .innerJoin(events, eq(photos.eventId, events.id))
-    .where(and(inArray(photos.id, photoIds), eq(events.status, "approved")));
+    .where(and(inArray(photos.id, ids), eq(events.status, "approved")));
   if (visible.length === 0) return;
 
   await db
@@ -45,13 +47,12 @@ export async function savePhotos(photoIds: string[]): Promise<void> {
  */
 export async function unsavePhotos(photoIds: string[]): Promise<void> {
   const user = await requireUser();
-  if (photoIds.length === 0) return;
+  const ids = photoIds.filter(isUuid);
+  if (ids.length === 0) return;
 
   await db
     .delete(savedPhotos)
-    .where(
-      and(eq(savedPhotos.userId, user.id), inArray(savedPhotos.photoId, photoIds)),
-    );
+    .where(and(eq(savedPhotos.userId, user.id), inArray(savedPhotos.photoId, ids)));
 
   revalidatePath(`/profile/${user.id}`);
 }

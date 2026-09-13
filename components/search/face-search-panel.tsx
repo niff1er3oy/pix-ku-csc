@@ -10,7 +10,7 @@ import { DownloadAllButton } from "@/components/photos/download-all-button";
 import { PhotoGallery } from "@/components/photos/photo-gallery";
 import { SelectAllToggle } from "@/components/photos/select-all-toggle";
 import { SelectCheckbox } from "@/components/photos/select-checkbox";
-import { Button } from "@/components/ui/button";
+import { Button, buttonClass } from "@/components/ui/button";
 import {
   BookmarkIcon,
   CloseIcon,
@@ -76,6 +76,12 @@ export function FaceSearchPanel({
   const inputRef = useRef<HTMLInputElement>(null);
   const scanRef = useRef<HTMLDivElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
+  // What "search again" scrolls back up to — the saved-face/upload options,
+  // which stay mounted above the results rather than being replaced by them.
+  // Without this, trying a second selfie after scrolling down through a long
+  // results grid meant scrolling all the way back up through that same grid
+  // by hand.
+  const uploadSectionRef = useRef<HTMLDivElement>(null);
 
   /**
    * The waiting state, driven by anime.js rather than CSS.
@@ -214,6 +220,20 @@ export function FaceSearchPanel({
     }
   }
 
+  // Drops back to the upload/saved-face options without closing the popup —
+  // the fast path for "that selfie didn't work, let me try another one" or
+  // "let me search again with a different photo," reachable from wherever
+  // the results toolbar is currently stuck (see its own `sticky` note below)
+  // rather than only from the very top of the modal.
+  function searchAgain() {
+    setStatus("idle");
+    setError(null);
+    uploadSectionRef.current?.scrollIntoView({
+      behavior: prefersReducedMotion() ? "auto" : "smooth",
+      block: "start",
+    });
+  }
+
   function pickCleanup() {
     if (preview) URL.revokeObjectURL(preview);
     setPreview(null);
@@ -313,7 +333,7 @@ export function FaceSearchPanel({
                   </button>
                 </div>
 
-                <div className="mx-auto mt-5 max-w-2xl">
+                <div ref={uploadSectionRef} className="mx-auto mt-5 max-w-2xl">
                   {/* --- Saved face, for people who already have one — first,
                       since it needs no consent step and no upload: one click
                       and it is already running. --------------------------- */}
@@ -539,9 +559,27 @@ export function FaceSearchPanel({
                     </h3>
 
                     {matches.length === 0 ? (
-                      <p className="mt-3 max-w-2xl text-body text-slate">
-                        {dict.results.zeroBody}
-                      </p>
+                      <div className="mt-3 max-w-2xl">
+                        <p className="text-body text-slate">{dict.results.zeroBody}</p>
+                        {/* An empty result still has two real next steps, so
+                            DESIGN.md's own empty-state rule ("a button
+                            wherever the visitor can do something") applies —
+                            retry with another photo, or skip the face search
+                            and look through the event directly. */}
+                        <div className="mt-5 flex flex-wrap gap-3">
+                          <Button type="button" size="sm" onClick={searchAgain}>
+                            <SearchIcon size={16} />
+                            {dict.results.zeroRetry}
+                          </Button>
+                          <a
+                            href="#browse-gallery"
+                            onClick={() => setOpen(false)}
+                            className={buttonClass({ variant: "secondary", size: "sm" })}
+                          >
+                            {dict.results.zeroBrowse}
+                          </a>
+                        </div>
+                      </div>
                     ) : (
                       <>
                         {watermarked && (
@@ -553,14 +591,33 @@ export function FaceSearchPanel({
                         {/* "Select all" beside the buttons it feeds, the same
                             pairing `DeletePhotosForm` uses in the studio —
                             the two only make sense together, right before
-                            acting on whatever ends up checked. */}
-                        <div className="mt-5 flex flex-wrap items-center gap-3">
+                            acting on whatever ends up checked.
+
+                            `sticky` rather than plain flow: a face-search
+                            result set can run into the dozens, and without
+                            this, acting on a fresh selection after scrolling
+                            through most of a long grid meant scrolling all
+                            the way back up to reach these buttons every
+                            single time. Full-bleed to the card's own edges
+                            (negative margin matching `p-5 sm:p-6`) so the
+                            solid background covers whatever is scrolling
+                            underneath it rather than a thin bar with
+                            backdrop peeking through on each side. */}
+                        <div className="sticky top-0 z-10 -mx-5 mt-5 flex flex-wrap items-center gap-3 border-b border-edge bg-paper px-5 py-3 sm:-mx-6 sm:px-6">
                           <SelectAllToggle
                             checked={allSelected}
                             onChange={toggleSelectAll}
                             selectLabel={dict.results.selectAll}
                             deselectLabel={dict.results.deselectAll}
                           />
+
+                          {/* Reachable from the same stuck bar, so trying a
+                              different photo never requires scrolling back
+                              to the top of the popup first. */}
+                          <Button type="button" variant="ghost" size="sm" onClick={searchAgain}>
+                            <SearchIcon size={16} />
+                            {dict.results.searchAgain}
+                          </Button>
 
                           {allowDownload && (
                             <DownloadAllButton

@@ -4,6 +4,7 @@ import { AccountMenu } from "@/components/account-menu";
 import { HomeLink } from "@/components/brand/home-link";
 import { Logo } from "@/components/brand/logo";
 import { LocaleSwitcher } from "@/components/locale-switcher";
+import { MobileNavMenu } from "@/components/mobile-nav-menu";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { buttonClass } from "@/components/ui/button";
 import { getPhotographer, getSessionUser } from "@/lib/dal";
@@ -45,6 +46,7 @@ export async function SiteHeader() {
       ])
     : [null, [], 0];
   const showStudio = photographer?.status === "approved";
+  const showAdmin = user?.role === "admin";
 
   return (
     /* Fully opaque. This was `bg-paper/92`, left over from a `backdrop-blur`
@@ -64,7 +66,21 @@ export async function SiteHeader() {
           <Logo size="md" />
         </HomeLink>
 
-        <nav className="ml-auto flex items-center gap-1 text-sm">
+        {/* `relative` is load-bearing for `NotificationBell`'s own dropdown —
+            see the comment on that component for why it anchors here rather
+            than to its own (narrower, off-centre) toggle button. */}
+        <nav className="relative ml-auto flex items-center gap-1 text-sm">
+          {/* The links `navLink` hides below `sm` don't just vanish on a
+              phone — this disclosure is where they still are. See its own
+              comment for why `<details>`, and why it opens the same way the
+              two disclosures beside it already do. */}
+          <MobileNavMenu
+            dict={dict}
+            locale={locale}
+            showStudio={showStudio}
+            showAdmin={showAdmin}
+          />
+
           <Link href="/events" className={navLink}>
             {dict.nav.events}
           </Link>
@@ -83,13 +99,19 @@ export async function SiteHeader() {
             </Link>
           )}
 
-          {user?.role === "admin" && (
+          {showAdmin && (
             <Link href="/admin" className={navLink}>
               {dict.nav.admin}
             </Link>
           )}
 
-          <LocaleSwitcher locale={locale} label={dict.nav.switchLanguage} />
+          {/* Moved into `MobileNavMenu` below `sm` — hidden here rather than
+              rendered twice. See that component's own comment. */}
+          <LocaleSwitcher
+            locale={locale}
+            label={dict.nav.switchLanguage}
+            className="hidden whitespace-nowrap rounded-pill px-3 text-label font-medium text-slate transition-colors duration-200 hover:bg-cloud hover:text-green-700 sm:inline-flex"
+          />
 
           {user && (
             <NotificationBell

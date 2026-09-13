@@ -38,7 +38,9 @@ const Review = z.object({
  */
 export async function approvePhotographer(formData: FormData) {
   const admin = await requireRole("admin");
-  const { id } = Review.parse({ id: formData.get("id") });
+  const parsed = Review.safeParse({ id: formData.get("id") });
+  if (!parsed.success) return;
+  const { id } = parsed.data;
 
   const approvedUserId = await db.transaction(async (tx) => {
     const [row] = await tx
@@ -85,10 +87,12 @@ export async function approvePhotographer(formData: FormData) {
 
 export async function rejectPhotographer(formData: FormData) {
   const admin = await requireRole("admin");
-  const { id, reason } = Review.parse({
+  const parsed = Review.safeParse({
     id: formData.get("id"),
     reason: formData.get("reason"),
   });
+  if (!parsed.success) return;
+  const { id, reason } = parsed.data;
 
   const [row] = await db
     .update(photographers)
@@ -129,7 +133,9 @@ export async function rejectPhotographer(formData: FormData) {
  */
 export async function restoreEvent(formData: FormData) {
   const admin = await requireRole("admin");
-  const { id } = Review.parse({ id: formData.get("id") });
+  const parsed = Review.safeParse({ id: formData.get("id") });
+  if (!parsed.success) return;
+  const { id } = parsed.data;
 
   const [row] = await db
     .update(events)
@@ -156,10 +162,12 @@ export async function restoreEvent(formData: FormData) {
  */
 export async function rejectEvent(formData: FormData) {
   const admin = await requireRole("admin");
-  const { id, reason } = Review.parse({
+  const parsed = Review.safeParse({
     id: formData.get("id"),
     reason: formData.get("reason"),
   });
+  if (!parsed.success) return;
+  const { id, reason } = parsed.data;
 
   const [row] = await db
     .update(events)
@@ -231,10 +239,12 @@ const Promote = z.object({
  */
 export async function makePhotographer(formData: FormData) {
   const admin = await requireRole("admin");
-  const data = Promote.parse({
+  const parsed = Promote.safeParse({
     userId: formData.get("userId"),
     displayName: formData.get("displayName"),
   });
+  if (!parsed.success) return;
+  const data = parsed.data;
 
   await db.transaction(async (tx) => {
     await tx
@@ -290,10 +300,12 @@ export async function makePhotographer(formData: FormData) {
  */
 export async function revokePhotographer(formData: FormData) {
   const admin = await requireRole("admin");
-  const { id, reason } = Review.parse({
+  const parsed = Review.safeParse({
     id: formData.get("id"),
     reason: formData.get("reason"),
   });
+  if (!parsed.success) return;
+  const { id, reason } = parsed.data;
 
   const revokedUserId = await db.transaction(async (tx) => {
     const [row] = await tx
@@ -347,10 +359,12 @@ const RoleChange = z.object({
  */
 export async function setUserRole(formData: FormData) {
   const admin = await requireRole("admin");
-  const { userId, role } = RoleChange.parse({
+  const parsed = RoleChange.safeParse({
     userId: formData.get("userId"),
     role: formData.get("role"),
   });
+  if (!parsed.success) return;
+  const { userId, role } = parsed.data;
 
   if (userId === admin.id) return;
 
@@ -428,5 +442,61 @@ export async function adminDeleteEvents(formData: FormData): Promise<void> {
 
   revalidatePath("/studio");
   revalidatePath("/events");
+  revalidatePath("/admin");
+}
+
+const ApprovePhotographers = z.object({
+  ids: z.array(z.string().uuid()).min(1),
+});
+
+/**
+ * The bulk sibling of `approvePhotographer` — a backlog of applications
+ * (a busy launch week, an event season) is the same decision made many
+ * times over, and a queue that only ever accepts one id at a time is the
+ * part that does not scale, not the review itself.
+ *
+ * Same promotion guard as the single-id version: `where role = 'user'`
+ * matters for the reason explained on `approvePhotographer` (an admin who
+ * also shoots events must not have their role overwritten), just applied to
+ * every approved id's owner at once instead of one.
+ */
+export async function approvePhotographers(formData: FormData): Promise<void> {
+  const admin = await requireRole("admin");
+  const parsed = ApprovePhotographers.safeParse({
+    ids: formData.getAll("ids"),
+  });
+  if (!parsed.success) return;
+  const { ids } = parsed.data;
+
+  const approvedUserIds = await db.transaction(async (tx) => {
+    const rows = await tx
+      .update(photographers)
+      .set({
+        status: "approved",
+        reviewedBy: admin.id,
+        reviewedAt: new Date(),
+        rejectionReason: null,
+      })
+      .where(inArray(photographers.id, ids))
+      .returning({ userId: photographers.userId });
+
+    if (rows.length === 0) return [];
+    const userIds = rows.map((row) => row.userId);
+
+    // Only ever a promotion — see the note on `approvePhotographer`.
+    await tx
+      .update(users)
+      .set({ role: "photographer" })
+      .where(and(inArray(users.id, userIds), eq(users.role, "user")));
+
+    return userIds;
+  });
+
+  await Promise.all(
+    approvedUserIds.map((userId) =>
+      notify({ userId, type: "photographer_approved", href: "/studio" }),
+    ),
+  );
+
   revalidatePath("/admin");
 }

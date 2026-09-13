@@ -18,9 +18,6 @@ const nextConfig: NextConfig = {
     // no data leaked, but nothing ever told them why, and nothing ever will
     // until a boundary exists to catch the interrupt. See app/forbidden.tsx.
     authInterrupts: true,
-    // Lets an event card's cover image morph into the event header instead of
-    // the page hard-cutting. See the ::view-transition rules in globals.css.
-    viewTransition: true,
   },
   serverExternalPackages: ["sharp"],
 };

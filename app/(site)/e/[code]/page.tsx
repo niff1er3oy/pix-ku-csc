@@ -153,6 +153,16 @@ export default async function EventPage({
                 />
               </div>
 
+              {/* Two clusters, not one flat row of six: date/location/photo
+                  count are what an anonymous QR-scan visitor actually
+                  orients by ("is this the right event, is there anything
+                  here"), so those keep the pill treatment exactly as
+                  before. Face/download/save counts are more like
+                  vanity/trust stats than a decision this visitor needs to
+                  make — demoted to quiet inline text, same pattern
+                  `SavedPhotosByEvent` already uses for secondary figures,
+                  and set apart with extra top margin so the two groups
+                  read as separate at a glance instead of one long strip. */}
               <div className="mt-4 flex flex-wrap items-center gap-2">
                 <span className="rounded-pill bg-paper px-3 py-1 text-caption font-medium text-green-700">
                   {formatDate(event.eventDate, locale)}
@@ -165,13 +175,18 @@ export default async function EventPage({
                 <span className="tnum rounded-pill bg-paper px-3 py-1 text-caption font-medium text-green-700">
                   {formatNumber(total, locale)} {dict.common.photos}
                 </span>
-                <span className="tnum rounded-pill bg-paper px-3 py-1 text-caption font-medium text-green-700">
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-caption text-slate">
+                <span className="tnum">
                   {formatNumber(stats.faceCount, locale)} {dict.common.faces}
                 </span>
-                <span className="tnum rounded-pill bg-paper px-3 py-1 text-caption font-medium text-green-700">
+                <span aria-hidden="true">·</span>
+                <span className="tnum">
                   {formatNumber(stats.downloadCount, locale)} {dict.common.downloads}
                 </span>
-                <span className="tnum rounded-pill bg-paper px-3 py-1 text-caption font-medium text-green-700">
+                <span aria-hidden="true">·</span>
+                <span className="tnum">
                   {formatNumber(stats.saveCount, locale)} {dict.common.saves}
                 </span>
               </div>
@@ -230,7 +245,13 @@ export default async function EventPage({
       )}
 
       {/* --- Gallery ------------------------------------------------------ */}
-      <section className="mx-auto w-full max-w-6xl px-5 py-14 sm:px-8 sm:py-20">
+      {/* `id` is `FaceSearchPanel`'s own "browse the event yourself" link
+          target for a zero-match search — scroll-mt keeps the heading clear
+          of the sticky site header when that anchor lands here. */}
+      <section
+        id="browse-gallery"
+        className="scroll-mt-20 mx-auto w-full max-w-6xl px-5 py-14 sm:px-8 sm:py-20"
+      >
         <h2 className="text-h2">{dict.event.browseAll}</h2>
 
         {photos.length === 0 ? (

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { rejectEvent } from "@/lib/actions/admin";
 import { requireRole } from "@/lib/dal";
 import { getDictionary, getLocale, t } from "@/lib/i18n";
@@ -116,14 +116,13 @@ export default async function PhotographerEventsPage({
                     <p className="mt-1.5 text-caption text-slate">
                       {dict.admin.takeDownReasonHint}
                     </p>
-                    <Button
-                      type="submit"
+                    <SubmitButton
                       variant="danger"
                       size="sm"
                       className="mt-3"
                     >
                       {dict.admin.takeDownEvent}
-                    </Button>
+                    </SubmitButton>
                   </form>
                 </details>
               )}

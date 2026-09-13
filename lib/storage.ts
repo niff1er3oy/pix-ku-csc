@@ -109,6 +109,37 @@ export function hashIp(ip: string | null): string | null {
   return createHash("sha256").update(`${salt}:${ip}`).digest("hex").slice(0, 32);
 }
 
+/**
+ * The visitor's address as seen by the nearest hop this app actually trusts —
+ * never a value a client can simply type into a request header itself.
+ *
+ * `CF-Connecting-IP` is authoritative when present: Cloudflare sets it from
+ * its own view of the connection and strips whatever a client sent under that
+ * name, which is exactly why `.env.example` has us running behind a Cloudflare
+ * Tunnel. Otherwise this takes the *last* entry of `X-Forwarded-For`, not the
+ * first — a client can prepend anything it likes to that header, but on a
+ * deployment with exactly one reverse proxy in front of this app (the
+ * supported shape here; see `ecosystem.config.cjs`), the last entry is the
+ * address our own proxy appended from the connection it actually saw, which a
+ * client has no way to write into.
+ *
+ * Rate limits built on this (event-pin brute force, face-search abuse) are
+ * only as real as this function: reading `x-forwarded-for`'s first entry, as
+ * this used to, let an attacker mint a fresh "IP" on every single request.
+ */
+export function clientIp(headers: { get(name: string): string | null }): string | null {
+  const cloudflare = headers.get("cf-connecting-ip")?.trim();
+  if (cloudflare) return cloudflare;
+
+  const forwarded = headers.get("x-forwarded-for");
+  if (!forwarded) return null;
+  const hops = forwarded
+    .split(",")
+    .map((hop) => hop.trim())
+    .filter(Boolean);
+  return hops.length > 0 ? hops[hops.length - 1] : null;
+}
+
 export function newId(): string {
   return randomUUID();
 }

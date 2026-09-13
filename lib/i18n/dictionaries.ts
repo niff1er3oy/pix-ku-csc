@@ -22,6 +22,7 @@ export const th = {
     signOut: "ออกจากระบบ",
     switchLanguage: "English",
     skipToContent: "ข้ามไปยังเนื้อหา",
+    menu: "เมนู",
   },
 
   home: {
@@ -225,6 +226,8 @@ export const th = {
     statFaces: "ใบหน้าที่พบ",
     statDownloads: "รูปที่ดาวน์โหลด",
     statEventsJoined: "งานที่เข้าร่วม",
+    statsAsPhotographer: "ในฐานะช่างภาพ",
+    statsAsParticipant: "ในฐานะผู้ร่วมงาน",
 
     portfolioTitle: "ผลงาน",
     portfolioEmpty: "ยังไม่มีงานที่เผยแพร่",
@@ -432,10 +435,12 @@ export const th = {
     photoStatusNoFace: "ไม่พบใบหน้า",
     photoStatusFailed: "ประมวลผลล้มเหลว",
     healthTitle: "ภาพรวมงาน",
+    healthIndexingGroup: "สถานะการประมวลผล",
     healthPhotos: "รูปทั้งหมด",
     healthFaces: "ใบหน้าที่พบ",
     healthProcessed: "ประมวลผลแล้ว",
     healthFailed: "ล้มเหลว",
+    healthUsageGroup: "การใช้งาน",
     healthDownloads: "ดาวน์โหลด",
     healthSearches: "ค้นหา",
 
@@ -475,6 +480,10 @@ export const th = {
     approved: "อนุมัติแล้ว",
     rejected: "ไม่อนุมัติแล้ว",
     restoreEvent: "กู้คืนงาน",
+    selectPhotographer: "เลือก {name}",
+    approveSelected: "อนุมัติที่เลือก",
+    approveSelectedConfirm:
+      "อนุมัติ {count} รายการ? ทุกคนจะได้สิทธิ์ช่างภาพทันที",
 
     // --- ไดเรกทอรี ---
     reviewTitle: "รออนุมัติ",
@@ -773,6 +782,7 @@ export const en: Dictionary = {
     signOut: "Sign out",
     switchLanguage: "ไทย",
     skipToContent: "Skip to content",
+    menu: "Menu",
   },
 
   home: {
@@ -977,6 +987,8 @@ export const en: Dictionary = {
     statFaces: "Faces found",
     statDownloads: "Photos downloaded",
     statEventsJoined: "Events joined",
+    statsAsPhotographer: "As a photographer",
+    statsAsParticipant: "As a participant",
 
     portfolioTitle: "Portfolio",
     portfolioEmpty: "No published events yet",
@@ -1186,10 +1198,12 @@ export const en: Dictionary = {
     photoStatusNoFace: "No face found",
     photoStatusFailed: "Processing failed",
     healthTitle: "Event overview",
+    healthIndexingGroup: "Indexing status",
     healthPhotos: "Total photos",
     healthFaces: "Faces found",
     healthProcessed: "Processed",
     healthFailed: "Failed",
+    healthUsageGroup: "Usage",
     healthDownloads: "Downloads",
     healthSearches: "Searches",
 
@@ -1229,6 +1243,10 @@ export const en: Dictionary = {
     approved: "Approved",
     rejected: "Rejected",
     restoreEvent: "Restore",
+    selectPhotographer: "Select {name}",
+    approveSelected: "Approve selected",
+    approveSelectedConfirm:
+      "Approve {count} applications? They'll all get photographer access right away.",
 
     reviewTitle: "Waiting for review",
     reviewCount: "{count} waiting on you",

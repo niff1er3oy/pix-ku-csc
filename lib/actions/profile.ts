@@ -17,6 +17,7 @@ import { requireUser } from "@/lib/dal";
 import { assertSingleFace, FaceError } from "@/lib/face";
 import { ACCEPTED_MIME, buildDetectionCopy, MAX_SELFIE_BYTES } from "@/lib/images";
 import { deleteStoragePath, newId, storagePaths, writeStorageFile } from "@/lib/storage";
+import { isUuid } from "@/lib/utils";
 
 export type SaveFaceState =
   | {
@@ -159,6 +160,7 @@ export async function deleteFace(): Promise<void> {
  */
 export async function hideEventFromProfile(eventId: string): Promise<void> {
   const user = await requireUser();
+  if (!isUuid(eventId)) return;
   await db
     .insert(profileHiddenEvents)
     .values({ userId: user.id, eventId })
@@ -169,6 +171,7 @@ export async function hideEventFromProfile(eventId: string): Promise<void> {
 /** Undoes `hideEventFromProfile` — the event's group shows on `/profile/[id]` again. */
 export async function showEventOnProfile(eventId: string): Promise<void> {
   const user = await requireUser();
+  if (!isUuid(eventId)) return;
   await db
     .delete(profileHiddenEvents)
     .where(

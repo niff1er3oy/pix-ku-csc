@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, ViewTransition, type ReactNode } from "react";
+import { useEffect, useRef, ViewTransition, type ReactNode } from "react";
 
 import { buttonClass } from "@/components/ui/button";
 import {
@@ -88,6 +88,35 @@ export function PhotoLightbox({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [index, hasPrev, hasNext, onClose, onNavigate]);
 
+  // Touch-swipe stepping through the set — the desktop-only arrow keys above
+  // had no phone equivalent beyond the two 44px chevrons pinned to the
+  // screen edges, which asks for real precision one-handed in a crowd.
+  // Plain pointer events rather than a gesture library, mirroring
+  // `PhotoThumb`'s own long-press tracking: a horizontal-drag check against
+  // `touchStart` on pointer up, so a mostly-vertical drag (or a pinch-zoom,
+  // which never fires a single pointer's up past the threshold on its own)
+  // is left alone rather than misread as "go to the next photo."
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  const SWIPE_THRESHOLD_PX = 50;
+
+  function onPointerDown(event: React.PointerEvent) {
+    if (event.pointerType !== "touch") return;
+    touchStart.current = { x: event.clientX, y: event.clientY };
+  }
+
+  function onPointerUp(event: React.PointerEvent) {
+    const start = touchStart.current;
+    touchStart.current = null;
+    if (!start || event.pointerType !== "touch") return;
+
+    const dx = event.clientX - start.x;
+    const dy = event.clientY - start.y;
+    if (Math.abs(dx) < SWIPE_THRESHOLD_PX || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+
+    if (dx > 0 && hasPrev) onNavigate(index - 1);
+    else if (dx < 0 && hasNext) onNavigate(index + 1);
+  }
+
   if (!photo) return null;
 
   const image = photo.src ? (
@@ -112,6 +141,8 @@ export function PhotoLightbox({
       aria-modal="true"
       className="modal-backdrop fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-ink/90 p-4 sm:p-8"
       onClick={onClose}
+      onPointerDown={onPointerDown}
+      onPointerUp={onPointerUp}
     >
       <button
         type="button"

@@ -36,6 +36,13 @@ export function JoinAffiliationForm({ dict }: { dict: Dictionary }) {
           name="joinCode"
           required
           maxLength={32}
+          // Always six digits — `generatePin()` in `lib/event-pin.ts` is the
+          // same generator the event PIN uses, and `PinField` already opens
+          // the number pad for that one. A plain text keyboard here made
+          // someone type a numeric code on the full alphabet layout for no
+          // reason other than this field forgetting to ask for the other one.
+          inputMode="numeric"
+          autoComplete="off"
           className="mt-1.5 h-[46px] w-full rounded-field bg-paper px-4 text-body tracking-[0.2em] text-ink ring-1 ring-inset ring-edge transition-shadow duration-200 focus:ring-2 focus:ring-green-600"
         />
       </div>

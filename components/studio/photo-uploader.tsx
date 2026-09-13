@@ -392,57 +392,86 @@ export function PhotoUploader({
 
                     <ul className="max-h-72 divide-y divide-edge overflow-y-auto">
                       {items.map((item) => (
-                        <li key={item.key} className="flex items-center gap-3 p-3">
+                        <li key={item.key} className="flex items-center gap-3 pr-3">
+                          {/* A `<label>` around the whole row, not just the
+                              checkbox — reviewing a big staged batch one-
+                              handed on a phone means tapping a 20px box
+                              precisely for every frame to keep or drop,
+                              which is the opposite of what this staging
+                              list exists for (see the component doc comment
+                              on picking a folder "on a phone"). Wrapping the
+                              thumbnail and filename in the label too makes
+                              the entire row the target, the same way a
+                              checklist app would, while the checkbox itself
+                              stays the same visible size. Only the staged
+                              rows get this — a finished or failed item has
+                              nothing left to toggle. */}
                           {item.status === "staged" ? (
-                            <input
-                              type="checkbox"
-                              checked={item.selected}
-                              onChange={(event) =>
-                                patch(item.key, { selected: event.target.checked })
-                              }
-                              aria-label={item.file.name}
-                              className="size-5 shrink-0 rounded-[6px] accent-green-600"
-                            />
+                            <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 py-3 pl-3">
+                              <input
+                                type="checkbox"
+                                checked={item.selected}
+                                onChange={(event) =>
+                                  patch(item.key, { selected: event.target.checked })
+                                }
+                                aria-label={item.file.name}
+                                className="size-5 shrink-0 rounded-[6px] accent-green-600"
+                              />
+
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={item.previewUrl} alt="" className="size-12 shrink-0 rounded-field object-cover ring-1 ring-edge" />
+
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-label text-ink">
+                                  {item.file.name}
+                                </p>
+                                <p className="tnum text-caption text-slate">
+                                  {formatSize(item.file.size)}
+                                </p>
+                              </div>
+                            </label>
                           ) : (
-                            <span className="grid size-5 shrink-0 place-items-center">
-                              {item.status === "failed" ? (
-                                <AlertIcon size={16} className="text-danger" />
-                              ) : item.status === "uploading" ? (
-                                <span className="size-2 rounded-pill bg-lime-500" />
-                              ) : (
-                                <CheckIcon size={16} className="text-green-700" />
-                              )}
-                            </span>
+                            <div className="flex min-w-0 flex-1 items-center gap-3 py-3 pl-3">
+                              <span className="grid size-5 shrink-0 place-items-center">
+                                {item.status === "failed" ? (
+                                  <AlertIcon size={16} className="text-danger" />
+                                ) : item.status === "uploading" ? (
+                                  <span className="size-2 rounded-pill bg-lime-500" />
+                                ) : (
+                                  <CheckIcon size={16} className="text-green-700" />
+                                )}
+                              </span>
+
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={item.previewUrl}
+                                alt=""
+                                className={cn(
+                                  "size-12 shrink-0 rounded-field object-cover ring-1 ring-edge",
+                                  item.status === "done" || item.status === "duplicate"
+                                    ? "opacity-50"
+                                    : "",
+                                )}
+                              />
+
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-label text-ink">
+                                  {item.file.name}
+                                </p>
+                                <p className="tnum text-caption text-slate">
+                                  {formatSize(item.file.size)}
+                                  {item.status === "duplicate" &&
+                                    ` · ${labels.uploadDuplicate}`}
+                                  {item.status === "failed" && (
+                                    <span className="text-danger">
+                                      {" "}
+                                      · {reason(item.reason)}
+                                    </span>
+                                  )}
+                                </p>
+                              </div>
+                            </div>
                           )}
-
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={item.previewUrl}
-                            alt=""
-                            className={cn(
-                              "size-12 shrink-0 rounded-field object-cover ring-1 ring-edge",
-                              item.status === "done" || item.status === "duplicate"
-                                ? "opacity-50"
-                                : "",
-                            )}
-                          />
-
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-label text-ink">
-                              {item.file.name}
-                            </p>
-                            <p className="tnum text-caption text-slate">
-                              {formatSize(item.file.size)}
-                              {item.status === "duplicate" &&
-                                ` · ${labels.uploadDuplicate}`}
-                              {item.status === "failed" && (
-                                <span className="text-danger">
-                                  {" "}
-                                  · {reason(item.reason)}
-                                </span>
-                              )}
-                            </p>
-                          </div>
 
                           {item.status === "staged" && !busy && (
                             <button

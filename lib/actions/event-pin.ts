@@ -6,7 +6,7 @@ import { cookies, headers } from "next/headers";
 import { db } from "@/db";
 import { events, eventPinAttempts } from "@/db/schema";
 import { isPin, pinCookieName, pinMatches, signPinCookie } from "@/lib/event-pin";
-import { hashIp } from "@/lib/storage";
+import { clientIp, hashIp } from "@/lib/storage";
 
 export type VerifyEventPinState =
   | { error: "invalid" | "wrong" | "rate_limited" }
@@ -18,6 +18,11 @@ export type VerifyEventPinState =
  *  the same sitting is not the thing this guards against. */
 const RATE_LIMIT_WINDOW_MS = 10 * 60_000;
 const RATE_LIMIT_MAX_ATTEMPTS = 5;
+
+/** Shape-checked before it ever reaches a query against a `uuid` column — an
+ *  id that merely looks wrong should read back as "invalid", not crash the
+ *  action on Postgres's own `22P02`. */
+const UUID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * The second factor a private event's own doc comment always promised but
@@ -37,11 +42,9 @@ export async function verifyEventPin(
   const eventId = String(formData.get("eventId") ?? "");
   const pin = String(formData.get("pin") ?? "");
 
-  if (!eventId || !isPin(pin)) return { error: "invalid" };
+  if (!UUID_SHAPE.test(eventId) || !isPin(pin)) return { error: "invalid" };
 
-  const ipHash = hashIp(
-    (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
-  );
+  const ipHash = hashIp(clientIp(await headers()));
 
   if (await isPinRateLimited(eventId, ipHash)) {
     return { error: "rate_limited" };
@@ -75,7 +78,10 @@ async function isPinRateLimited(
   eventId: string,
   ipHash: string | null,
 ): Promise<boolean> {
-  if (!ipHash) return false;
+  // No resolvable address is the failure mode to distrust, not exempt — the
+  // whole guard this limit exists for is someone automating guesses, and "no
+  // IP" is the easiest thing to arrange on purpose.
+  if (!ipHash) return true;
   const since = new Date(Date.now() - RATE_LIMIT_WINDOW_MS);
   const rows = await db
     .select({ id: eventPinAttempts.id })

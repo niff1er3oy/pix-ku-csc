@@ -5,6 +5,20 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+const UUID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Shape-checks an id before it reaches a query against a `uuid` column. A
+ * server action taking a plain string argument (rather than a validated
+ * `FormData` field) has no framework step that would otherwise catch a
+ * malformed id — without this, Postgres's own `22P02` surfaces as an
+ * uncaught 500 instead of the action just no-oping the way it already does
+ * for an id that is well-formed but not the caller's.
+ */
+export function isUuid(value: string): boolean {
+  return UUID_SHAPE.test(value);
+}
+
 /**
  * A stored path (relative to STORAGE_ROOT) as an `/api/media` URL, or null
  * straight through — for `photos.previewPath`/`thumbPath`, null while

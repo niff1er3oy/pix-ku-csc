@@ -1,10 +1,12 @@
 import "server-only";
 
 import { eq } from "drizzle-orm";
+import { cookies } from "next/headers";
 
 import { db } from "@/db";
 import { affiliations, events, photographers, photos, type Event } from "@/db/schema";
 import { canManageEvent, getPhotographer, getSessionUser } from "@/lib/dal";
+import { isPinCookieValid, pinCookieName } from "@/lib/event-pin";
 import { applyWatermark } from "@/lib/images";
 import { readStorageFile } from "@/lib/storage";
 
@@ -92,6 +94,21 @@ export async function authorizeMedia(
   // Before approval only the owner and admins can see anything at all.
   if (event.status !== "approved" && !isManager) {
     return { ok: false, status: 404 };
+  }
+
+  // A private event's PIN is the second factor its access code alone was
+  // never meant to be (see the note on `entryPin` in db/schema.ts) — enforced
+  // here too, not just at `/e/[code]`. That page only renders a gallery once
+  // the PIN cookie checks out, but every image it then points at is fetched
+  // straight from this route, with the event's real id and nothing else
+  // standing between a scraped/guessed id and the files themselves.
+  if (event.isPrivate && event.entryPin && !isManager) {
+    const store = await cookies();
+    const verified = isPinCookieValid(
+      event.id,
+      store.get(pinCookieName(event.id))?.value,
+    );
+    if (!verified) return { ok: false, status: 404 };
   }
 
   // `cover` belongs with the public derivatives: it is the image on the event

@@ -32,7 +32,17 @@ export function NotificationBell({
   locale: Locale;
 }) {
   return (
-    <details className="relative">
+    // No `relative` here, unlike `AccountMenu`/`MobileNavMenu`'s own
+    // `<details>`. Those two anchor correctly to themselves because each is
+    // the rightmost thing in the header row, flush with its right edge — this
+    // bell sits to the *left* of the account chip, so a panel anchored to its
+    // own (44px-wide) box and sized to the viewport's width
+    // (`calc(100vw-2.5rem)` below) ran off the left edge of the screen by the
+    // width of everything to this button's right. Letting it inherit
+    // `SiteHeader`'s `relative` `<nav>` as its positioned ancestor instead
+    // anchors it to the row that actually reaches the container's true right
+    // edge, the same edge the account chip's own panel already lines up with.
+    <details>
       <summary
         aria-label={
           unreadCount > 0

@@ -24,7 +24,7 @@ export function DeleteAffiliationButton({
       <button
         type="submit"
         aria-label={label}
-        className="inline-flex size-9 shrink-0 items-center justify-center rounded-pill text-slate transition-colors duration-200 hover:bg-danger/10 hover:text-danger"
+        className="inline-flex size-11 shrink-0 items-center justify-center rounded-pill text-slate transition-colors duration-200 hover:bg-danger/10 hover:text-danger"
       >
         <CloseIcon size={16} />
       </button>

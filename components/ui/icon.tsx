@@ -186,6 +186,25 @@ export const BellIcon = (p: Props) => (
 
 /* --- Navigation ---------------------------------------------------------- */
 
+/** The mobile nav disclosure trigger — three even strokes, nothing else;
+ *  the site's one use of it always carries an `aria-label` of its own. */
+export const MenuIcon = (p: Props) => (
+  <Icon {...p}>
+    <path d="M4 7h16M4 12h16M4 17h16" />
+  </Icon>
+);
+
+/** Language switch. A meridian through a circle reads as "language" across
+ *  both scripts this site actually ships, where a flag would tie the
+ *  control to one country rather than the language itself. */
+export const GlobeIcon = (p: Props) => (
+  <Icon {...p}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M3 12h18" />
+    <path d="M12 3c2.5 2.5 4 5.5 4 9s-1.5 6.5-4 9c-2.5-2.5-4-5.5-4-9s1.5-6.5 4-9Z" />
+  </Icon>
+);
+
 export const ChevronDownIcon = (p: Props) => (
   <Icon {...p}>
     <path d="M12 5v13M6 13l6 6 6-6" />

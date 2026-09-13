@@ -2,8 +2,9 @@ import Link from "next/link";
 
 import { EventsManager } from "@/components/admin/events-manager";
 import { Avatar } from "@/components/ui/avatar";
-import { Button, buttonClass } from "@/components/ui/button";
+import { buttonClass } from "@/components/ui/button";
 import { CameraIcon, CloseIcon, ShieldIcon } from "@/components/ui/icon";
+import { SubmitButton } from "@/components/ui/submit-button";
 import {
   makePhotographer,
   revokePhotographer,
@@ -130,14 +131,13 @@ export async function DirectoryRow({
               name="role"
               value={row.role === "admin" ? (approved ? "photographer" : "user") : "admin"}
             />
-            <Button
-              type="submit"
+            <SubmitButton
               variant={row.role === "admin" ? "danger" : "ghost"}
               size="sm"
             >
               <ShieldIcon size={16} />
               {row.role === "admin" ? labels.removeAdmin : labels.makeAdmin}
-            </Button>
+            </SubmitButton>
           </form>
         )}
 
@@ -161,14 +161,13 @@ export async function DirectoryRow({
                 aria-label={labels.rejectReason}
                 className="mt-3 h-[46px] w-full rounded-field bg-paper px-4 text-body text-ink ring-1 ring-inset ring-edge placeholder:text-slate focus:ring-2 focus:ring-green-600"
               />
-              <Button
-                type="submit"
+              <SubmitButton
                 variant="danger"
                 size="md"
                 className="mt-3 w-full"
               >
                 {labels.revokePhotographer}
-              </Button>
+              </SubmitButton>
             </form>
           </details>
         ) : (
@@ -204,9 +203,9 @@ export async function DirectoryRow({
                 className="mt-1.5 h-[46px] w-full rounded-field bg-paper px-4 text-body text-ink ring-1 ring-inset ring-edge focus:ring-2 focus:ring-green-600"
               />
 
-              <Button type="submit" size="md" className="mt-4 w-full">
+              <SubmitButton size="md" className="mt-4 w-full">
                 {labels.confirmPhotographer}
-              </Button>
+              </SubmitButton>
             </form>
           </details>
         )}

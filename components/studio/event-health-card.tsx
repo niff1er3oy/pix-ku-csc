@@ -66,8 +66,22 @@ export function EventHealthCard({
           not this card's own width. At half-width on a wide screen that
           still resolved to four columns and broke Thai labels like
           "ประมวลผลแล้ว" mid-word. A stacked row always gets the card's full
-          width for its label, so there is nothing left to break. */}
-      <dl className="mt-5 divide-y divide-edge">
+          width for its label, so there is nothing left to break.
+
+          Two labeled sub-groups instead of one flat six-row list — indexing
+          health (photos/faces/processed/failed) is its own ≤4-item cluster,
+          and usage (downloads/searches) is the separate question of whether
+          anyone is actually using the gallery. Still one card, no nested
+          `rounded-card`/`shadow-card` box: the grouping comes from the
+          sub-heading plus tighter spacing inside each `dl` than between
+          them, the same way the card already sets its title apart from its
+          body. The sub-headings go one step quieter than `healthTitle`
+          (`text-slate` instead of `text-ink`) so they read as a label for
+          what follows, not a second card title. */}
+      <p className="mt-5 text-label font-medium text-slate">
+        {labels.healthIndexingGroup}
+      </p>
+      <dl className="mt-2 divide-y divide-edge">
         <Figure
           label={labels.healthPhotos}
           value={photoCount}
@@ -95,6 +109,12 @@ export function EventHealthCard({
             alarming
           />
         )}
+      </dl>
+
+      <p className="mt-6 text-label font-medium text-slate">
+        {labels.healthUsageGroup}
+      </p>
+      <dl className="mt-2 divide-y divide-edge">
         <Figure
           label={labels.healthDownloads}
           value={downloadCount}

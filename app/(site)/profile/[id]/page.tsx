@@ -125,14 +125,20 @@ export default async function ProfilePage({
   // anything else. `statEventsJoined`/`statDownloads`/`savedPhotosTitle`
   // stay for everyone: participating and saving are things any account can
   // actually do.
-  const stats = [
-    ...(showPhotographerLayout
-      ? [
-          { label: dict.profile.statEvents, value: portfolio.length, Icon: CameraIcon },
-          { label: dict.profile.statPhotos, value: totalPhotos, Icon: PhotoIcon },
-          { label: dict.profile.statFaces, value: faceCount, Icon: FaceScanIcon },
-        ]
-      : []),
+  //
+  // Two arrays rather than one flat list of up to six — "as a photographer"
+  // and "as a participant" are already two separate conceptual groups, just
+  // not visually separated before. Each tops out at 3 stats, so neither
+  // group alone ever exceeds the ≤4-items-at-a-glance guideline the other
+  // two surfaces were fixed for.
+  const photographerStats = showPhotographerLayout
+    ? [
+        { label: dict.profile.statEvents, value: portfolio.length, Icon: CameraIcon },
+        { label: dict.profile.statPhotos, value: totalPhotos, Icon: PhotoIcon },
+        { label: dict.profile.statFaces, value: faceCount, Icon: FaceScanIcon },
+      ]
+    : [];
+  const participantStats = [
     { label: dict.profile.statEventsJoined, value: eventsJoined, Icon: CalendarIcon },
     { label: dict.profile.statDownloads, value: downloadCount, Icon: DownloadIcon },
     { label: dict.profile.savedPhotosTitle, value: savedPhotoCount, Icon: BookmarkIcon },
@@ -191,27 +197,34 @@ export default async function ProfilePage({
       {/* One card per number — a badged icon reads as this stat's own small
           credential rather than a caption tacked under a figure, and the
           soft card shadow (not just a ring) gives each one real depth
-          instead of a flat outline. */}
-      <ul className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        {stats.map((stat, i) => (
-          <li
-            key={stat.label}
-            className={`enter rounded-card bg-paper p-4 shadow-[var(--shadow-card)] ${enterDelay(i)}`}
-          >
-            <span className="grid size-9 place-items-center rounded-pill bg-green-50 text-green-700">
-              <stat.Icon size={18} />
-            </span>
-            <p className="tnum mt-3 font-display text-h2 font-bold text-ink">
-              <CountUp
-                value={stat.value}
-                formatted={formatNumber(stat.value, locale)}
-                delayMs={i * 100}
-              />
-            </p>
-            <p className="mt-1 text-caption text-slate">{stat.label}</p>
-          </li>
-        ))}
-      </ul>
+          instead of a flat outline.
+
+          Grouped into "as a photographer" / "as a participant" rather than
+          one flat grid of up to six — the showcase page, not a private
+          dashboard, so every number still shows, just clustered by what it
+          means to the viewer. A plain user only ever gets the participant
+          group, so there is nothing to cluster and no heading earns its
+          place — that case renders exactly as the flat row always did. */}
+      {showPhotographerLayout ? (
+        <>
+          <p className="enter mt-6 text-label font-medium text-slate">
+            {dict.profile.statsAsPhotographer}
+          </p>
+          <StatGrid stats={photographerStats} locale={locale} className="mt-2" />
+
+          <p className="enter mt-6 text-label font-medium text-slate">
+            {dict.profile.statsAsParticipant}
+          </p>
+          <StatGrid
+            stats={participantStats}
+            locale={locale}
+            startIndex={photographerStats.length}
+            className="mt-2"
+          />
+        </>
+      ) : (
+        <StatGrid stats={participantStats} locale={locale} className="mt-6" />
+      )}
 
       {/* A plain user has only one section, so there is nothing to switch
           between and no tab bar to show — see the note on `activeTab`. A
@@ -268,5 +281,47 @@ export default async function ProfilePage({
         <SavedPhotosByEvent dict={dict} locale={locale} groups={groups} isOwner={isOwner} />
       )}
     </section>
+  );
+}
+
+/**
+ * One cluster of stat cards (≤3 at a time, per the caller) — pulled out so
+ * the photographer/participant split above renders two of these instead of
+ * duplicating the card markup. `startIndex` keeps the `enter` stagger and
+ * `CountUp` delay continuous across both clusters rather than restarting at
+ * 0 for the second one.
+ */
+function StatGrid({
+  stats,
+  locale,
+  startIndex = 0,
+  className,
+}: {
+  stats: { label: string; value: number; Icon: (props: { size?: number }) => React.ReactElement }[];
+  locale: "th" | "en";
+  startIndex?: number;
+  className?: string;
+}) {
+  return (
+    <ul className={cn("grid grid-cols-2 gap-3 sm:grid-cols-3", className)}>
+      {stats.map((stat, i) => (
+        <li
+          key={stat.label}
+          className={`enter rounded-card bg-paper p-4 shadow-[var(--shadow-card)] ${enterDelay(startIndex + i)}`}
+        >
+          <span className="grid size-9 place-items-center rounded-pill bg-green-50 text-green-700">
+            <stat.Icon size={18} />
+          </span>
+          <p className="tnum mt-3 font-display text-h2 font-bold text-ink">
+            <CountUp
+              value={stat.value}
+              formatted={formatNumber(stat.value, locale)}
+              delayMs={(startIndex + i) * 100}
+            />
+          </p>
+          <p className="mt-1 text-caption text-slate">{stat.label}</p>
+        </li>
+      ))}
+    </ul>
   );
 }

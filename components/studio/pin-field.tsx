@@ -105,7 +105,18 @@ export function PinField({
       <input type="hidden" name="entryPin" value={value} />
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-1 sm:gap-2">
+        {/* `overflow-x-auto`, not a narrower box or a tighter gap: six boxes
+            at the 44px floor plus the tightest gap already in use (`gap-1`,
+            4px) add up to 284px, and this field lands inside more padding
+            than `EventCodeInput` budgeted for on the public entry page — on
+            the settings page specifically, nested inside the cloud form's
+            own `p-5`, only 280px of it are left at a 360px viewport. Shrinking
+            a box below 44px to make it fit would cost exactly the touch
+            target DESIGN.md's scrollbar section already argues is worth more
+            than a few pixels of tidiness; a contained 4px scroll costs
+            nothing and is never seen at any width this field actually ships
+            at outside that one nesting. */}
+        <div className="flex items-center gap-1 overflow-x-auto sm:gap-2">
           {SLOTS.map((index) => (
             <input
               key={index}
@@ -153,7 +164,7 @@ export function PinField({
                   focusSlot(index + 1);
                 }
               }}
-              className="tnum h-14 w-11 rounded-field bg-paper text-center font-display text-xl font-semibold text-ink ring-1 ring-inset ring-edge focus:ring-2 focus:ring-green-600 sm:w-12"
+              className="tnum h-14 w-11 shrink-0 rounded-field bg-paper text-center font-display text-xl font-semibold text-ink ring-1 ring-inset ring-edge focus:ring-2 focus:ring-green-600 sm:w-12"
             />
           ))}
         </div>

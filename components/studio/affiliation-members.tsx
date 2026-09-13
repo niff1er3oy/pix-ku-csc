@@ -138,9 +138,14 @@ function RemoveMemberButton({
       <button
         type="submit"
         aria-label={label}
-        className="inline-flex size-9 shrink-0 items-center justify-center rounded-pill text-slate transition-colors duration-200 hover:bg-danger/10 hover:text-danger"
+        // 44px, not the 36px this started at — every other icon-only button
+        // on this page (the avatar link beside it, the settings gear, the
+        // close buttons in the popups) already clears the floor DESIGN.md
+        // sets for a mobile button; this one-off `size-9` was the one
+        // roster action that quietly didn't.
+        className="inline-flex size-11 shrink-0 items-center justify-center rounded-pill text-slate transition-colors duration-200 hover:bg-danger/10 hover:text-danger"
       >
-        <CloseIcon size={14} />
+        <CloseIcon size={16} />
       </button>
     </form>
   );

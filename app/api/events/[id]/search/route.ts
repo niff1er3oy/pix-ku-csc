@@ -14,7 +14,8 @@ import {
   searchMatches,
   userFaces,
 } from "@/db/schema";
-import { getSessionUser } from "@/lib/dal";
+import { canManageEvent, getPhotographer, getSessionUser } from "@/lib/dal";
+import { isPinCookieValid, pinCookieName } from "@/lib/event-pin";
 import {
   assertSingleFace,
   FACE_MATCH_THRESHOLD,
@@ -27,7 +28,7 @@ import {
   MAX_SELFIE_BYTES,
 } from "@/lib/images";
 import { getSavedPhotoIds } from "@/lib/queries/saved-photos";
-import { hashIp, readStorageFile } from "@/lib/storage";
+import { clientIp, hashIp, readStorageFile } from "@/lib/storage";
 
 const ANON_COOKIE = "fkd_anon";
 const CONSENT_VERSION = "2026-07-01";
@@ -70,15 +71,31 @@ export async function POST(
     return json({ ok: false, error: "not_found" }, 404);
   }
 
+  const user = await getSessionUser();
+
+  // A private event's PIN is the second factor its access code alone was
+  // never meant to be — same check `/e/[code]` makes before it ever renders
+  // the search button that posts here, enforced again at this endpoint
+  // itself since it is reachable directly with the event's real id.
+  if (event.isPrivate && event.entryPin) {
+    const photographer = user ? await getPhotographer(user.id) : null;
+    const isManager = !!user && canManageEvent(user, event, photographer);
+    if (!isManager) {
+      const store = await cookies();
+      const verified = isPinCookieValid(
+        event.id,
+        store.get(pinCookieName(event.id))?.value,
+      );
+      if (!verified) return json({ ok: false, error: "not_found" }, 404);
+    }
+  }
+
   const form = await request.formData();
   if (form.get("consent") !== "1") {
     return json({ ok: false, error: "consent_required" }, 400);
   }
 
-  const user = await getSessionUser();
-  const ipHash = hashIp(
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
-  );
+  const ipHash = hashIp(clientIp(request.headers));
 
   if (await isRateLimited(ipHash)) {
     return json({ ok: false, error: "rate_limited" }, 429);
@@ -288,7 +305,9 @@ async function recordConsent(
 }
 
 async function isRateLimited(ipHash: string | null): Promise<boolean> {
-  if (!ipHash) return false;
+  // Same reasoning as the event-PIN limiter: an address we can't resolve is
+  // treated as already over the limit, not waved through.
+  if (!ipHash) return true;
   const since = new Date(Date.now() - 60_000);
   const rows = await db
     .select({ id: searches.id })

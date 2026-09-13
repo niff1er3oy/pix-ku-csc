@@ -8,6 +8,7 @@ import { ReviewRow } from "@/components/admin/review-row";
 import { TakenDownEventRow } from "@/components/admin/taken-down-event-row";
 import {
   approvePhotographer,
+  approvePhotographers,
   rejectPhotographer,
   restoreEvent,
 } from "@/lib/actions/admin";
@@ -141,6 +142,13 @@ export default async function AdminPage({
           <ReviewQueue
             titles={photographers.map((row) => row.displayName)}
             labels={dict.admin}
+            bulkApprove={{
+              ids: photographers.map((row) => row.id),
+              action: approvePhotographers,
+              formId: "bulk-approve-photographers",
+              selectAllLabel: dict.results.selectAll,
+              deselectAllLabel: dict.results.deselectAll,
+            }}
             rows={photographers.map((row) => (
               <ReviewRow
                 key={row.id}

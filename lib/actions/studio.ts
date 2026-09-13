@@ -585,7 +585,9 @@ const EventId = z.object({ id: z.string().uuid() });
  */
 export async function publishEvent(formData: FormData) {
   const { photographer } = await requireApprovedPhotographer();
-  const { id } = EventId.parse({ id: formData.get("id") });
+  const parsed = EventId.safeParse({ id: formData.get("id") });
+  if (!parsed.success) return;
+  const { id } = parsed.data;
 
   await db
     .update(events)
@@ -616,7 +618,9 @@ export async function publishEvent(formData: FormData) {
  */
 export async function pauseEvent(formData: FormData) {
   const { photographer } = await requireApprovedPhotographer();
-  const { id } = EventId.parse({ id: formData.get("id") });
+  const parsed = EventId.safeParse({ id: formData.get("id") });
+  if (!parsed.success) return;
+  const { id } = parsed.data;
 
   await db
     .update(events)
@@ -638,7 +642,9 @@ export async function pauseEvent(formData: FormData) {
 /** The other half of `pauseEvent`. */
 export async function resumeEvent(formData: FormData) {
   const { photographer } = await requireApprovedPhotographer();
-  const { id } = EventId.parse({ id: formData.get("id") });
+  const parsed = EventId.safeParse({ id: formData.get("id") });
+  if (!parsed.success) return;
+  const { id } = parsed.data;
 
   await db
     .update(events)
@@ -689,10 +695,12 @@ const Delete = z.object({
  */
 export async function deleteEvent(formData: FormData): Promise<void> {
   const { photographer } = await requireApprovedPhotographer();
-  const { id, confirm } = Delete.parse({
+  const parsed = Delete.safeParse({
     id: formData.get("id"),
     confirm: formData.get("confirm"),
   });
+  if (!parsed.success) return;
+  const { id, confirm } = parsed.data;
 
   // Ownership is part of the lookup, not a check on the result.
   const [event] = await db

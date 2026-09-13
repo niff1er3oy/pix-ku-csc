@@ -1,6 +1,6 @@
-import { Button } from "@/components/ui/button";
 import { CheckIcon, CloseIcon } from "@/components/ui/icon";
-import type { Dictionary } from "@/lib/i18n/dictionaries";
+import { SubmitButton } from "@/components/ui/submit-button";
+import { t, type Dictionary } from "@/lib/i18n/dictionaries";
 import { cn } from "@/lib/utils";
 
 /**
@@ -25,6 +25,9 @@ export function ReviewRow({
   reject,
   labels,
   hidden = false,
+  selected,
+  onToggleSelect,
+  bulkFormId,
 }: {
   id: string;
   title: string;
@@ -40,6 +43,13 @@ export function ReviewRow({
    *  can already hold a half-typed reason nobody wants to lose to a
    *  keystroke that briefly filters it out and back in. */
   hidden?: boolean;
+  /** The three below are only set by `ReviewQueue` when it was given a
+   *  `bulkApprove` prop (only the pending-photographers queue does). When
+   *  `onToggleSelect` is absent no checkbox renders — the taken-down-events
+   *  queue's rows never pass these, so that queue is unaffected. */
+  selected?: boolean;
+  onToggleSelect?: () => void;
+  bulkFormId?: string;
 }) {
   const facts = meta.filter((value): value is string => Boolean(value));
 
@@ -51,6 +61,18 @@ export function ReviewRow({
       )}
     >
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        {onToggleSelect && (
+          <input
+            type="checkbox"
+            form={bulkFormId}
+            name="ids"
+            value={id}
+            checked={selected ?? false}
+            onChange={onToggleSelect}
+            aria-label={t(labels.selectPhotographer, { name: title })}
+            className="size-5 shrink-0 rounded-[6px] accent-green-600"
+          />
+        )}
         <h3 className="text-h3">{title}</h3>
         <span className="tnum text-caption text-slate">{submitted}</span>
       </div>
@@ -68,10 +90,10 @@ export function ReviewRow({
       <div className="mt-5 flex flex-col gap-3 border-t border-edge pt-5 sm:flex-row sm:items-start">
         <form action={approve}>
           <input type="hidden" name="id" value={id} />
-          <Button type="submit" size="md">
+          <SubmitButton size="md">
             <CheckIcon size={18} />
             {labels.approve}
-          </Button>
+          </SubmitButton>
         </form>
 
         <form action={reject} className="flex flex-1 flex-col gap-2 sm:flex-row">
@@ -93,10 +115,10 @@ export function ReviewRow({
               {labels.rejectReasonHint}
             </p>
           </div>
-          <Button type="submit" variant="secondary" size="md">
+          <SubmitButton variant="secondary" size="md">
             <CloseIcon size={18} />
             {labels.reject}
-          </Button>
+          </SubmitButton>
         </form>
       </div>
     </li>

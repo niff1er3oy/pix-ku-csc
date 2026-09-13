@@ -1,5 +1,5 @@
-import { Button } from "@/components/ui/button";
 import { RefreshIcon } from "@/components/ui/icon";
+import { SubmitButton } from "@/components/ui/submit-button";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 import { cn } from "@/lib/utils";
 
@@ -58,10 +58,10 @@ export function TakenDownEventRow({
       <div className="mt-5 border-t border-edge pt-5">
         <form action={restore}>
           <input type="hidden" name="id" value={id} />
-          <Button type="submit" size="md">
+          <SubmitButton size="md">
             <RefreshIcon size={18} />
             {labels.restoreEvent}
-          </Button>
+          </SubmitButton>
         </form>
       </div>
     </li>

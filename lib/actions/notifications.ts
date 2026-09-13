@@ -21,7 +21,9 @@ const Id = z.object({ id: z.string().uuid() });
  */
 export async function openNotification(formData: FormData): Promise<void> {
   const user = await requireUser();
-  const { id } = Id.parse({ id: formData.get("id") });
+  const parsed = Id.safeParse({ id: formData.get("id") });
+  if (!parsed.success) redirect("/");
+  const { id } = parsed.data;
 
   const [row] = await db
     .update(notifications)
