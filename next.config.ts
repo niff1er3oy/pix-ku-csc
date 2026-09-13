@@ -1,6 +1,12 @@
 import type { NextConfig } from "next";
 
+// Only the hostname matters to `allowedDevOrigins` — no scheme, no port.
+const devOrigin = process.env.NEXT_PUBLIC_APP_URL
+  ? new URL(process.env.NEXT_PUBLIC_APP_URL).hostname
+  : undefined;
+
 const nextConfig: NextConfig = {
+  allowedDevOrigins: devOrigin ? [devOrigin] : undefined,
   experimental: {
     serverActions: {
       /**
