@@ -54,7 +54,12 @@ export function StatTiles({
       {tiles.map((tile, index) => (
         <li
           key={tile.label}
-          className="enter rounded-card bg-paper p-4 shadow-[var(--shadow-card)]"
+          /* `p-3` before `sm:p-4`: two columns of these on a 320px phone leave
+             about 146px per tile, and a seven-figure count at `text-h2`
+             ("2,391,284") measured 12px wider than that — the number rendered
+             outside its own card. The eight pixels this gives back are enough,
+             and cost nothing on any screen that was never tight. */
+          className="enter rounded-card bg-paper p-3 shadow-[var(--shadow-card)] sm:p-4"
           style={{ "--d": `${index * 50}ms` } as React.CSSProperties}
         >
           <span className="grid size-9 place-items-center rounded-pill bg-green-50 text-green-700">

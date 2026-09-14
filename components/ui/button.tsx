@@ -7,12 +7,23 @@ import { cn } from "@/lib/utils";
 type Variant = "primary" | "secondary" | "ghost" | "danger";
 type Size = "sm" | "md" | "lg";
 
-/* `whitespace-nowrap`: a button is a fixed-height pill, so a label that wraps
-   does not make the button taller — it spills two half-clipped lines out of
-   it. Thai wraps at word boundaries a Latin-trained eye does not expect, and
-   "เข้าสู่ระบบ" broke to "เข้าสู่ / ระบบ" inside the header pill. */
+/* This used to be `whitespace-nowrap` on a fixed-height pill, because a label
+   that wrapped inside a fixed height spilled two half-clipped lines out of it
+   ("เข้าสู่ระบบ" breaking to "เข้าสู่ / ระบบ" in the header pill is what
+   prompted it). Fixing the symptom that way created a worse one: a nowrap
+   button cannot shrink *or* wrap, so a long Thai label — "ดาวน์โหลดรูปทั้งหมด",
+   "อนุมัติช่างภาพที่เลือกไว้" — pushed straight through its container and off
+   the screen, measured at 79px past the right edge of a 360px viewport, taking
+   the whole page into a horizontal scroll with it.
+
+   The root cause was the fixed height, not the wrapping. `min-h-*` in `sizes`
+   below lets a wrapped label make the button taller instead of clipping it, so
+   the nowrap crutch can go: a short label still renders exactly as before on
+   one line, and a long one now grows downward inside its container rather than
+   sideways out of it. `max-w-full` is the backstop — whatever the label, the
+   button never exceeds the box it was given. */
 const base =
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-pill font-display font-semibold " +
+  "inline-flex max-w-full items-center justify-center gap-2 text-center rounded-pill font-display font-semibold " +
   "transition-[background-color,box-shadow,transform,border-color] duration-200 " +
   "ease-[cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] active:duration-100 " +
   "disabled:pointer-events-none disabled:opacity-50";
@@ -27,11 +38,14 @@ const variants: Record<Variant, string> = {
 };
 
 const sizes: Record<Size, string> = {
-  // md and up clear 44px — anything smaller is hard to hit on a phone held
-  // one-handed in a crowd, which is the actual usage scene.
-  sm: "h-[38px] px-4 text-sm",
-  md: "h-[46px] px-6 text-[0.9375rem]",
-  lg: "h-14 px-8 text-base sm:text-lg",
+  // `min-h`, not `h` — see the note on `base`. The number is the same floor it
+  // always was (md and up clear 44px, since anything smaller is hard to hit on
+  // a phone held one-handed in a crowd), it just stops being a ceiling that
+  // clips a label instead of letting it wrap. `py-*` keeps the two lines off
+  // the pill's own edge on the rare button that does wrap.
+  sm: "min-h-[38px] px-4 py-1.5 text-sm",
+  md: "min-h-[46px] px-6 py-2 text-[0.9375rem]",
+  lg: "min-h-14 px-8 py-2.5 text-base sm:text-lg",
 };
 
 export function buttonClass({

@@ -91,9 +91,21 @@ export function StudioEventList<T extends EventWithOptionalOwner>({
               )}
             >
               <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+                {/* `flex-[1_1_16rem]`, not `flex-1`. `flex-1` is
+                    `flex: 1 1 0%` — a zero basis, which tells the row this
+                    column is happy at any width, so `flex-wrap` above never
+                    fires and the column just gets crushed instead. With the
+                    action cluster beside it `shrink-0` and the thumbnail
+                    `shrink-0` too, on a 360px phone that squeezed the event
+                    name and its date/count/code line into roughly one word
+                    per line while the status chip sat on top of them. A real
+                    basis makes the row wrap onto two lines the moment there
+                    is less than 16rem for the text, which is what it should
+                    have done all along; `min-w-0` still keeps the truncation
+                    working once it has wrapped. */}
                 <Link
                   href={`/studio/events/${event.id}`}
-                  className="group flex min-w-0 flex-1 items-center gap-4 rounded-field"
+                  className="group flex min-w-0 flex-[1_1_16rem] items-center gap-4 rounded-field"
                 >
                   <div className="aspect-[4/3] w-20 shrink-0 overflow-hidden rounded-media bg-cloud ring-1 ring-inset ring-edge">
                     {event.coverThumbPath ? (

@@ -34,7 +34,14 @@ export function MobileNavMenu({
   showAdmin: boolean;
 }) {
   return (
-    <details className="relative sm:hidden">
+    // No `relative`, for the same reason `NotificationBell` has none: this
+    // trigger is 44px wide and sits to the *left* of everything else in the
+    // header row, so a panel anchored to it and sized near the viewport width
+    // hangs off the left edge of the screen — measured at 22px past it on a
+    // 320px phone. Inheriting `SiteHeader`'s `relative` `<nav>` instead
+    // anchors the panel to the row that actually ends at the container's
+    // right edge.
+    <details className="sm:hidden">
       <summary
         aria-label={dict.nav.menu}
         className="grid min-h-11 min-w-11 cursor-pointer list-none place-items-center rounded-pill text-slate transition-colors duration-200 hover:bg-cloud hover:text-green-700"
@@ -42,7 +49,11 @@ export function MobileNavMenu({
         <MenuIcon size={22} />
       </summary>
 
-      <div className="absolute right-0 top-full z-50 mt-2 w-52 overflow-hidden rounded-card bg-paper p-1.5 shadow-lift ring-1 ring-edge">
+      {/* Width capped against the viewport as well as the design width, the
+          same guard `NotificationBell`'s own panel already carries — 13rem is
+          what it wants, but never more than the screen minus the header's own
+          gutters. */}
+      <div className="absolute right-0 top-full z-50 mt-2 w-[min(13rem,calc(100vw-2.5rem))] overflow-hidden rounded-card bg-paper p-1.5 shadow-lift ring-1 ring-edge">
         <Link
           href="/events"
           className="flex min-h-11 items-center gap-2.5 rounded-field px-3 text-label text-ink transition-colors duration-200 hover:bg-cloud"

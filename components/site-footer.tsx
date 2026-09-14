@@ -3,8 +3,12 @@ import Link from "next/link";
 import { Logo } from "@/components/brand/logo";
 import { getDictionary } from "@/lib/i18n";
 
+/* `inline-flex` + `min-h-11` because these are standalone navigation links,
+   not links inside a sentence: they rendered as 20px-tall targets, under even
+   the 24px floor WCAG 2.5.8 sets, on the one surface every page ends at. The
+   text is unchanged — only the tappable box around it grows. */
 const footerLink =
-  "text-slate transition-colors duration-200 hover:text-green-700";
+  "inline-flex min-h-11 items-center text-slate transition-colors duration-200 hover:text-green-700";
 
 export async function SiteFooter() {
   const dict = await getDictionary();
