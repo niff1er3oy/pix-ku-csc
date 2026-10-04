@@ -32,9 +32,12 @@ export function Logo({
     <span
       className={cn("inline-flex flex-col items-start select-none", className)}
     >
+      {/* `whitespace-nowrap`: it is a mark, not a phrase. Inside a column
+          narrower than itself it broke to "PIX KU / CSC" with the bar
+          stretched under both lines. */}
       <span
         className={cn(
-          "font-display font-bold leading-none tracking-tight",
+          "whitespace-nowrap font-display font-bold leading-none tracking-tight",
           scale.text,
           scale.gap,
         )}

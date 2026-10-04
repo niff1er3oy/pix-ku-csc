@@ -34,40 +34,48 @@ export function EventFinder({ labels }: { labels: FinderLabels }) {
           : null;
 
   return (
-    <form action={action} className="mt-8">
+    <form action={action}>
       {/* Not a `<label>`: it names a group of six inputs rather than any one
           of them, so it is an id the group points at instead. */}
       <p id="event-finder-label" className="text-label font-medium text-ink">
         {labels.finderLabel}
       </p>
 
-      <div className="mt-2">
-        <EventCodeInput
-          label="event-finder-label"
-          slotLabel={labels.finderSlotLabel}
-          invalid={message !== null}
-          describedBy={
-            message ? "event-finder-error event-finder-hint" : "event-finder-hint"
-          }
-        />
+      {/* Boxes and button share a row from `sm`: the button is `lg`, which is
+          the same 56px as the boxes, so the two read as one control. On a
+          phone the button drops underneath at full width — there is no room
+          beside six boxes at the 44px floor. */}
+      <div className="mt-2 flex flex-col gap-x-3 gap-y-4 sm:flex-row sm:items-start">
+        <div className="min-w-0 flex-1">
+          <EventCodeInput
+            label="event-finder-label"
+            slotLabel={labels.finderSlotLabel}
+            invalid={message !== null}
+            describedBy={
+              message
+                ? "event-finder-error event-finder-hint"
+                : "event-finder-hint"
+            }
+          />
 
-        {message ? (
-          <p
-            id="event-finder-error"
-            role="alert"
-            className="mt-2 text-label text-danger"
-          >
-            {message}
+          {message ? (
+            <p
+              id="event-finder-error"
+              role="alert"
+              className="mt-2 text-label text-danger"
+            >
+              {message}
+            </p>
+          ) : null}
+
+          {/* The format, stated rather than left to be discovered by failing.
+              Held in the DOM at all times so a screen reader picks it up from
+              `aria-describedby` before the first keystroke rather than after a
+              rejection. */}
+          <p id="event-finder-hint" className="mt-2 text-caption text-slate">
+            {labels.finderHint}
           </p>
-        ) : null}
-
-        {/* The format, stated rather than left to be discovered by failing.
-            Held in the DOM at all times so a screen reader picks it up from
-            `aria-describedby` before the first keystroke rather than after a
-            rejection. */}
-        <p id="event-finder-hint" className="mt-2 text-caption text-slate">
-          {labels.finderHint}
-        </p>
+        </div>
 
         <SubmitButton label={labels.finderSubmit} />
       </div>
@@ -82,7 +90,7 @@ function SubmitButton({ label }: { label: string }) {
       type="submit"
       size="lg"
       pending={pending}
-      className="mt-4 w-full sm:w-auto"
+      className="w-full shrink-0 sm:w-auto"
     >
       {label}
     </Button>

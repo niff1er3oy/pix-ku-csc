@@ -42,11 +42,11 @@ export const th = {
     ctaSecondary: "ฉันเป็นช่างภาพ",
     scanHint: "หรือสแกน QR ที่บูธถ่ายรูปในงาน",
 
-    scrollCue: "เลื่อนลงเพื่อดูว่าทำงานยังไง",
+    /** ลิงก์รองบนจอแรก พาไปแถบสาธิต (#how) */
+    howLink: "ดูว่าทำงานยังไง",
     skipToSearch: "ไปหางานของคุณ",
 
     journeyTitle: "จากหน้าคุณ ถึงรูปคุณ",
-    journeyLede: "เลื่อนลงเพื่อดูทีละขั้น",
     journey: [
       {
         title: "ถ่ายหน้าตัวเองครั้งเดียว",
@@ -61,40 +61,23 @@ export const th = {
         body: "รูปที่หน้าตรงกับคุณจะถูกดึงออกมา โหลดได้เต็มความละเอียดเท่าที่ช่างภาพอัปโหลดมา",
       },
     ],
-    journeyScanning: "กำลังไล่หา",
     journeyFound: "เจอแล้ว",
 
     finderHeading: "หางานที่คุณไป",
 
     demoMatch: "ตรงกับคุณ",
+    /** ป้ายสั้นบนรูปที่ "เจอแล้ว" ในจอแรก — DESIGN.md §10 */
+    demoTag: "ภาพสาธิต",
     demoCaption:
       "ภาพสาธิตการทำงาน กรอบในภาพวางไว้เพื่อแสดงตัวอย่าง ไม่ใช่ผลลัพธ์จริงจากระบบ",
-    demoAlt:
-      "รูปจากงานอีเวนต์ของมหาวิทยาลัย มีกรอบล้อมรอบใบหน้าแต่ละคนเพื่อแสดงว่าระบบหาใบหน้าเจอ",
-    selfieAlt: "ภาพวาดใบหน้าคนกำลังถูกสแกน มีกรอบล้อมรอบใบหน้า",
-
-    stepsTitle: "ใช้งานยังไง",
-    stepsLede: "สามขั้น จบใน 30 วินาที",
-    steps: [
-      {
-        label: "เปิดงาน",
-        title: "สแกน QR หรือกดลิงก์",
-        body: "ช่างภาพจะติด QR ไว้ที่บูธ หรือแชร์ลิงก์ในกลุ่มงาน เปิดแล้วเห็นรูปทั้งงานทันที",
-      },
-      {
-        label: "ให้หน้า",
-        title: "ถ่ายเซลฟี่ครั้งเดียว",
-        body: "ถ่ายหรืออัปโหลดรูปหน้าตรง ถ้าล็อกอินไว้แล้ว ระบบใช้รูปที่บันทึกไว้ให้เลย ไม่ต้องถ่ายซ้ำทุกงาน",
-      },
-      {
-        label: "โหลด",
-        title: "ได้รูปที่มีคุณอยู่",
-        body: "เจอกี่รูปโหลดได้หมด ไฟล์เต็มความละเอียดเท่าที่ช่างภาพอัปโหลดมา",
-      },
-    ],
+    /** อ่านให้ screen reader ฟังแทนเวทีสาธิตทั้งชิ้น */
+    stageAlt:
+      "ภาพสาธิตสามจังหวะ ใบหน้าถูกสแกน ระบบจับกรอบใบหน้าทุกคนในรูปจากงาน แล้วดึงรูปที่มีคุณออกมาจากกอง",
+    demoPause: "หยุดภาพเคลื่อนไหว",
 
     // Visitor-facing stat labels. Deliberately not reusing the studio's
-    // wording — "ใบหน้าที่ index แล้ว" is operator jargon.
+    // wording — "ใบหน้าที่ index แล้ว" is operator jargon. Each one follows
+    // its number on the page: "3 งานที่ค้นได้".
     statEvents: "งานที่ค้นได้",
     statPhotos: "รูปในระบบ",
     statFaces: "ใบหน้าที่ค้นเจอได้",
@@ -120,6 +103,15 @@ export const th = {
       },
     ],
     privacyLink: "อ่านนโยบายความเป็นส่วนตัวฉบับเต็ม",
+
+    photographersTitle: "เป็นช่างภาพ? ไม่ต้องไล่แจกรูปทีละคนอีกแล้ว",
+    /** สามขั้นของช่างภาพ เรียงตามลำดับที่ทำจริง */
+    photographersSteps: [
+      "อัปโหลดรูปทั้งงานครั้งเดียว",
+      "ตั้งลายน้ำของคุณเอง",
+      "รับ QR ของงานไปติดที่บูธ",
+    ],
+    photographersNote: "ช่างภาพและงานทุกงานต้องผ่านการอนุมัติจากผู้ดูแลก่อนเปิดให้ค้น",
   },
 
   event: {
@@ -802,11 +794,10 @@ export const en: Dictionary = {
     ctaSecondary: "I'm a photographer",
     scanHint: "Or scan the QR at the event's photo booth",
 
-    scrollCue: "Scroll to see how it works",
+    howLink: "See how it works",
     skipToSearch: "Find your event",
 
     journeyTitle: "From your face to your photos",
-    journeyLede: "Scroll through it one step at a time",
     journey: [
       {
         title: "Show us your face once",
@@ -821,41 +812,22 @@ export const en: Dictionary = {
         body: "The photos matching your face are pulled out. Download them at the full resolution the photographer uploaded.",
       },
     ],
-    journeyScanning: "Reading faces",
     journeyFound: "Found you",
 
     finderHeading: "Find the event you were at",
 
     demoMatch: "That's you",
+    demoTag: "Demo",
     demoCaption:
       "Illustration of how the search works. The boxes were placed by hand as an example, not produced by the system.",
-    demoAlt:
-      "A university event photo with a box drawn around each person's face, showing the system finding them",
-    selfieAlt: "An illustration of a face being scanned, with a box drawn around it",
+    stageAlt:
+      "A three-beat illustration: a face is scanned, the system boxes every face in an event photo, then the photo you are in is pulled out of the pile",
+    demoPause: "Pause the animation",
 
-    stepsTitle: "How it works",
-    stepsLede: "Three steps, about thirty seconds",
-    steps: [
-      {
-        label: "Open",
-        title: "Scan the QR or tap the link",
-        body: "Photographers post a QR at the booth or drop the link in the event group. Open it and the whole gallery is there.",
-      },
-      {
-        label: "Selfie",
-        title: "Show us your face once",
-        body: "Take or upload a front-facing photo. Signed in? We reuse the face you saved, so you never shoot it twice.",
-      },
-      {
-        label: "Download",
-        title: "Take every photo you're in",
-        body: "Download all your matches at the full resolution the photographer uploaded.",
-      },
-    ],
-
-    statEvents: "Events you can search",
-    statPhotos: "Photos indexed",
-    statFaces: "Faces you can search for",
+    // Lower case on purpose: each follows its number, "3 events you can search".
+    statEvents: "events you can search",
+    statPhotos: "photos indexed",
+    statFaces: "faces you can search for",
 
     eventsTitle: "Events you can search now",
     eventsEmpty: "No events are open for search",
@@ -879,6 +851,15 @@ export const en: Dictionary = {
       },
     ],
     privacyLink: "Read the full privacy policy",
+
+    photographersTitle: "Shooting the event? Stop handing out photos one by one.",
+    photographersSteps: [
+      "Upload the whole event once",
+      "Set your own watermark",
+      "Take the event's QR to the booth",
+    ],
+    photographersNote:
+      "An admin approves each photographer, and each event, before it opens for search.",
   },
 
   event: {

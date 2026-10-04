@@ -65,7 +65,17 @@ const DEMO_PHOTOS: DemoPhoto[] = [
 ];
 
 /** Widths emitted by scripts/build-demo-images.mjs. */
-const DEMO_WIDTHS = [640, 960, 1280];
+const DEMO_WIDTHS = [640, 960, 1280] as const;
+
+/**
+ * One fixed-width WebP, for a use that has already decided how sharp it needs
+ * to be. The hero's pile prints these in a single ink at card size, where the
+ * 640 file is more than the treatment can show — letting `srcset` pick would
+ * pull the 960 onto every 2x phone for no visible gain.
+ */
+export function demoSrc(src: string, width: (typeof DEMO_WIDTHS)[number]): string {
+  return `${src.replace(/\.jpg$/, "")}-${width}.webp`;
+}
 
 /**
  * Responsive WebP for a demo photograph.

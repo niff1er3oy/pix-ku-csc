@@ -244,23 +244,35 @@ export type SiteStats = {
   faces: number;
 };
 
+/**
+ * Totals for the home page, over exactly the events `getPublicEvents` lists:
+ * approved and not private.
+ *
+ * It used to count every approved event, private ones included. That did two
+ * things wrong at once. The figures sit directly above the public list, so
+ * the page read "4 events, 107 photos" over three cards adding up to 16 — and
+ * the difference was a private event's size, published on the one page nobody
+ * needs a link or a PIN to open.
+ */
 export async function getSiteStats(): Promise<SiteStats> {
+  const listed = and(eq(events.status, "approved"), eq(events.isPrivate, false));
+
   const [eventRow] = await db
     .select({ value: count() })
     .from(events)
-    .where(eq(events.status, "approved"));
+    .where(listed);
 
   const [photoRow] = await db
     .select({ value: count() })
     .from(photos)
     .innerJoin(events, eq(photos.eventId, events.id))
-    .where(eq(events.status, "approved"));
+    .where(listed);
 
   const [faceRow] = await db
     .select({ value: count() })
     .from(photoFaces)
     .innerJoin(events, eq(photoFaces.eventId, events.id))
-    .where(eq(events.status, "approved"));
+    .where(listed);
 
   return {
     events: eventRow?.value ?? 0,
