@@ -10,6 +10,7 @@ import { generatePin } from "@/lib/event-pin";
 import { requireApprovedPhotographer, requireRole } from "@/lib/dal";
 import { ACCEPTED_MIME, buildCoverImage, MAX_COVER_BYTES } from "@/lib/images";
 import { notify } from "@/lib/notifications";
+import { takeHit } from "@/lib/rate-limit";
 import { storagePaths, writeStorageFile } from "@/lib/storage";
 
 const CreateAffiliation = z.object({
@@ -171,14 +172,28 @@ export async function createAffiliation(
  */
 export async function deleteAffiliation(formData: FormData): Promise<void> {
   await requireRole("admin");
-  const id = z.string().uuid().parse(formData.get("id"));
-  await db.delete(affiliations).where(eq(affiliations.id, id));
+  const id = z.string().uuid().safeParse(formData.get("id"));
+  if (!id.success) return;
+  await db.delete(affiliations).where(eq(affiliations.id, id.data));
   revalidatePath("/admin");
 }
 
 export type JoinAffiliationState =
-  | { error: "invalid" | "already_in" | "not_found" }
+  | { error: "invalid" | "already_in" | "not_found" | "rate_limited" }
   | undefined;
+
+/**
+ * A join code is six digits, and a correct one is not a small prize: it makes
+ * the caller a full co-manager of every event that affiliation has, down to
+ * deleting them. Nothing limited how fast codes could be tried, so any
+ * approved photographer could walk the whole million.
+ *
+ * Counted per photographer rather than per address — the caller is signed in,
+ * so there is an identity to count against that a forged header cannot
+ * change. Five an hour is several typos' worth for someone holding the real
+ * code, and puts a blind sweep at years.
+ */
+const JOIN_ATTEMPTS_PER_HOUR = 5;
 
 /**
  * A photographer's own way in, given the code an admin — or an existing
@@ -203,6 +218,14 @@ export async function joinAffiliation(
     .min(1)
     .safeParse(formData.get("joinCode"));
   if (!parsed.success) return { error: "invalid" };
+
+  if (!takeHit(`join:${photographer.id}`, JOIN_ATTEMPTS_PER_HOUR, 60 * 60_000)) {
+    console.warn(
+      "[pix-ku-csc] join-code attempts exceeded for photographer",
+      photographer.id,
+    );
+    return { error: "rate_limited" };
+  }
 
   const [affiliation] = await db
     .select({ id: affiliations.id })

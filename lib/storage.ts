@@ -37,8 +37,33 @@ if (process.env.NODE_ENV === "production") {
   }
 }
 
-/** Rejects `../` traversal from anything that reaches us as a stored path. */
+/**
+ * True when every `/`-separated segment is exactly one path component: not
+ * empty, not `.` or `..`, and holding no backslash (a separator on Windows,
+ * where this runs) or NUL.
+ *
+ * Staying inside STORAGE_ROOT is not the property that matters on its own.
+ * `/api/media` decides who may read a file from its first three segments
+ * (`events/{id}/{kind}`), then reads the *whole* path — so
+ * `events/{public}/thumb/../../{private}/originals/x.jpg` was authorized as
+ * a public thumbnail and resolved to another event's original, without ever
+ * leaving the root. Every path this app builds itself (`storagePaths` below)
+ * is already in this form; only a caller-supplied one is not.
+ */
+export function isCanonicalStoragePath(relativePath: string): boolean {
+  return relativePath
+    .split("/")
+    .every(
+      (segment) =>
+        segment !== "" && segment !== "." && segment !== ".." && !/[\\\0]/.test(segment),
+    );
+}
+
+/** Rejects anything that is not a canonical path under the storage root. */
 export function resolveStoragePath(relativePath: string): string {
+  if (!isCanonicalStoragePath(relativePath)) {
+    throw new Error(`Non-canonical storage path: ${relativePath}`);
+  }
   const resolved = path.resolve(STORAGE_ROOT, relativePath);
   if (resolved !== STORAGE_ROOT && !resolved.startsWith(STORAGE_ROOT + path.sep)) {
     throw new Error(`Path escapes storage root: ${relativePath}`);

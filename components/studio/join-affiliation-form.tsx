@@ -23,7 +23,9 @@ export function JoinAffiliationForm({ dict }: { dict: Dictionary }) {
         ? dict.affiliationStudio.joinErrorNotFound
         : state?.error === "already_in"
           ? dict.affiliationStudio.joinErrorAlreadyIn
-          : null;
+          : state?.error === "rate_limited"
+            ? dict.affiliationStudio.joinErrorRateLimited
+            : null;
 
   return (
     <form action={action} className="mt-6 flex max-w-sm flex-wrap items-end gap-2">

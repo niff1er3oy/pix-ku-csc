@@ -8,7 +8,8 @@ import { affiliations, events, photographers, photos, type Event } from "@/db/sc
 import { canManageEvent, getPhotographer, getSessionUser } from "@/lib/dal";
 import { isPinCookieValid, pinCookieName } from "@/lib/event-pin";
 import { applyWatermark } from "@/lib/images";
-import { readStorageFile } from "@/lib/storage";
+import { isCanonicalStoragePath, readStorageFile } from "@/lib/storage";
+import { isUuid } from "@/lib/utils";
 
 /**
  * The one authorization gate every stored file passes through, shared by
@@ -47,11 +48,21 @@ export async function authorizeMedia(
   relativePath: string,
   wantsDownload: boolean,
 ): Promise<MediaDecision> {
+  // Everything below authorizes from the leading segments, while the caller
+  // reads the whole path — so the two must not be able to disagree. A path
+  // with a `..` in it (typed straight into the zip endpoint's JSON, or sent
+  // here as `..%2F`, which Next decodes into a segment holding real slashes)
+  // was authorized as one event's thumbnail and read as another event's
+  // file: a PIN-gated event's photos, or a clean original the photographer
+  // had turned downloads off for. Each branch also pins its exact depth, so
+  // the last segment can only ever name a file in the directory just checked.
+  if (!isCanonicalStoragePath(relativePath)) return { ok: false, status: 404 };
   const parts = relativePath.split("/");
 
   // --- faces/{userId}/{id}.jpg ---------------------------------------------
   // A saved reference selfie. Only ever visible to the person it belongs to.
   if (parts[0] === "faces") {
+    if (parts.length !== 3) return { ok: false, status: 404 };
     const user = await getSessionUser();
     if (!user) return { ok: false, status: 401 };
     if (parts[1] !== user.id) return { ok: false, status: 403 };
@@ -62,8 +73,10 @@ export async function authorizeMedia(
   // Public the same way `/affiliations` itself is — no session, no
   // ownership check, just whether the affiliation still exists.
   if (parts[0] === "affiliations") {
-    if (parts.length < 3) return { ok: false, status: 404 };
-    const [, affiliationId] = parts;
+    const [, affiliationId, folder] = parts;
+    if (parts.length !== 4 || folder !== "image" || !isUuid(affiliationId)) {
+      return { ok: false, status: 404 };
+    }
     const [affiliation] = await db
       .select({ id: affiliations.id })
       .from(affiliations)
@@ -74,11 +87,13 @@ export async function authorizeMedia(
   }
 
   // --- events/{eventId}/{kind}/{file} --------------------------------------
-  if (parts[0] !== "events" || parts.length < 4) {
+  if (parts[0] !== "events" || parts.length !== 4) {
     return { ok: false, status: 404 };
   }
 
   const [, eventId, kind] = parts;
+  // A malformed id is a 404, not Postgres's `22P02` surfacing as a 500.
+  if (!isUuid(eventId)) return { ok: false, status: 404 };
   const [event] = await db
     .select()
     .from(events)
@@ -102,7 +117,8 @@ export async function authorizeMedia(
   // the PIN cookie checks out, but every image it then points at is fetched
   // straight from this route, with the event's real id and nothing else
   // standing between a scraped/guessed id and the files themselves.
-  if (event.isPrivate && event.entryPin && !isManager) {
+  const pinGated = event.isPrivate && Boolean(event.entryPin);
+  if (pinGated && !isManager) {
     const store = await cookies();
     const verified = isPinCookieValid(
       event.id,
@@ -116,8 +132,16 @@ export async function authorizeMedia(
   // `thumb` stays unwatermarked too — it is small enough (640px) that
   // burning a mark into every grid tile would cost a composite per request
   // for little real protection.
+  //
+  // `pinGated` keeps a PIN-protected event's derivatives out of shared caches.
+  // `private: false` becomes `public, max-age=31536000, immutable`, which
+  // tells every cache between here and the visitor — Cloudflare, in this
+  // deployment — that it may hand the same bytes to anyone who asks for the
+  // URL for a year without consulting this function again. For a gated event
+  // that is the PIN check above being skipped for every request after the
+  // first verified one.
   if (kind === "thumb" || kind === "watermark" || kind === "cover") {
-    return { ok: true, private: !isManager ? false : true };
+    return { ok: true, private: isManager || pinGated };
   }
 
   // `preview` is the large (2000px) image the gallery and lightbox actually
@@ -153,6 +177,7 @@ export async function authorizeMedia(
   }
 
   const photoId = parts[3].replace(/\.[^.]+$/, "");
+  if (!isUuid(photoId)) return { ok: false, status: 404 };
   const [photo] = await db
     .select()
     .from(photos)

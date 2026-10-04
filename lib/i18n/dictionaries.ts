@@ -682,6 +682,8 @@ export const th = {
     joinErrorInvalid: "กรอกรหัสเข้าสังกัด",
     joinErrorNotFound: "ไม่พบสังกัดที่ใช้รหัสนี้",
     joinErrorAlreadyIn: "คุณอยู่ในสังกัดอยู่แล้ว ออกจากสังกัดเดิมก่อนจึงจะเข้าสังกัดใหม่ได้",
+    joinErrorRateLimited:
+      "ลองรหัสหลายครั้งเกินไป รอประมาณหนึ่งชั่วโมงแล้วลองใหม่ หรือขอให้สมาชิกในสังกัดเพิ่มคุณด้วยอีเมลแทน",
     eventsEmpty: "ยังไม่มีงานในสังกัดนี้",
     eventsEmptyBody: "งานที่สร้างจากสตูดิโอนี้จะให้สมาชิกทุกคนจัดการร่วมกันได้",
     newEvent: "สร้างงานของสังกัด",
@@ -1448,6 +1450,8 @@ export const en: Dictionary = {
     joinErrorInvalid: "Enter a join code",
     joinErrorNotFound: "No affiliation found with that code",
     joinErrorAlreadyIn: "You already belong to an affiliation — leave it first to join a different one",
+    joinErrorRateLimited:
+      "Too many attempts. Wait about an hour and try again, or ask a member of the affiliation to add you by email instead.",
     eventsEmpty: "No events in this affiliation yet",
     eventsEmptyBody: "Events created from this studio can be managed by every member.",
     newEvent: "New affiliation event",

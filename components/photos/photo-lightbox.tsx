@@ -96,6 +96,13 @@ export function PhotoLightbox({
   // `touchStart` on pointer up, so a mostly-vertical drag (or a pinch-zoom,
   // which never fires a single pointer's up past the threshold on its own)
   // is left alone rather than misread as "go to the next photo."
+  //
+  // This only works because of `touch-pan-y touch-pinch-zoom` on the dialog
+  // below. Under the default `touch-action: auto` the browser claims a
+  // horizontal drag as a pan of its own and fires `pointercancel` — no
+  // `pointerup` ever arrives, and the swipe silently does nothing. Measured
+  // through Chrome's real touch pipeline: `pointerdown → pointercancel`
+  // without it, `pointerdown → pointerup` with it.
   const touchStart = useRef<{ x: number; y: number } | null>(null);
   const SWIPE_THRESHOLD_PX = 50;
 
@@ -139,7 +146,7 @@ export function PhotoLightbox({
     <div
       role="dialog"
       aria-modal="true"
-      className="modal-backdrop fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-ink/90 p-4 sm:p-8"
+      className="modal-backdrop fixed inset-0 z-50 flex touch-pan-y touch-pinch-zoom flex-col items-center justify-center gap-4 bg-ink/90 p-4 sm:p-8"
       onClick={onClose}
       onPointerDown={onPointerDown}
       onPointerUp={onPointerUp}

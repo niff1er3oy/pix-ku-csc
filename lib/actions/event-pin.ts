@@ -6,6 +6,7 @@ import { cookies, headers } from "next/headers";
 import { db } from "@/db";
 import { events, eventPinAttempts } from "@/db/schema";
 import { isPin, pinCookieName, pinMatches, signPinCookie } from "@/lib/event-pin";
+import { takeHit } from "@/lib/rate-limit";
 import { clientIp, hashIp } from "@/lib/storage";
 
 export type VerifyEventPinState =
@@ -45,6 +46,19 @@ export async function verifyEventPin(
   if (!UUID_SHAPE.test(eventId) || !isPin(pin)) return { error: "invalid" };
 
   const ipHash = hashIp(clientIp(await headers()));
+
+  // First, in one step. The database check below is a read followed, a
+  // statement later, by a write — so any number of guesses sent together all
+  // read "none so far" before one of them is recorded, and five per ten
+  // minutes was really "as many as fit in one burst" per ten minutes. This
+  // admits at most five no matter how they arrive; the rows below stay as the
+  // record that outlives a restart.
+  if (
+    !ipHash ||
+    !takeHit(`pin:${eventId}:${ipHash}`, RATE_LIMIT_MAX_ATTEMPTS, RATE_LIMIT_WINDOW_MS)
+  ) {
+    return { error: "rate_limited" };
+  }
 
   if (await isPinRateLimited(eventId, ipHash)) {
     return { error: "rate_limited" };

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { and, eq, gte, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { cookies } from "next/headers";
 import type { NextRequest } from "next/server";
 
@@ -25,14 +25,49 @@ import {
 import {
   ACCEPTED_MIME,
   buildDetectionCopy,
+  ImageError,
   MAX_SELFIE_BYTES,
 } from "@/lib/images";
 import { getSavedPhotoIds } from "@/lib/queries/saved-photos";
+import { gate, takeHit, withTimeout } from "@/lib/rate-limit";
 import { clientIp, hashIp, readStorageFile } from "@/lib/storage";
+import { isUuid } from "@/lib/utils";
 
 const ANON_COOKIE = "fkd_anon";
 const CONSENT_VERSION = "2026-07-01";
-const RATE_LIMIT_PER_MINUTE = 12;
+
+/**
+ * Attempts per minute, counted when a request arrives — not searches that
+ * finished. The limiter this replaces counted rows in `searches`, which only
+ * a completed match ever writes: a selfie with no face in it still paid for a
+ * `DetectFaces` call and wrote a consent row, and could be repeated without
+ * limit because nothing ever recorded that it happened.
+ *
+ * Two keys, because the two cases are not the same person-shaped thing. A
+ * signed-in account is one person, and 12 a minute is far more retries than
+ * one person needs. An address is not: a whole venue on campus Wi-Fi, or a
+ * mobile carrier's NAT, arrives as one, so the anonymous allowance is set for
+ * a crowd rather than for an individual.
+ */
+const ATTEMPTS_PER_MINUTE_SIGNED_IN = 12;
+const ATTEMPTS_PER_MINUTE_PER_ADDRESS = 30;
+const ATTEMPT_WINDOW_MS = 60_000;
+
+/**
+ * The part an address cannot talk its way around: however many addresses a
+ * burst claims to come from, only this many searches run at once.
+ *
+ * Three, to match `MAX_CONCURRENT_INDEXING` in lib/face/pipeline.ts and for
+ * its reason — each search is two Rekognition calls against the same account
+ * quota an upload batch is drawing on. The rest wait their turn for a few
+ * seconds, which a crowd arriving together is better served by than an
+ * error; past the queue, or past the wait, the answer is "try again" rather
+ * than a request left hanging.
+ */
+const searchGate = gate("face-search", 3, 20, 15_000);
+
+/** A hung AWS call must not hold one of three slots for good. */
+const SEARCH_TIMEOUT_MS = 45_000;
 
 export type SearchMatch = {
   photoId: string;
@@ -60,6 +95,7 @@ export async function POST(
   ctx: RouteContext<"/api/events/[id]/search">,
 ) {
   const { id: eventId } = await ctx.params;
+  if (!isUuid(eventId)) return json({ ok: false, error: "not_found" }, 404);
 
   const [event] = await db
     .select()
@@ -70,6 +106,7 @@ export async function POST(
   if (!event || event.status !== "approved" || !event.faceCollectionId) {
     return json({ ok: false, error: "not_found" }, 404);
   }
+  const collectionId = event.faceCollectionId;
 
   const user = await getSessionUser();
 
@@ -90,15 +127,20 @@ export async function POST(
     }
   }
 
+  // Admission, before the body is even read: a request over its allowance
+  // costs nothing further — no upload buffered, no row written, no AWS call.
+  // An address that cannot be resolved is refused rather than waved through;
+  // "no IP" is the easiest thing to arrange on purpose.
+  const ipHash = hashIp(clientIp(request.headers));
+  const limiterKey = user ? `search:user:${user.id}` : ipHash && `search:ip:${ipHash}`;
+  const allowance = user ? ATTEMPTS_PER_MINUTE_SIGNED_IN : ATTEMPTS_PER_MINUTE_PER_ADDRESS;
+  if (!limiterKey || !takeHit(limiterKey, allowance, ATTEMPT_WINDOW_MS)) {
+    return json({ ok: false, error: "rate_limited" }, 429);
+  }
+
   const form = await request.formData();
   if (form.get("consent") !== "1") {
     return json({ ok: false, error: "consent_required" }, 400);
-  }
-
-  const ipHash = hashIp(clientIp(request.headers));
-
-  if (await isRateLimited(ipHash)) {
-    return json({ ok: false, error: "rate_limited" }, 429);
   }
 
   // --- Get the bytes to match against -------------------------------------
@@ -134,17 +176,36 @@ export async function POST(
     mode = "uploaded_selfie";
   }
 
-  await recordConsent(user?.id ?? null, ipHash, request);
+  // Taken only now, with the upload fully received: a slot held while a body
+  // trickled in over a bad connection would let three slow phones — or three
+  // deliberately slow ones — stall the search for everybody else.
+  if (!(await searchGate.enter())) {
+    return json({ ok: false, error: "rate_limited" }, 429);
+  }
 
   // --- Match ---------------------------------------------------------------
   try {
-    const detection = await buildDetectionCopy(source);
-    await assertSingleFace(detection);
+    // Consent is recorded before any processing, and only for a request that
+    // is actually about to be processed.
+    await recordConsent(user?.id ?? null, ipHash, request);
 
-    const rawMatches = await faceProvider.searchByImage(
-      event.faceCollectionId,
-      detection,
-      FACE_MATCH_THRESHOLD,
+    let detection: Buffer;
+    try {
+      detection = await buildDetectionCopy(source);
+    } catch (error) {
+      // A file sharp cannot decode is the visitor's file, not a server fault:
+      // it used to fall through to the 500 below and its "something went
+      // wrong" message, which tells nobody to pick a different photo.
+      const tooLarge = error instanceof ImageError && error.code === "too_large";
+      return json({ ok: false, error: tooLarge ? "too_large" : "bad_format" }, 400);
+    }
+
+    const rawMatches = await withTimeout(
+      (async () => {
+        await assertSingleFace(detection);
+        return faceProvider.searchByImage(collectionId, detection, FACE_MATCH_THRESHOLD);
+      })(),
+      SEARCH_TIMEOUT_MS,
     );
 
     const { matches: resolved, faceMatches } = await resolvePhotos(eventId, rawMatches);
@@ -198,6 +259,8 @@ export async function POST(
     }
     console.error("[pix-ku-csc] face search failed:", error);
     return json({ ok: false, error: "generic" }, 500);
+  } finally {
+    searchGate.leave();
   }
   // `source` and `detection` fall out of scope here and are never persisted.
 }
@@ -302,19 +365,6 @@ async function recordConsent(
     ipHash,
     userAgent: request.headers.get("user-agent")?.slice(0, 400) ?? null,
   });
-}
-
-async function isRateLimited(ipHash: string | null): Promise<boolean> {
-  // Same reasoning as the event-PIN limiter: an address we can't resolve is
-  // treated as already over the limit, not waved through.
-  if (!ipHash) return true;
-  const since = new Date(Date.now() - 60_000);
-  const rows = await db
-    .select({ id: searches.id })
-    .from(searches)
-    .where(and(eq(searches.ipHash, ipHash), gte(searches.createdAt, since)))
-    .limit(RATE_LIMIT_PER_MINUTE);
-  return rows.length >= RATE_LIMIT_PER_MINUTE;
 }
 
 function json(body: SearchResponse, status = 200) {
