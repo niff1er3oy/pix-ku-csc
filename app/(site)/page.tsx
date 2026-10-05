@@ -5,16 +5,17 @@
  * the brand screen sit the code box and the open events, and the story is one
  * stage. Refuses the read-before-you-act explainer.
  *
- * OWN-WORLD: KU teal and lime on white. Event photographs printed in teal ink;
- * yours in full colour inside a lime ring. A green sheet with rounded
- * shoulders, one black stage, K2D over looped Thai.
+ * OWN-WORLD: KU teal and lime on white, and one grid drawn through every
+ * surface — white, green, black. Photographs whole and in their own colours;
+ * yours inside a lime ring. A green sheet with rounded shoulders, one black
+ * stage, a deep-green closing panel, K2D over looped Thai.
  *
- * STORY: It finds my photos in the event's pile. Here I type my code or pick
- * my event. This is how it reads my face and what it keeps.
+ * STORY: It finds my photos among the event's. Here I type my code or pick my
+ * event. This is how it reads my face and what it keeps.
  *
- * FIRST VIEWPORT: Wordmark at brand scale, headline, sub and primary button
- * centred on white; teal-ink photographs scattered round them, one found in
- * colour; the green sheet's edge at the fold.
+ * FIRST VIEWPORT: One full window. Wordmark at brand scale, headline, sub and
+ * primary button centred; under them a row of three event photographs, the
+ * middle one found. Phone first: everything on it whole, nothing cut.
  *
  * FORM: Canon, owner-pinned. Seed 5bd93810 dealt 6 of 7, the single demo
  * stage, built as the story band. Door-first order is the owner's 2026-10-05
@@ -27,12 +28,13 @@ import { Logo } from "@/components/brand/logo";
 import { EventCard } from "@/components/events/event-card";
 import { EventFinder } from "@/components/home/event-finder";
 import { pickFinderLabels } from "@/components/home/finder-labels";
+import { HeroPhotos } from "@/components/home/hero-photos";
+import { HomeMotion } from "@/components/home/home-motion";
 import { HowItWorks } from "@/components/home/how-it-works";
-import { PhotoPile } from "@/components/home/photo-pile";
 import { ButtonLink } from "@/components/ui/button";
 import { CountUp } from "@/components/ui/count-up";
 import { GridBackground } from "@/components/ui/grid-background";
-import { CheckIcon } from "@/components/ui/icon";
+import { CheckIcon, ChevronDownIcon } from "@/components/ui/icon";
 import { Phrases } from "@/components/ui/phrases";
 import { getDemoPhotos } from "@/lib/demo-photos";
 import { getDictionary, getLocale } from "@/lib/i18n";
@@ -48,6 +50,24 @@ import { cn, formatNumber } from "@/lib/utils";
 const textLink =
   "inline-flex min-h-11 items-center text-label font-medium text-green-700 underline underline-offset-4 transition-colors duration-200 hover:text-green-800";
 
+/**
+ * A note on how this page moves.
+ *
+ * What is on the first screen arrives with the stylesheet's own `.enter`, so
+ * it is there before any script is. Everything after that is anime.js: the
+ * "found" moment on the photographs and the first screen parting as it
+ * scrolls away are this page's own (`HomeMotion`); each section arriving as
+ * it is reached is the site's (`SiteMotion`, in the layout). Elements opt in
+ * to that with `data-reveal` (or `data-reveal="group"` to bring their
+ * children in one after another) — and are fully visible without it.
+ *
+ * One rule for whoever edits this: never put `data-reveal` on an element that
+ * holds an `aligned` `GridBackground`. The reveal moves its element with a
+ * transform, and a transformed box becomes the containing block for the
+ * grid's fixed layer — which then stops being the page's grid and becomes a
+ * patch of its own, out of line with everything around it. Put it on the
+ * content inside instead.
+ */
 export default async function HomePage() {
   const [locale, dict] = await Promise.all([getLocale(), getDictionary()]);
   const [events, stats, demoPhotos] = await Promise.all([
@@ -62,8 +82,6 @@ export default async function HomePage() {
     { label: dict.home.statFaces, value: stats.faces },
   ];
 
-  const hasPile = demoPhotos.length > 0;
-
   return (
     <>
       {/* ================================================================= */}
@@ -72,42 +90,35 @@ export default async function HomePage() {
       {/* `data-brand-screen` is the flag globals.css keys off to hide the
           header until the visitor scrolls past this screen.
 
-          `-mt-16` slides the screen up underneath that header. On a browser
-          that hides it the pile then runs to the very top of the window; on
-          one that does not, the opaque bar simply covers the first 64px.
+          Exactly one window tall, on every device — the owner's instruction
+          after a version that stopped short to let the next section show.
+          `-mt-16` slides it up underneath the header so that "one window"
+          means the window and not the window less a bar; `--header-gap` puts
+          those 64px back as padding on a browser that shows the bar here.
 
-          Shorter than the window by a few rem on purpose: the green sheet
-          below shows its top edge at the fold, which says "the thing you came
-          for is right here" better than a scroll cue did. */}
+          Laid out for a phone first. Every vertical gap and both paddings
+          flex with the window's height, because a phone with its toolbars up
+          has about 550px to give and all of this still has to be on it. A
+          phone on its side has under 400, and there the stack becomes two
+          columns — see the landscape rule beside `.hero-photos` in
+          globals.css.
+
+          `overflow-x-clip`: as the screen scrolls away the outer photographs
+          swing outwards, past the edge on a phone. Clipped here they are
+          simply cut off; left to spill they made the whole page wider than
+          the window, and a phone answers that by zooming everything out. */}
       <section
         data-brand-screen
-        className={cn(
-          "relative isolate -mt-16 flex min-h-[calc(100svh-3.5rem)] flex-col items-center justify-center overflow-hidden px-5 pb-10 text-center sm:px-8 lg:min-h-[calc(100svh-4.5rem)] lg:pb-14 lg:pt-20",
-          // On a phone the pile hangs in a band across the top, and the
-          // wordmark starts below it. `--pile-zone` is that band's height;
-          // `PhotoPile` reads the same variable so the two cannot disagree.
-          // The band is kept to about a fifth of the screen: the owner asked
-          // for the brand screen to stay a brand screen, so the wordmark has
-          // to remain the first thing read, with the photographs as a fringe
-          // above it. `--header-gap` (globals.css) is the header's height on
-          // a browser that shows it over this screen, and nothing otherwise.
-          hasPile
-            ? "pt-[calc(var(--pile-zone)+var(--header-gap)+1.25rem)] [--pile-zone:clamp(7.5rem,19svh,11rem)] sm:[--pile-zone:clamp(11rem,26svh,18rem)]"
-            : "pt-24",
-        )}
+        className="relative -mt-16 flex min-h-svh flex-col items-center justify-center overflow-x-clip px-5 pb-[clamp(0.75rem,3svh,2.5rem)] pt-[calc(var(--header-gap)+clamp(0.5rem,2svh,1.25rem))] text-center sm:px-8"
       >
-        {hasPile && (
-          <PhotoPile
-            photos={demoPhotos}
-            foundLabel={dict.home.journeyFound}
-            demoLabel={dict.home.demoTag}
-          />
-        )}
-
-        {/* Narrower on a desktop than the type alone would need: the width is
-            counted in the same unit the pile is laid out in, so the copy
-            always ends short of the nearest card. */}
-        <div className="relative flex w-full max-w-2xl flex-col items-center lg:max-w-[calc(var(--pu)*42)]">
+        {/* The copy moves as one piece when the screen scrolls away; the
+            entrance is on the elements inside, so the two never share a
+            transform. It never shrinks: when the window is short it is the
+            photographs under it that give way (`.hero-slot`). */}
+        <div
+          data-hero-copy
+          className="flex w-full max-w-2xl shrink-0 flex-col items-center"
+        >
           {/* The mark is the mark, not the heading. An h1 whose accessible name
               is just the brand tells a first-time visitor nothing — the
               sentence that actually explains the product carries it instead. */}
@@ -122,7 +133,7 @@ export default async function HomePage() {
               — mid-thought — because that makes the two lines closer in
               length. See `Phrases`. */}
           <h1
-            className="enter mt-8 text-h1 font-bold sm:mt-10"
+            className="enter mt-[clamp(0.75rem,4svh,2.5rem)] text-h1 font-bold"
             style={{ "--d": "200ms" } as React.CSSProperties}
           >
             <Phrases text={dict.home.headline} />
@@ -132,39 +143,72 @@ export default async function HomePage() {
               of near-equal length sit under a headline better than a full
               line with one stranded word beneath it. */}
           <p
-            className="enter mt-4 max-w-xl text-balance text-body-lg text-slate"
+            className="enter mt-[clamp(0.5rem,2svh,1.25rem)] max-w-xl text-balance text-body-lg text-slate"
             style={{ "--d": "280ms" } as React.CSSProperties}
           >
             {dict.home.sub}
           </p>
 
-          {/* Real anchors, so both work without JavaScript. */}
+          {/* Real anchors, so both work without JavaScript. The second one
+              steps aside on a short, narrow window — a phone with its
+              toolbars up, or on its side — where it sits under the button
+              and would be what pushes the photographs under the fold. On a
+              short laptop window it sits beside the button, costs no height,
+              and stays. The section it points to is one scroll away either
+              way. */}
           <div
-            className="enter mt-8 flex flex-col items-center gap-x-5 gap-y-1 sm:flex-row"
+            className="enter mt-[clamp(0.75rem,3.5svh,2.5rem)] flex flex-col items-center gap-x-5 gap-y-1 sm:flex-row"
             style={{ "--d": "380ms" } as React.CSSProperties}
           >
             <ButtonLink href="#find" size="lg">
               {dict.home.skipToSearch}
             </ButtonLink>
-            <Link href="#how" className={cn(textLink, "px-2")}>
+            <Link
+              href="#how"
+              className={cn(
+                textLink,
+                "px-2 [@media(max-height:620px)_and_(max-width:1023px)]:hidden",
+              )}
+            >
               {dict.home.howLink}
             </Link>
           </div>
         </div>
+
+        <HeroPhotos
+          photos={demoPhotos}
+          foundLabel={dict.home.journeyFound}
+          demoLabel={dict.home.demoTag}
+        />
+
+        {/* With the screen a full window tall, nothing of the next section
+            shows. This says there is one. Decorative — the button above is
+            the real way down — and only where there is height to spare. */}
+        <span
+          data-hero-cue
+          aria-hidden
+          className="absolute bottom-2 left-1/2 -translate-x-1/2 text-green-600 [@media(max-height:739px)]:hidden"
+        >
+          <span className="block">
+            <ChevronDownIcon size={22} strokeWidth={2.5} />
+          </span>
+        </span>
       </section>
 
       {/* ================================================================= */}
       {/* The door: a code, or an event from the list                       */}
       {/* ================================================================= */}
-      {/* A sheet rather than a band: rounded shoulders, pulled up over the
-          brand screen's bottom edge so the pile tucks in behind it. It is
-          still the page's one full-width green. */}
+      {/* The page's one full-width green. Rounded shoulders, so it reads as a
+          sheet coming up rather than a stripe. The `clip-path` matches that
+          shape and is there for the grid — see `GridBackground`. */}
       <section
         id="find"
-        className="relative z-10 -mt-5 scroll-mt-16 rounded-t-card bg-green-600 text-paper"
+        className="relative scroll-mt-16 rounded-t-card bg-green-600 text-paper [clip-path:inset(0_round_var(--radius-card)_var(--radius-card)_0_0)]"
       >
-        <div className="mx-auto grid w-full max-w-6xl gap-x-16 gap-y-6 px-5 pb-12 pt-7 sm:px-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,34rem)] lg:pb-14 lg:pt-10">
-          <div className="min-w-0">
+        <GridBackground aligned variant="green" />
+
+        <div className="relative mx-auto grid w-full max-w-6xl gap-x-16 gap-y-6 px-5 pb-12 pt-9 sm:px-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,34rem)] lg:pb-14 lg:pt-12">
+          <div data-reveal className="min-w-0">
             <h2 className="text-h2">{dict.home.finderHeading}</h2>
             <p className="mt-2 text-green-100">{dict.home.scanHint}</p>
           </div>
@@ -174,14 +218,17 @@ export default async function HomePage() {
               padding below `sm` only: the six code boxes inside need every
               pixel of that width to stay at the 44px touch floor on a 360px
               phone. */}
-          <div className="min-w-0 rounded-card bg-paper px-4 py-5 text-ink sm:p-6">
+          <div
+            data-reveal
+            className="min-w-0 rounded-card bg-paper px-4 py-5 text-ink sm:p-6"
+          >
             <EventFinder labels={pickFinderLabels(dict)} />
           </div>
         </div>
       </section>
 
       <section className="mx-auto w-full max-w-6xl px-5 pb-16 pt-12 sm:px-8 sm:pb-24 sm:pt-16">
-        <div className="reveal">
+        <div data-reveal>
           {/* Title and "see all" share a line wherever they fit, which is
               every phone from 360px up; the link is the list's own control,
               so it belongs beside the list's name rather than under the
@@ -227,9 +274,9 @@ export default async function HomePage() {
         </div>
 
         {events.length === 0 ? (
-          <div className="reveal relative mt-8 overflow-hidden rounded-card bg-cloud px-6 py-16 text-center sm:py-20">
-            <GridBackground />
-            <div className="relative">
+          <div className="relative mt-8 rounded-card bg-cloud px-6 py-16 text-center sm:py-20 [clip-path:inset(0_round_var(--radius-card))]">
+            <GridBackground aligned />
+            <div data-reveal className="relative">
               <p className="font-display text-h3 font-semibold">
                 {dict.home.eventsEmpty}
               </p>
@@ -258,7 +305,10 @@ export default async function HomePage() {
 
              A desktop row is three and a tablet row is two, so the cards
              beyond one row sit out there — "see all" is one line above. */
-          <ul className="-mx-5 mt-5 flex snap-x snap-mandatory scroll-px-5 gap-4 overflow-x-auto px-5 pb-6 pt-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-6 sm:overflow-visible sm:px-0 sm:pb-0 lg:grid-cols-3">
+          <ul
+            data-reveal="group"
+            className="-mx-5 mt-5 flex snap-x snap-mandatory scroll-px-5 gap-4 overflow-x-auto px-5 pb-6 pt-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-6 sm:overflow-visible sm:px-0 sm:pb-0 lg:grid-cols-3"
+          >
             {events.map((event, i) => (
               <EventCard
                 key={event.id}
@@ -291,10 +341,8 @@ export default async function HomePage() {
       <section className="mx-auto w-full max-w-6xl px-5 py-16 sm:px-8 sm:py-24">
         <div className="grid gap-x-16 gap-y-8 lg:grid-cols-[minmax(0,24rem)_minmax(0,1fr)]">
           {/* `self-start`, or the grid stretches this box to the height of the
-              whole ledger beside it — and `.reveal` only finishes once its
-              box has fully entered the window, so the heading sat at 58%
-              opacity while the first promise next to it was already solid. */}
-          <div className="reveal min-w-0 self-start">
+              whole ledger beside it and it arrives as one tall block. */}
+          <div data-reveal className="min-w-0 self-start">
             <h2 className="text-h2">
               <Phrases text={dict.home.privacyTitle} />
             </h2>
@@ -303,8 +351,8 @@ export default async function HomePage() {
             </Link>
           </div>
 
-          <ul className="min-w-0 border-t border-edge">
-            {dict.home.privacyPoints.map((point, i) => (
+          <ul data-reveal="group" className="min-w-0 border-t border-edge">
+            {dict.home.privacyPoints.map((point) => (
               <li
                 key={point.title}
                 /* Promise and explanation sit side by side wherever the list
@@ -312,16 +360,13 @@ export default async function HomePage() {
                    (`xl`). Between the two the heading column takes 24rem off
                    a 1024px window and the explanation was left 209px wide,
                    so there the row stacks. */
-                className="reveal grid gap-x-8 gap-y-2 border-b border-edge py-5 sm:grid-cols-[minmax(0,16rem)_minmax(0,1fr)] sm:py-6 lg:grid-cols-1 xl:grid-cols-[minmax(0,16rem)_minmax(0,1fr)]"
-                style={{ "--rs": `${2 + i * 4}%` } as React.CSSProperties}
+                className="grid gap-x-8 gap-y-2 border-b border-edge py-5 sm:grid-cols-[minmax(0,16rem)_minmax(0,1fr)] sm:py-6 lg:grid-cols-1 xl:grid-cols-[minmax(0,16rem)_minmax(0,1fr)]"
               >
                 <h3 className="flex gap-3 text-h3">
                   {/* Lime under a dark tick, the way DESIGN.md §2 says lime
                       is to be used on white: as a ground, never as the ink.
-                      It is the only brand colour between the black band and
-                      the photographers' panel. Nudged in `em`, so the dot
-                      stays centred on the first line whatever the fluid
-                      heading size is. */}
+                      Nudged in `em`, so the dot stays centred on the first
+                      line whatever the fluid heading size is. */}
                   <span className="mt-[0.2em] grid size-6 shrink-0 place-items-center rounded-pill bg-lime-500 text-green-950">
                     <CheckIcon size={14} strokeWidth={3} />
                   </span>
@@ -342,15 +387,16 @@ export default async function HomePage() {
       {/* A deep-green panel, so the page ends on a block of the brand's own
           colour instead of trailing off into white. A panel inside the page
           column, not a second full-width band — DESIGN.md §5 allows one of
-          those and `#find` is it.
-
-          No `.reveal` here: the panel is taller than most of a phone screen,
-          and a box that only reaches full opacity once all of it is in view
-          would have its heading read half faded. */}
+          those and `#find` is it. The panel itself never moves: it holds the
+          grid (see the note above `HomePage`), so the reveal is on what is
+          inside it. */}
       <section className="mx-auto w-full max-w-6xl px-5 pb-16 sm:px-8 sm:pb-24">
-        <div className="relative overflow-hidden rounded-card bg-green-900 px-6 py-10 text-paper sm:px-10 sm:py-12">
-          <GridBackground variant="green" />
-          <div className="relative grid gap-x-16 gap-y-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+        <div className="relative rounded-card bg-green-900 px-6 py-10 text-paper sm:px-10 sm:py-12 [clip-path:inset(0_round_var(--radius-card))]">
+          <GridBackground aligned variant="green" />
+          <div
+            data-reveal="group"
+            className="relative grid gap-x-16 gap-y-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center"
+          >
             <div className="min-w-0">
               <h2 className="text-h2">
                 <Phrases text={dict.home.photographersTitle} />
@@ -358,8 +404,12 @@ export default async function HomePage() {
 
               {/* Numbered because it is an order: upload, then watermark,
                   then the QR exists to print. The same lime chips the
-                  visitor's three steps wear on the stage above. */}
-              <ol className="mt-6 grid gap-3 sm:grid-cols-3 sm:gap-6">
+                  visitor's three steps wear on the stage above.
+
+                  A wrapping row rather than three equal columns: each step is
+                  as wide as its own words, so none of them breaks mid-phrase
+                  to fit a column the other two do not need. */}
+              <ol className="mt-6 flex flex-col gap-x-8 gap-y-3 sm:flex-row sm:flex-wrap">
                 {dict.home.photographersSteps.map((step, i) => (
                   <li key={step} className="flex items-center gap-3">
                     <span className="tnum grid size-8 shrink-0 place-items-center rounded-pill bg-lime-500 font-display text-label font-bold text-green-950">
@@ -388,6 +438,8 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      <HomeMotion />
     </>
   );
 }

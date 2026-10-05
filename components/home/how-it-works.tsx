@@ -19,7 +19,7 @@ const SWEEP_SECONDS = 2.1;
 const PHOTO_SWEEP_AT = 5.25;
 /** The match lands a beat after that sweep leaves the frame. */
 const MATCH_AT = 7.5;
-/** "Found" lands once the photograph has settled into the pile. */
+/** "Found" lands once the results have settled into place. */
 const FOUND_AT = 10.8;
 
 /** A sweep line is 12.5% of its frame tall and travels from just above the
@@ -27,18 +27,19 @@ const FOUND_AT = 10.8;
  *  frame this far into the crossing. */
 const sweepReaches = (y: number) => ((y + 6.25) / 112.5) * SWEEP_SECONDS;
 
-/** Fanned angles for the rest of the event, back to front. */
-const PILE = [-13, -6, 7, 14];
-
 /**
  * How it works, on one screen.
  *
  * This used to be three scenes stacked down three screens. The owner asked for
  * one, so the three visuals became three acts of a single stage: a face is
- * read, every face in an event photograph is boxed, and the photograph you are
- * in is lifted out of the pile. The same elements carry through — your face
- * stays docked in the corner as the thing being searched for, and the
- * photograph that was scanned is the one that gets found.
+ * read, every face in an event photograph is boxed, and the photographs you
+ * are in are laid out as your results.
+ *
+ * Each act has the frame to itself. Nothing is docked over a corner of
+ * anything else, nothing is fanned out behind, and every photograph is shown
+ * whole and in its own colours — the same rules the first screen's
+ * photographs follow, for the same reason: the owner read the overlapping,
+ * greyed-out version as clutter.
  *
  * It is a loop on a clock rather than a scroll-driven sequence, for the reason
  * the old version settled on: a visitor should not have to park their scroll
@@ -48,8 +49,7 @@ const PILE = [-13, -6, 7, 14];
  * move; the stage is the illustration beside them, which is why it is a single
  * `role="img"` and why a paused or motionless stage loses nothing a reader
  * needs. At rest — animations off, reduced motion, or a browser that fails to
- * run them — the stylesheet leaves the stage on its last frame, which shows
- * the whole story at once: your face, the pile, the one that is yours.
+ * run them — the stylesheet leaves the stage on its last frame: your results.
  */
 export function HowItWorks({
   photos,
@@ -68,16 +68,22 @@ export function HowItWorks({
        are the subject rather than the decoration, and dropping the page out to
        black stops the white chrome competing with them. It also gives the
        greens somewhere to be bright: lime-300 is 16.6:1 here against 3.6:1 on
-       paper. */
-    <section id="how" className="how relative scroll-mt-16 bg-obsidian text-paper">
+       paper.
+
+       `clip-path` is for the grid: it is a fixed layer the size of the window
+       (see `GridBackground`), and this is what keeps it inside the band. */
+    <section
+      id="how"
+      className="how relative scroll-mt-16 bg-obsidian text-paper [clip-path:inset(0)]"
+    >
+      {/* The page's own grid, carried on across the black: same cells, same
+          drift, the same lines that were on the white above. */}
+      <GridBackground aligned variant="green" />
+
       {/* The lime bar from under the KU letterforms, at the weight it has in
           the mark. A 1px `edge` line on a white-to-black boundary reads as a
           seam that went wrong. */}
-      <div aria-hidden className="h-1 w-full bg-lime-500" />
-
-      {/* The same drifting grid the rest of the site runs on, so the black
-          reads as part of this product rather than an empty void. */}
-      <GridBackground variant="green" size={72} speed="fast" />
+      <div aria-hidden className="relative h-1 w-full bg-lime-500" />
 
       {/* Tighter than the usual section rhythm on a phone, and no line of lede
           under the heading: the owner asked for this band to fit one screen,
@@ -91,7 +97,10 @@ export function HowItWorks({
             "lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:grid-rows-[auto_1fr]",
         )}
       >
-        <h2 className="reveal text-h1 lg:col-start-1 lg:row-start-1 lg:self-end">
+        <h2
+          data-reveal
+          className="text-h1 lg:col-start-1 lg:row-start-1 lg:self-end"
+        >
           <Phrases text={dict.home.journeyTitle} />
         </h2>
 
@@ -100,7 +109,10 @@ export function HowItWorks({
              hold nothing but the caption, and the pause control belongs in
              the same row. The stage is an image with a name, and the
              disclosure is tied to it as its description instead. */
-          <div className="min-w-0 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:self-center">
+          <div
+            data-reveal
+            className="stage-fit min-w-0 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:self-center"
+          >
             <Stage photos={photos} dict={dict} describedBy="stage-caption" />
 
             <div className="mt-3 flex items-center gap-4">
@@ -141,6 +153,7 @@ export function HowItWorks({
         )}
 
         <ol
+          data-reveal="group"
           className={cn(
             "grid gap-5 sm:gap-6",
             hasStage
@@ -196,7 +209,7 @@ function Stage({
   /** Id of the demo disclosure printed under the stage. */
   describedBy: string;
 }) {
-  const top = photos[0];
+  const [top, ...others] = photos;
   const you = top.faces.find((face) => face.you) ?? top.faces[0];
 
   const box = (face: { x: number; y: number; w: number; h: number }) => ({
@@ -213,19 +226,23 @@ function Stage({
       aria-label={dict.home.stageAlt}
       aria-describedby={describedBy}
     >
-      {/* Act three's backdrop: every other frame from the day, greyed and
-          fanned out behind the one that matters. Shown at a third of full
-          strength, so the 640 file the first screen has already fetched is
-          all it needs. */}
-      {PILE.map((angle, index) => (
+      {/* Act three: the other photographs you turned up in, stacked beside the
+          one that was scanned. Whole frames, full colour, each in its ring.
+          Shown small, so the 640 file the first screen has already fetched is
+          all they need. */}
+      {others.slice(0, 2).map((photo, index) => (
         <div
-          key={angle}
-          className="stage-pile overflow-hidden rounded-media grayscale"
-          style={{ "--a": `${angle}deg` } as React.CSSProperties}
+          key={photo.src}
+          className={cn(
+            "stage-also overflow-hidden bg-green-100",
+            index === 0 ? "stage-also-top" : "stage-also-bottom",
+          )}
+          // The second follows the first in by a beat.
+          style={{ animationDelay: `${index * 0.14}s` }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={demoSrc(photos[(index + 1) % photos.length].src, 640)}
+            src={demoSrc(photo.src, 640)}
             alt=""
             loading="lazy"
             decoding="async"
@@ -235,10 +252,10 @@ function Stage({
       ))}
 
       {/* The event photograph. Scanned in act two, then the very same frame
-          shrinks into the pile as the one that was found — shown uncropped at
+          steps back to become the first of your results — shown uncropped at
           its native 3:2, which is what keeps the face boxes honest: they are
           percentages of the whole frame. */}
-      <div className="stage-photo overflow-hidden rounded-card bg-green-100">
+      <div className="stage-photo overflow-hidden bg-green-100">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={top.src}
@@ -295,19 +312,21 @@ function Stage({
             animationDelay: `${MATCH_AT}s`,
           }}
         />
-
-        {/* Set a step larger than a chip usually is: it is only ever seen in
-            act three, when the photograph around it is at 76%. */}
-        <span
-          className="stage-chip absolute bottom-[5%] left-[4%] rounded-pill bg-lime-300 px-4 py-1 text-body-lg font-semibold text-green-950"
-          style={{ animationDelay: `${FOUND_AT}s` }}
-        >
-          {dict.home.journeyFound}
-        </span>
       </div>
 
-      {/* Your face. Read in act one, then docked in the corner for the rest of
-          the loop as the thing being searched for. */}
+      {/* On the stage rather than inside the photograph, which is at
+          two-thirds size by the time this lands — a label that shrank with it
+          came out at 11px on a phone. It sits on the large tile's bottom-left
+          corner: 16.83% of the stage is spare under the mosaic, plus a
+          little. */}
+      <span
+        className="stage-chip absolute bottom-[20%] left-[2.5%] rounded-pill bg-lime-300 px-3 py-0.5 text-label font-semibold text-green-950"
+        style={{ animationDelay: `${FOUND_AT}s` }}
+      >
+        {dict.home.journeyFound}
+      </span>
+
+      {/* Your face, alone on the frame for act one. */}
       <div className="stage-selfie overflow-hidden bg-green-900">
         <SelfieFace />
 

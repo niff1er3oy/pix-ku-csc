@@ -372,48 +372,36 @@
 }
 
 /* ---------------------------------------------------------------------------
-   The pile (home page, first screen)
+   The first screen's photographs (home page)
    ---------------------------------------------------------------------------
-   Event photographs scattered round the wordmark, one of them yours. Each card
-   is placed by custom properties set inline in photo-pile.tsx — one set for a
-   phone, one for a desktop — so the art direction lives beside the pictures
-   and this file only says how a card behaves.
+   Three whole photographs in a row under the brand: one either side, yours in
+   the middle. hero-photos.tsx has the reasons; this is the geometry.
 
-   Three transform properties, three jobs, and they never share one:
-   `rotate` is the card's tilt, `translate` on the outer box is the pointer
-   lean, and the entrance runs on the inner box. Collapsing any two into
-   `transform` would make them overwrite each other.
+   The entrance is the same `.enter` every other element on the screen uses.
+   What moves after that — the sweep, the "found" marks, the parting as the
+   screen scrolls away — is anime.js, in home-motion.tsx.
    ------------------------------------------------------------------------ */
 
 [data-brand-screen] {
-  /* One pile unit: 16px on a 1440px window, tracking the window between a
-     floor and a ceiling. The desktop cards are measured in it from the page
-     centre and the copy between them is capped in it too, so the gap and the
-     text narrow or widen together instead of the cards sliding under the
-     headline. On the screen rather than the pile because both read it.
-
-     The floor is what a 1152px window gives. The wordmark is sized by its own
-     token and stops shrinking long before the pile would, so below that width
-     the gap holds and the outer cards slide off the edge instead — at 11.4px,
-     which is what 1024px asks for, the inner cards touched the letters. The
-     ceiling lets the pile keep reaching for the edges of a 1920px monitor
-     rather than huddling in the middle of it. */
-  --pu: clamp(12.8px, 1.111vw, 20px);
-
   /* How much of this screen's top the header is covering. The screen slides
-     up underneath the header; where the header is hidden until scroll (the
-     `header-reveal` rule above, same conditions as below) that costs nothing,
-     but everywhere else the bar sits on the first 64px. On a phone the pile
-     is a band across exactly that strip, so it has to start below the bar or
-     the found card comes out with its top sliced off. A desktop needs no
-     gap: there the pile is the whole screen and the bar just overlaps it. */
+     up underneath the header so that it can be exactly one window tall; where
+     the header is hidden until scroll (the `header-reveal` rule above, same
+     conditions as below) that costs nothing, but everywhere else the bar sits
+     on the first 64px, and the content has to start below it. */
   --header-gap: 4rem;
-}
 
-@media (min-width: 64rem) {
-  [data-brand-screen] {
-    --header-gap: 0px;
-  }
+  /* The wordmark's size, on this screen, answers to the window's height as
+     well as its width. The token alone only knows about width, and gives a
+     104px mark to any wide window — including a laptop whose browser leaves
+     it 600px of height, or a phone on its side with 390. Everything on this
+     screen has to fit in one window, so the mark gives way first. On a phone
+     held upright and on a tall monitor the height term never wins and the
+     mark is exactly what the token says. */
+  --text-brand: clamp(
+    3rem,
+    min(1.6rem + 6.4vw, (100svh - var(--header-gap)) * 0.14),
+    6.5rem
+  );
 }
 
 @supports (animation-timeline: scroll()) {
@@ -424,128 +412,198 @@
   }
 }
 
-.pile-card {
+/* The slot is whatever height the window has left once the copy is in — and
+   the row of photographs is the largest row that fits it.
+
+   That is the whole trick, and it is why nothing here does arithmetic on the
+   window's height. The copy above is as tall as it is: one line of headline
+   or two, two lines of sub or three, a header over the screen or not, Thai or
+   English. Rather than predict that, the slot is a flex item that starts at
+   a floor and grows into whatever height is left, up to the height a
+   full-width row needs — and the row inside measures the slot it got (`cqw`,
+   `cqh`) and fits itself to whichever of the two is tighter. The owner's rule
+   for this screen is that every photograph is on it, whole; this is what
+   keeps that true on a 553px-tall phone and a 600px-tall laptop alike.
+
+   Grows from a floor, rather than shrinking from its full size, on purpose.
+   The screen has a minimum height, not a fixed one, and a flex container
+   that is only told its minimum never shrinks its items: it grows itself to
+   fit them instead, which is the photographs sliding under the fold again.
+   Growing works, because spare room up to that minimum is real room. */
+.hero-slot {
+  /* Shares of the row. On a phone the middle card takes nearly half, because
+     three equal cards across 350px would each be a thumbnail — and the gaps
+     are wider than on a desktop in proportion, because the found card lifts
+     and wears a ring, and on a 374px row a 3% gap left those touching the
+     photographs either side. */
+  --hero-found: 44%;
+  --hero-side: 24%;
+  --hero-gap: 4%;
+  /* How many times wider the row is than tall. Its tallest thing is the found
+     card, a 3:2 frame --hero-found of the row wide: 1 / (0.44 × 2/3). Has to
+     be restated wherever that share changes. */
+  --hero-ratio: 3.41;
+  /* What the found card paints outside its own box: a 4px ring and a 4% lift,
+     above and below. The row is fitted to the slot less this much. */
+  --hero-bleed: 14px;
+
+  container-type: size;
+  display: grid;
+  place-items: center;
+
+  /* The floor is a row about 200px wide: below that the screen grows past
+     the window rather than show photographs the size of stamps. The ceiling
+     is the height of a row as wide as the screen allows — past that the
+     spare height is not the slot's to take, and `justify-content: center` on
+     the screen puts it round the whole composition instead of into a gap
+     between the copy and the photographs. */
+  flex: 1 1 4.5rem;
+  min-height: 4.5rem;
+  max-height: calc(
+    min(100vw - 1rem, 56rem) / var(--hero-ratio) + var(--hero-bleed)
+  );
+
+  /* On a phone the row borrows 12px from each page gutter: every pixel of
+     width is a pixel of photograph. */
+  width: min(calc(100% + 1.5rem), 56rem);
+  margin-inline: -0.75rem;
+  margin-top: clamp(1.25rem, 4.5svh, 3rem);
+}
+
+@media (min-width: 40rem) {
+  .hero-slot {
+    --hero-found: 40%;
+    --hero-side: 27%;
+    --hero-gap: 3%;
+    --hero-ratio: 3.75;
+    max-height: calc(
+      min(100vw - 5rem, 56rem) / var(--hero-ratio) + var(--hero-bleed)
+    );
+    width: min(100%, 56rem);
+    margin-inline: 0;
+  }
+}
+
+.hero-photos {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--hero-gap);
+  /* For a browser without container units: full width, as it always was. */
+  width: 100%;
+  width: min(
+    100cqw,
+    calc((100cqh - var(--hero-bleed)) * var(--hero-ratio))
+  );
+}
+
+.hero-card {
+  flex: none;
+  width: var(--hero-side);
+}
+
+.hero-card-found {
+  position: relative;
+  z-index: 1;
+  width: var(--hero-found);
+}
+
+/* A little lean and a little drop on the outer two: enough that the row reads
+   as photographs laid down rather than a table of thumbnails, not so much
+   that a corner reaches its neighbour. `rotate` and `translate`, not
+   `transform`, which belongs to the entrance animation on this same box. */
+.hero-tilt-left {
+  rotate: -3deg;
+  translate: 0 7%;
+}
+
+.hero-tilt-right {
+  rotate: 3deg;
+  translate: 0 7%;
+}
+
+/* The line that crosses the row, and the track that clips it to the row. The
+   script moves the line; at rest it is not there. The track is taller than
+   the row so the line clears the lifted middle card. */
+.hero-sweep-track {
   position: absolute;
-  left: var(--mx);
-  top: var(--my);
-  width: var(--mw);
-  rotate: var(--mr);
-  /* On a phone the cluster hangs from the top edge, so cards drop in. */
-  --from: 0 -40px;
-  translate: calc(var(--px, 0) * var(--depth) * -1px)
-    calc(var(--py, 0) * var(--depth) * -1px);
-  transition: translate 700ms var(--ease-out);
+  inset: -10% 0;
+  z-index: 2;
+  overflow: hidden;
+  pointer-events: none;
 }
 
-@media (min-width: 64rem) {
-  .pile-card {
-    left: var(--dx);
-    top: var(--dy);
-    width: var(--dw);
-    rotate: var(--dr);
-    --from: var(--dfrom);
-  }
-}
-
-@keyframes pile-in {
-  from {
-    opacity: 0;
-    translate: var(--from);
-    scale: 0.92;
-  }
-  to {
-    opacity: 1;
-    translate: 0 0;
-    scale: 1;
-  }
-}
-
-.pile-in {
-  animation: pile-in 900ms var(--ease-out) both;
-  animation-delay: calc(120ms + var(--n) * 70ms);
-}
-
-/* Printed in one ink. `screen` over the card's teal ground sends the
-   photograph's blacks to that teal and leaves its whites white, which is what
-   a one-colour print does — and it keeps every picture on the first screen
-   inside the two brand colours until the found one breaks out of them. The
-   parent carries `isolate` so the blend stops at the card. */
-.pile-ink-img {
-  /* Pulled down a little before the blend: these are bright midday frames,
-     and `screen` only ever lightens, so untouched they wash out to almost
-     nothing on a white page. */
-  filter: grayscale(1) brightness(0.86) contrast(1.2);
-  mix-blend-mode: screen;
-}
-
-/* The found card. It lies in the pile in ink like the rest, then the ink
-   lifts, the ring closes round it and the labels land — in that order, once.
-   Every one of these rests on its finished frame, so with animation off the
-   card is simply already found. */
-@keyframes pile-ink-out {
-  from {
-    opacity: 1;
-  }
-}
-
-/* Gone at rest; the keyframe is what holds it on screen until the match
-   lands. Written the other way round — visible at rest, animated away — the
-   card would stay in ink for anyone whose browser never ran the animation. */
-.pile-ink {
+.hero-sweep {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -5%;
+  width: 5%;
+  background: linear-gradient(
+    to right,
+    transparent,
+    color-mix(in oklab, var(--color-lime-400) 70%, transparent),
+    transparent
+  );
   opacity: 0;
-  animation: pile-ink-out 700ms var(--ease-out) 1250ms both;
+  pointer-events: none;
 }
 
-@keyframes pile-found {
-  from {
-    scale: 1;
-    box-shadow:
-      0 0 0 0 transparent,
-      var(--shadow-card);
+/* A phone on its side — or any window that short. There is no height here for
+   a stack: the copy alone is taller than a 360px window. So the screen turns
+   into two columns, the copy on the left and the photographs beside it, and
+   the headline is set against the window's height instead of its width,
+   because height is what is scarce.
+
+   The width floor keeps this away from phones held upright (none is 560px
+   wide); the height ceiling is where the stacked layout stops fitting on a
+   wide window. Has to stay below the rules it overrides. */
+@media (max-height: 34rem) and (min-width: 35rem) {
+  [data-brand-screen] {
+    flex-direction: row;
+    column-gap: 4%;
+    --text-h1: clamp(1.25rem, 6.5svh, 2.125rem);
+    /* And the line under it drops to the body size: in a column this narrow
+       the larger one runs to a third line, which is 30px nobody has. */
+    --text-body-lg: var(--text-body);
   }
-  45% {
-    scale: 1.05;
+
+  [data-brand-screen] [data-hero-copy] {
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: none;
   }
-}
 
-.pile-found {
-  box-shadow:
-    0 0 0 4px var(--color-lime-500),
-    var(--shadow-lift);
-  animation: pile-found 800ms var(--ease-out) 1250ms both;
-}
-
-/* Arrives oversized and snaps in, the way a camera acquires a face. */
-@keyframes pile-snap {
-  from {
-    opacity: 0;
-    scale: 1.6;
+  /* The slot is a column of its own here, as tall as the screen. Under half
+     the window wide, so it takes shares close to the phone's: at the
+     desktop's 3% gap the found card's ring came within a pixel of its
+     neighbours on a 667px screen. */
+  .hero-slot {
+    --hero-found: 42%;
+    --hero-side: 25%;
+    --hero-gap: 4%;
+    --hero-ratio: 3.57;
+    flex: none;
+    align-self: stretch;
+    width: 46%;
+    min-height: 0;
+    max-height: none;
+    margin: 0;
   }
-}
-
-.pile-snap {
-  animation: pile-snap 350ms var(--ease-out) var(--at, 0ms) both;
-}
-
-@keyframes pile-rise {
-  from {
-    opacity: 0;
-    translate: 0 8px;
-  }
-}
-
-.pile-rise {
-  animation: pile-rise 400ms var(--ease-out) var(--at, 0ms) both;
 }
 
 /* ---------------------------------------------------------------------------
    The stage (home page, "how it works")
    ---------------------------------------------------------------------------
    One frame, three acts, one 15s loop: a face is read (0–5s), every face in an
-   event photograph is boxed (5–10s), and that photograph is lifted out of the
-   pile as yours (10–15s). The elements carry through — the face docks in the
-   corner as the thing being searched for, and the photograph that was scanned
-   is the one that gets found.
+   event photograph is boxed (5–10s), and the photographs you are in are laid
+   out as your results (10–15s).
+
+   Nothing on it overlaps anything else and nothing runs off it. An earlier
+   version docked the face over a corner of the photograph and fanned a grey
+   pile out behind; the owner read both as clutter. Each act now has the frame
+   to itself, and the last one is a tidy mosaic.
 
    Two rules hold the whole thing together:
 
@@ -553,41 +611,77 @@
    inline in how-it-works.tsx, never a different duration, so nothing can drift
    out of step with the act it belongs to however long the page stays open.
 
-   **The resting styles are the last frame, not the first.** Docked face,
-   fanned pile, the found photograph in its lime ring: one still picture that
-   tells the whole story. That is what a visitor with reduced motion gets, and
-   what any browser that fails to run the loop falls back to — the animations
-   below are only ever layered on top of a frame that already reads.
+   **The resting styles are the last frame, not the first.** The results, each
+   in its lime ring: one still picture that says what you get. That is what a
+   visitor with reduced motion sees, and what any browser that fails to run the
+   loop falls back to — the animations below are only ever layered on top of a
+   frame that already reads.
 
-   Geometry is in percentages of the stage, which is 3:2 like the photographs,
-   so a card that is 76% wide is also 76% tall and centring it is just the
-   leftover split in half.
+   Geometry is in percentages of the stage, which is 3:2 like the photographs.
+   The mosaic is one large tile and two small ones stacked beside it, with a 2%
+   gap: the large tile is 66.33% of the stage each way, the small ones 31.67%,
+   and the whole thing sits centred with 16.83% of the height spare above and
+   below. Those four numbers recur below; they are that one layout.
    ------------------------------------------------------------------------ */
 
 .stage {
   position: relative;
   aspect-ratio: 3 / 2;
   width: 100%;
+  /* The small tiles wait just off the right edge before act three. They are
+     invisible there, but an invisible box past the page gutter still widens
+     the page: on a 412px phone it was 1px, on a tablet 8px, and a phone
+     answers a too-wide page by zooming the whole thing out to fit. */
+  overflow: hidden;
 }
 
-.stage-pile {
-  position: absolute;
-  left: 12%;
-  top: 12%;
-  width: 76%;
-  opacity: 0.32;
-  rotate: var(--a);
+/* The stage and the line under it, kept to what one window can show. Sized by
+   width everywhere that matters — but on a phone turned on its side a stage
+   as wide as the page is 520px tall in a 390px window, and a demonstration
+   you have to scroll through is not one. 10rem is the header, the caption row
+   and a little air. Never the limit on an upright phone or a desktop. */
+.stage-fit {
+  width: min(100%, calc((100svh - 10rem) * 1.5));
+  margin-inline: auto;
 }
 
+/* The photograph that was scanned. In act two it is the whole frame; at rest
+   it has shrunk to the mosaic's large tile, against the left edge. Scaled
+   about its centre, so getting it to the edge is a shift of half of what it
+   lost: (100 - 66.33) / 2. */
 .stage-photo {
   position: absolute;
   inset: 0;
-  /* 76% of the frame, and the 20px corner lands on 15px — the media radius —
-     without being asked to. The ring is 4px so it shows as 3. */
-  scale: 0.76;
-  box-shadow: 0 0 0 4px var(--color-lime-300);
+  scale: 0.6633;
+  translate: -16.83% 0;
+  /* Written larger than they show: 6px and 24px at two-thirds are the 4px
+     ring and the 16px media radius. An outline drawn inwards rather than a
+     shadow outwards: the tiles are 2% apart, which on a phone is 7px, and
+     two outward rings would meet in the gap. */
+  border-radius: 24px;
+  outline: 6px solid var(--color-lime-300);
+  outline-offset: -6px;
 }
 
+/* The other photographs you turned up in: the two small tiles. */
+.stage-also {
+  position: absolute;
+  left: 68.33%;
+  width: 31.67%;
+  border-radius: 10px;
+  outline: 3px solid var(--color-lime-300);
+  outline-offset: -3px;
+}
+
+.stage-also-top {
+  top: 16.83%;
+}
+
+.stage-also-bottom {
+  top: 51.5%;
+}
+
+/* Your face, alone on the frame for act one and gone after it. */
 .stage-selfie {
   position: absolute;
   /* A 4:5 card 46% of the stage wide is 86.25% of it tall. */
@@ -595,13 +689,8 @@
   top: 6.875%;
   width: 46%;
   aspect-ratio: 4 / 5;
-  /* Docked: shrunk to 30% and moved until it sits 3.5% of the stage's width
-     in from the top-left corner. Radius and ring are written at the size they
-     need to be *before* the shrink, so they show as 14px and 3px after it. */
-  translate: -86.1% -36.9%;
-  scale: 0.3;
-  border-radius: 48px;
-  box-shadow: 0 0 0 10px var(--color-lime-300);
+  border-radius: var(--radius-card);
+  opacity: 0;
 }
 
 .stage-sweep {
@@ -631,35 +720,18 @@
 @keyframes stage-selfie {
   0% {
     opacity: 0;
-    translate: 0 0;
     scale: 0.96;
-    border-radius: var(--radius-card);
-    box-shadow: 0 0 0 0 transparent;
   }
   2%,
   28% {
     opacity: 1;
-    translate: 0 0;
     scale: 1;
-    border-radius: var(--radius-card);
-    box-shadow: 0 0 0 0 transparent;
     animation-timing-function: var(--ease-out);
   }
-  33%,
-  95% {
-    opacity: 1;
-    translate: -86.1% -36.9%;
-    scale: 0.3;
-    border-radius: 48px;
-    box-shadow: 0 0 0 10px var(--color-lime-300);
-  }
-  98%,
+  32%,
   100% {
     opacity: 0;
-    translate: -86.1% -36.9%;
-    scale: 0.3;
-    border-radius: 48px;
-    box-shadow: 0 0 0 10px var(--color-lime-300);
+    scale: 0.96;
   }
 }
 
@@ -668,50 +740,60 @@
   30% {
     opacity: 0;
     scale: 1.03;
-    box-shadow: 0 0 0 0 transparent;
+    translate: 0 0;
+    border-radius: var(--radius-card);
+    outline-color: transparent;
   }
   33% {
     opacity: 1;
     scale: 1;
-    box-shadow: 0 0 0 0 transparent;
+    translate: 0 0;
+    border-radius: var(--radius-card);
+    outline-color: transparent;
   }
   64% {
     opacity: 1;
     scale: 1;
-    box-shadow: 0 0 0 0 transparent;
+    translate: 0 0;
+    border-radius: var(--radius-card);
+    outline-color: transparent;
     animation-timing-function: var(--ease-out);
   }
   69%,
   95% {
     opacity: 1;
-    scale: 0.76;
-    box-shadow: 0 0 0 4px var(--color-lime-300);
+    scale: 0.6633;
+    translate: -16.83% 0;
+    border-radius: 24px;
+    outline-color: var(--color-lime-300);
   }
   98%,
   100% {
     opacity: 0;
-    scale: 0.76;
-    box-shadow: 0 0 0 4px var(--color-lime-300);
+    scale: 0.6633;
+    translate: -16.83% 0;
+    border-radius: 24px;
+    outline-color: var(--color-lime-300);
   }
 }
 
-/* The rest of the event fans out from behind the photograph as it shrinks. */
-@keyframes stage-pile {
+/* The others slide in from the right as the scanned photograph makes room. */
+@keyframes stage-also {
   0%,
-  64% {
+  65% {
     opacity: 0;
-    rotate: 0deg;
+    translate: 18% 0;
     animation-timing-function: var(--ease-out);
   }
-  69%,
+  71%,
   95% {
-    opacity: 0.32;
-    rotate: var(--a);
+    opacity: 1;
+    translate: 0 0;
   }
   98%,
   100% {
     opacity: 0;
-    rotate: var(--a);
+    translate: 0 0;
   }
 }
 
@@ -817,8 +899,8 @@
   .stage-photo {
     animation: stage-photo 15s linear infinite;
   }
-  .stage-pile {
-    animation: stage-pile 15s linear infinite;
+  .stage-also {
+    animation: stage-also 15s linear infinite both;
   }
   .stage-sweep {
     animation: stage-sweep 15s linear infinite both;
@@ -840,9 +922,8 @@
   }
 
   /* The pause control is a checkbox, so stopping the loop needs no script and
-     works before hydration. Scoped to the stage's own classes on purpose: the
-     heading in this band reveals on a scroll timeline, and pausing that would
-     strand it half faded. */
+     works before hydration. Scoped to the stage's own classes on purpose:
+     nothing else in the band should stop with it. */
   .how:has(.stage-pause:checked) [class*="stage-"] {
     animation-play-state: paused;
   }

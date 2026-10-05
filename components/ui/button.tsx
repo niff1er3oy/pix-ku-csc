@@ -43,7 +43,14 @@ const sizes: Record<Size, string> = {
   // a phone held one-handed in a crowd), it just stops being a ceiling that
   // clips a label instead of letting it wrap. `py-*` keeps the two lines off
   // the pill's own edge on the rare button that does wrap.
-  sm: "min-h-[38px] px-4 py-1.5 text-sm",
+  //
+  // `sm` is 38px under a mouse and 44px under a finger. It exists for dense
+  // working screens — a row of actions in the studio or the admin directory —
+  // and those screens are opened on phones too: measured there, every one of
+  // these was a 38px target, under the floor DESIGN.md §8 sets. Keyed on the
+  // pointer rather than the width, because a narrow desktop window still has
+  // a mouse and a tablet in landscape still has a thumb.
+  sm: "min-h-[38px] pointer-coarse:min-h-11 px-4 py-1.5 text-sm",
   md: "min-h-[46px] px-6 py-2 text-[0.9375rem]",
   lg: "min-h-14 px-8 py-2.5 text-base sm:text-lg",
 };

@@ -78,14 +78,12 @@ export default async function RootLayout({
             to be as tall as the document, so a long gallery page would carry a
             composited surface many screens high for no visible gain. Sections
             with their own fill — the green bands, cards, the cloud panels —
-            simply cover it, so the texture only shows in the white gaps. */}
-        <GridBackground
-          variant="page"
-          size={56}
-          speed="fast"
-          fade={false}
-          className="fixed -z-10"
-        />
+            simply cover it, so the texture only shows in the white gaps.
+
+            `aligned` is what makes this the page's one grid: a section that
+            asks for the same mode draws these same lines on its own surface,
+            and they meet edge to edge. */}
+        <GridBackground aligned variant="page" className="-z-10" />
 
         <a
           href="#main"
