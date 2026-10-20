@@ -2,6 +2,8 @@ import "server-only";
 
 import QRCode from "qrcode";
 
+import { appUrl } from "@/lib/app-url";
+
 /**
  * The public address of an event.
  *
@@ -10,10 +12,7 @@ import QRCode from "qrcode";
  * sign land on exactly the same page.
  */
 export function eventUrl(code: string): string {
-  const base = (
-    process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
-  ).replace(/\/+$/, "");
-  return `${base}/e/${code}`;
+  return `${appUrl()}/e/${code}`;
 }
 
 /**

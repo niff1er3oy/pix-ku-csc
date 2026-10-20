@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { K2D, Noto_Sans_Thai_Looped } from "next/font/google";
 
 import { GridBackground } from "@/components/ui/grid-background";
+import { appUrl } from "@/lib/app-url";
 import { getDictionary, getLocale } from "@/lib/i18n";
 
 import "./globals.css";
@@ -35,9 +36,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const title = `${dict.brand.name} — ${dict.brand.tagline}`;
 
   return {
-    metadataBase: new URL(
-      process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
-    ),
+    metadataBase: new URL(appUrl()),
     title: { default: title, template: `%s · ${dict.brand.name}` },
     description: dict.home.sub,
     openGraph: {

@@ -26,6 +26,14 @@ const nextConfig: NextConfig = {
     authInterrupts: true,
   },
   serverExternalPackages: ["sharp"],
+  /**
+   * Only for the Docker image, which sets this while it builds. Standalone
+   * output is a self-contained server holding just the files it needs, which
+   * is what keeps the image small — but `next start` will not serve it, and
+   * the PM2 set-up in ecosystem.config.cjs runs `next start`. Opt-in keeps
+   * that deployment exactly as it was.
+   */
+  output: process.env.NEXT_OUTPUT === "standalone" ? "standalone" : undefined,
 };
 
 export default nextConfig;

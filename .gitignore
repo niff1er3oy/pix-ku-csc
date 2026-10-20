@@ -49,3 +49,6 @@ next-env.d.ts
 # PRODUCT.md records as a legal obligation rather than a preference, and git
 # keeps deleted files in history, so a later commit could not undo it.
 /storage
+
+# Settings for docker-compose.prod.yml — holds passwords and keys.
+.env.docker

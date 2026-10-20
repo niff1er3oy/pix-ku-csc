@@ -1,0 +1,25 @@
+# Never let these into a build context, let alone an image.
+.env
+.env.*
+!.env.example
+storage
+*.pem
+
+# Rebuilt inside the image.
+node_modules
+.next
+*.tsbuildinfo
+next-env.d.ts
+
+# Not part of the application.
+.git
+.github
+.claude
+.impeccable
+.vscode
+.idea
+Dockerfile
+.dockerignore
+docker-compose*.yml
+npm-debug.log*
+.DS_Store

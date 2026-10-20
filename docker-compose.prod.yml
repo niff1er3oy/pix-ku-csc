@@ -1,0 +1,88 @@
+# PIX KU CSC — the whole system in containers: database, migrations, website.
+#
+#   cp .env.docker.example .env.docker      # then fill it in
+#   docker compose -f docker-compose.prod.yml --env-file .env.docker up -d --build
+#
+# Full instructions, backups and upgrades: DEPLOY.md.
+#
+# This is separate from docker-compose.yml, which only runs the development
+# database on port 5433. The two use different volumes and never touch each
+# other's data.
+
+name: pix-ku-csc
+
+services:
+  db:
+    # Pinned for the same reason as in docker-compose.yml: a Postgres data
+    # directory does not survive a major-version jump.
+    image: postgres:18.4
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-pixku}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.docker}
+      POSTGRES_DB: ${POSTGRES_DB:-pixku}
+      POSTGRES_INITDB_ARGS: "--locale=C.UTF-8 --encoding=UTF8"
+    volumes:
+      # The parent directory, not .../data — see docker-compose.yml.
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    # No published port: only the containers on this network reach it.
+
+  migrate:
+    build:
+      context: .
+      target: migrator
+    # Built here by default. To run what GitHub Actions pushed to Docker Hub
+    # instead, set APP_IMAGE in .env.docker and start with `--no-build`
+    # (DEPLOY.md §6). Same repository as the website, told apart by the tag.
+    image: ${APP_IMAGE:-pix-ku-csc}:${APP_VERSION:-latest}-migrator
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-pixku}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-pixku}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  app:
+    build:
+      context: .
+      target: runner
+    image: ${APP_IMAGE:-pix-ku-csc}:${APP_VERSION:-latest}
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-pixku}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-pixku}
+      APP_URL: ${APP_URL:?set APP_URL in .env.docker}
+      AUTH_URL: ${APP_URL}
+      AUTH_TRUST_HOST: "true"
+      AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET in .env.docker}
+      AUTH_GOOGLE_ID: ${AUTH_GOOGLE_ID:?set AUTH_GOOGLE_ID in .env.docker}
+      AUTH_GOOGLE_SECRET: ${AUTH_GOOGLE_SECRET:?set AUTH_GOOGLE_SECRET in .env.docker}
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+      FACE_PROVIDER: ${FACE_PROVIDER:-rekognition}
+      FACE_MATCH_THRESHOLD: ${FACE_MATCH_THRESHOLD:-90}
+      AWS_REGION: ${AWS_REGION:-ap-southeast-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      REKOGNITION_COLLECTION_PREFIX: ${REKOGNITION_COLLECTION_PREFIX:-findkudae}
+      STORAGE_ROOT: /data/storage
+    volumes:
+      # Photographs of people and the faces used to search them: personal data
+      # under the PDPA. Back this volume up with the database, and restrict it
+      # like the database.
+      - storage:/data/storage
+    ports:
+      # Bound to this machine only. Put Cloudflare Tunnel or a reverse proxy in
+      # front; publishing it on every interface would let anyone on the network
+      # set their own X-Forwarded-For and walk past the per-address limits.
+      - "127.0.0.1:${APP_PORT:-3313}:3000"
+
+volumes:
+  pgdata:
+  storage:
