@@ -110,8 +110,8 @@ push เข้า `master` หรือ push tag เช่น `v1.2.3` (pull req
 
 1. Docker Hub → Account settings → Personal access tokens → สร้าง token สิทธิ์ **Read & Write**
 2. GitHub → repository → Settings → Secrets and variables → Actions
-   - แท็บ **Variables**: `DOCKER_HUB_USERNAME` = ชื่อผู้ใช้ Docker Hub
-   - แท็บ **Secrets**: `DOCKER_HUB_TOKEN` = token จากข้อ 1
+   - `DOCKER_HUB_USERNAME` = ชื่อผู้ใช้ Docker Hub (ใส่ในแท็บ **Variables** หรือ **Secrets** ก็ได้)
+   - `DOCKER_HUB_TOKEN` = token จากข้อ 1 (ใส่ในแท็บ **Secrets**)
 3. push ขึ้น GitHub หรือกด Run workflow ในแท็บ Actions
 
 repository บน Docker Hub ชื่อ `<ชื่อผู้ใช้>/pix-ku-csc` ถูกสร้างให้เองตอน push ครั้งแรก

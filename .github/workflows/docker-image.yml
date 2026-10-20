@@ -15,11 +15,11 @@
 #
 # One-time set-up on GitHub (repository -> Settings -> Secrets and variables
 # -> Actions):
-#   Variables tab:  DOCKER_HUB_USERNAME = your Docker Hub user name
-#   Secrets tab:    DOCKER_HUB_TOKEN    = a Docker Hub personal access token
-#                                        with Read & Write permission
-#                                        (Docker Hub -> Account settings ->
-#                                        Personal access tokens)
+#   DOCKER_HUB_USERNAME = your Docker Hub user name — as a Variable or a
+#                         Secret, either works
+#   DOCKER_HUB_TOKEN    = a Docker Hub personal access token with Read & Write
+#                         permission, as a Secret (Docker Hub -> Account
+#                         settings -> Personal access tokens)
 #
 # The images hold no keys or passwords (see .dockerignore and DEPLOY.md);
 # everything secret is given to the container when it starts.
@@ -42,7 +42,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  IMAGE: docker.io/${{ vars.DOCKER_HUB_USERNAME }}/pix-ku-csc
+  # Read from a Variable first, then a Secret, so either place works.
+  DOCKER_HUB_USERNAME: ${{ vars.DOCKER_HUB_USERNAME || secrets.DOCKER_HUB_USERNAME }}
 
 jobs:
   build:
@@ -61,11 +62,10 @@ jobs:
       - name: Check the Docker Hub settings exist
         if: github.event_name != 'pull_request'
         env:
-          USERNAME: ${{ vars.DOCKER_HUB_USERNAME }}
           TOKEN_SET: ${{ secrets.DOCKER_HUB_TOKEN != '' }}
         run: |
-          if [ -z "$USERNAME" ]; then
-            echo "::error::Add a repository variable DOCKER_HUB_USERNAME (Settings -> Secrets and variables -> Actions -> Variables)."
+          if [ -z "$DOCKER_HUB_USERNAME" ]; then
+            echo "::error::Add DOCKER_HUB_USERNAME as a repository Variable or Secret (Settings -> Secrets and variables -> Actions)."
             exit 1
           fi
           if [ "$TOKEN_SET" != "true" ]; then
@@ -83,16 +83,16 @@ jobs:
         if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
-          username: ${{ vars.DOCKER_HUB_USERNAME }}
+          username: ${{ env.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
       - name: Work out tags
         id: meta
         uses: docker/metadata-action@v5
         with:
-          # A pull request has no Docker Hub name to hand if the variable is
-          # missing; it only builds, so any name will do.
-          images: ${{ vars.DOCKER_HUB_USERNAME != '' && env.IMAGE || 'pix-ku-csc' }}
+          # A pull request from a fork gets no secrets, so the name can be
+          # missing there; it only builds, so any name will do.
+          images: ${{ env.DOCKER_HUB_USERNAME != '' && format('docker.io/{0}/pix-ku-csc', env.DOCKER_HUB_USERNAME) || 'pix-ku-csc' }}
           flavor: |
             latest=false
             suffix=${{ matrix.suffix }}
